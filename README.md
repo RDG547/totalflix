@@ -1,36 +1,177 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎬 TotalFlix
 
-## Getting Started
+Um site moderno de streaming de filmes e séries construído com Next.js 14, integração com API TMDB e Mega Embed para reprodução de conteúdo.
 
-First, run the development server:
+![TotalFlix](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
+## ✨ Características
+
+- 🎨 **Design Moderno**: Interface elegante com paleta de cores roxo e preto
+- 🌊 **Efeitos Visuais**: Blur, glass morphism, animações suaves e gradientes
+- 📱 **Responsivo**: Funciona perfeitamente em dispositivos móveis, tablets e desktops
+- 🔍 **Busca Avançada**: Pesquise por filmes e séries facilmente
+- 🎭 **Categorias por Gênero**: Explore conteúdo por categoria
+- ⭐ **Avaliações TMDB**: Veja classificações e informações detalhadas
+- 🎬 **Player Integrado**: Assista diretamente no site com Mega Embed
+- 📺 **Suporte para Séries**: Seletor de temporadas e episódios
+- 🚀 **Performance**: Otimizado com Next.js 14 e Server Components
+
+## 🛠️ Tecnologias
+
+- **Framework**: Next.js 14 (App Router)
+- **Linguagem**: TypeScript
+- **Estilização**: Tailwind CSS
+- **Componentes**: shadcn/ui
+- **Animações**: Framer Motion
+- **Ícones**: Lucide React
+- **API**: TMDB (The Movie Database)
+- **Player**: Mega Embed
+
+## 📋 Pré-requisitos
+
+- Node.js 18+ instalado
+- Conta no [TMDB](https://www.themoviedb.org/) para obter API Key
+
+## 🚀 Instalação
+
+1. **Clone o repositório**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/seu-usuario/totalflix.git
+cd totalflix
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Instale as dependências**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Configure as variáveis de ambiente**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Edite o arquivo `.env.local` e adicione sua chave API do TMDB:
 
-## Learn More
+```env
+NEXT_PUBLIC_TMDB_API_KEY=sua_chave_api_aqui
+NEXT_PUBLIC_TMDB_BASE_URL=https://api.themoviedb.org/3
+NEXT_PUBLIC_TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p
+NEXT_PUBLIC_MEGA_EMBED_URL=https://megaembed.net
+```
 
-To learn more about Next.js, take a look at the following resources:
+Para obter sua API Key:
+1. Acesse [TMDB](https://www.themoviedb.org/)
+2. Crie uma conta ou faça login
+3. Vá em Configurações > API
+4. Solicite uma API Key (é gratuito)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. **Inicie o servidor de desenvolvimento**
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. **Acesse o site**
 
-## Deploy on Vercel
+Abra [http://localhost:3000](http://localhost:3000) no seu navegador.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📁 Estrutura do Projeto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+totalflix/
+├── app/
+│   ├── details/[type]/[id]/    # Página de detalhes
+│   ├── watch/[type]/[id]/      # Player de vídeo
+│   ├── movies/                 # Página de filmes
+│   ├── series/                 # Página de séries
+│   ├── genres/                 # Página de gêneros
+│   ├── genre/[id]/             # Filmes por gênero
+│   ├── search/                 # Página de busca
+│   ├── layout.tsx              # Layout principal
+│   ├── page.tsx                # Página inicial
+│   └── globals.css             # Estilos globais
+├── components/
+│   ├── ui/                     # Componentes shadcn/ui
+│   ├── Hero.tsx                # Seção hero
+│   ├── Navbar.tsx              # Barra de navegação
+│   ├── Footer.tsx              # Rodapé
+│   ├── MovieCard.tsx           # Card de filme/série
+│   ├── TrendingSection.tsx     # Seção em alta
+│   └── CategorySection.tsx     # Seção por categoria
+├── lib/
+│   ├── tmdb.ts                 # API TMDB
+│   └── utils.ts                # Utilitários
+└── public/                     # Arquivos estáticos
+```
+
+## 🎨 Paleta de Cores
+
+- **Roxo Primário**: `#8b5cf6` (purple-500)
+- **Roxo Secundário**: `#6d28d9` (purple-700)
+- **Preto**: `#000000`
+- **Cinza Escuro**: `#1a1a1a`
+
+## 🌟 Funcionalidades Principais
+
+### Página Inicial
+- Hero com filme em destaque
+- Seção de conteúdo em alta
+- Categorias de filmes e séries populares
+- Navegação suave com scroll horizontal
+
+### Detalhes
+- Informações completas do filme/série
+- Trailer e imagens
+- Avaliações e classificações
+- Conteúdo similar
+- Botão para assistir
+
+### Player
+- Player integrado com Mega Embed
+- Seletor de temporadas e episódios (séries)
+- Interface limpa e responsiva
+- Controles de reprodução
+
+### Busca
+- Busca em tempo real
+- Resultados de filmes e séries
+- Filtros e ordenação
+
+### Gêneros
+- Lista visual de gêneros
+- Filmes e séries por categoria
+- Navegação intuitiva
+
+## 🔧 Scripts Disponíveis
+
+```bash
+# Desenvolvimento
+npm run dev
+
+# Build para produção
+npm run build
+
+# Iniciar servidor de produção
+npm run start
+
+# Lint
+npm run lint
+```
+
+## 📝 Licença
+
+Este projeto é de código aberto e está disponível sob a licença MIT.
+
+## ⚠️ Aviso Legal
+
+Este site não hospeda nenhum arquivo. Todos os conteúdos são fornecidos por serviços de terceiros não afiliados. Este projeto é apenas para fins educacionais.
+
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull requests.
+
+## 📧 Contato
+
+Para dúvidas ou sugestões, abra uma issue no GitHub.
+
+---
+
+Desenvolvido com ❤️ usando Next.js e shadcn/ui
