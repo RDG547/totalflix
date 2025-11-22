@@ -295,6 +295,13 @@ export async function updateAchievementProgress(
             icon: achievement.icon,
           }
         );
+
+        // Disparar evento customizado para atualizar perfil
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('achievementUnlocked', {
+            detail: { achievement: unlockedAchievement }
+          }));
+        }
       }
 
       return {

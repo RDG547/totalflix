@@ -135,8 +135,12 @@ export function MovieCard({ movie }: MovieCardProps) {
           </div>
 
           {/* Media Type Tag */}
-          <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-sm px-2 py-1 rounded-md">
-            <span className="text-white text-xs font-semibold uppercase">
+          <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full ${
+            mediaType === "movie"
+              ? "bg-blue-500/90 shadow-lg shadow-blue-500/50"
+              : "bg-purple-500/90 shadow-lg shadow-purple-500/50"
+          }`}>
+            <span className="text-white text-xs font-bold uppercase tracking-wide">
               {mediaType === "movie" ? "Filme" : "Série"}
             </span>
           </div>

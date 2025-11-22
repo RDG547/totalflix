@@ -26,6 +26,33 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import toast from "react-hot-toast";
 
+// Mapa de gêneros
+const GENRE_MAP: Record<number, string> = {
+  28: "Ação",
+  12: "Aventura",
+  16: "Animação",
+  35: "Comédia",
+  80: "Crime",
+  99: "Documentário",
+  18: "Drama",
+  10751: "Família",
+  14: "Fantasia",
+  36: "História",
+  27: "Terror",
+  10402: "Música",
+  9648: "Mistério",
+  10749: "Romance",
+  878: "Ficção Científica",
+  10770: "Cinema TV",
+  53: "Thriller",
+  10752: "Guerra",
+  37: "Faroeste",
+};
+
+const getGenreName = (genreId: number): string => {
+  return GENRE_MAP[genreId] || "Outros";
+};
+
 export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -65,12 +92,25 @@ export default function ProfilePage() {
       loadProfile();
     };
 
+    const handleAchievementUnlocked = () => {
+      // Recarregar conquistas quando uma nova é desbloqueada
+      if (user) {
+        getUserAchievements(user.uid).then((userAchievements) => {
+          if (userAchievements) {
+            setAchievements(userAchievements);
+          }
+        });
+      }
+    };
+
     window.addEventListener('favoriteRemoved', handleFavoriteRemoved);
     window.addEventListener('favoriteAdded', handleFavoriteAdded);
+    window.addEventListener('achievementUnlocked', handleAchievementUnlocked);
 
     return () => {
       window.removeEventListener('favoriteRemoved', handleFavoriteRemoved);
       window.removeEventListener('favoriteAdded', handleFavoriteAdded);
+      window.removeEventListener('achievementUnlocked', handleAchievementUnlocked);
     };
   }, [user, router]);
 
@@ -391,10 +431,100 @@ export default function ProfilePage() {
           {activeTab === "favorites" && (
             <>
               {favorites.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {favorites.map((movie) => (
-                    <MovieCard key={movie.id} movie={movie} />
-                  ))}
+                <div className="space-y-8">
+                  {/* Filmes */}
+                  {favorites.filter(m => m.media_type === 'movie' || m.title).length > 0 && (
+                    <div>
+                      <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                        🎬 Filmes
+                        <span className="text-sm text-gray-400 font-normal">
+                          ({favorites.filter(m => m.media_type === 'movie' || m.title).length})
+                        </span>
+                      </h2>
+
+                      {/* Agrupar por gênero */}
+                      {(() => {
+                        const moviesByGenre: Record<string, Movie[]> = {};
+                        favorites
+                          .filter(m => m.media_type === 'movie' || m.title)
+                          .forEach(movie => {
+                            if (movie.genre_ids && movie.genre_ids.length > 0) {
+                              const genreId = movie.genre_ids[0];
+                              const genreName = getGenreName(genreId);
+                              if (!moviesByGenre[genreName]) {
+                                moviesByGenre[genreName] = [];
+                              }
+                              moviesByGenre[genreName].push(movie);
+                            } else {
+                              if (!moviesByGenre['Outros']) {
+                                moviesByGenre['Outros'] = [];
+                              }
+                              moviesByGenre['Outros'].push(movie);
+                            }
+                          });
+
+                        return Object.entries(moviesByGenre).map(([genre, movies]) => (
+                          <div key={genre} className="mb-6">
+                            <h3 className="text-lg font-semibold text-purple-400 mb-3">
+                              {genre}
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                              {movies.map((movie) => (
+                                <MovieCard key={movie.id} movie={movie} />
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Séries */}
+                  {favorites.filter(m => m.media_type === 'tv' || m.name).length > 0 && (
+                    <div>
+                      <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                        📺 Séries
+                        <span className="text-sm text-gray-400 font-normal">
+                          ({favorites.filter(m => m.media_type === 'tv' || m.name).length})
+                        </span>
+                      </h2>
+
+                      {/* Agrupar por gênero */}
+                      {(() => {
+                        const seriesByGenre: Record<string, Movie[]> = {};
+                        favorites
+                          .filter(m => m.media_type === 'tv' || m.name)
+                          .forEach(series => {
+                            if (series.genre_ids && series.genre_ids.length > 0) {
+                              const genreId = series.genre_ids[0];
+                              const genreName = getGenreName(genreId);
+                              if (!seriesByGenre[genreName]) {
+                                seriesByGenre[genreName] = [];
+                              }
+                              seriesByGenre[genreName].push(series);
+                            } else {
+                              if (!seriesByGenre['Outros']) {
+                                seriesByGenre['Outros'] = [];
+                              }
+                              seriesByGenre['Outros'].push(series);
+                            }
+                          });
+
+                        return Object.entries(seriesByGenre).map(([genre, series]) => (
+                          <div key={genre} className="mb-6">
+                            <h3 className="text-lg font-semibold text-purple-400 mb-3">
+                              {genre}
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                              {series.map((s) => (
+                                <MovieCard key={s.id} movie={s} />
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-12 glass-effect rounded-xl">

@@ -95,7 +95,7 @@ export function AchievementTree({ achievements }: AchievementTreeProps) {
                           ? `bg-gradient-to-br from-${category.color}-500 to-${category.color}-700 border-${category.color}-400`
                           : 'bg-gray-800 border-gray-700'
                         }
-                        ${isNext ? 'ring-4 ring-yellow-400/50 animate-pulse' : ''}
+                        ${isNext ? 'ring-4 ring-yellow-400/50' : ''}
                         hover:scale-110
                       `}
                     >

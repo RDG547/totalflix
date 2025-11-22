@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { tmdb, getMegaEmbedUrl, type MovieDetails } from "@/lib/tmdb";
+import { tmdb, getPlayerUrl, type MovieDetails } from "@/lib/tmdb";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PageProps {
@@ -13,6 +13,8 @@ interface PageProps {
   };
 }
 
+type PlayerType = 'vidsrc' | 'megaembed' | '2embed' | 'superembed';
+
 export default function WatchPage({ params }: PageProps) {
   const { type, id } = params;
   const router = useRouter();
@@ -20,6 +22,8 @@ export default function WatchPage({ params }: PageProps) {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('vidsrc');
+  const [playerError, setPlayerError] = useState(false);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -53,12 +57,25 @@ export default function WatchPage({ params }: PageProps) {
   }
 
   const title = details.title || details.name || "";
-  const embedUrl = getMegaEmbedUrl(
+  const embedUrl = getPlayerUrl(
+    currentPlayer,
     type as "movie" | "tv",
     parseInt(id),
     type === "tv" ? selectedSeason : undefined,
     type === "tv" ? selectedEpisode : undefined
   );
+
+  const handlePlayerChange = (player: PlayerType) => {
+    setCurrentPlayer(player);
+    setPlayerError(false);
+  };
+
+  const players: { id: PlayerType; name: string }[] = [
+    { id: 'vidsrc', name: 'VidSrc' },
+    { id: 'megaembed', name: 'MegaEmbed' },
+    { id: '2embed', name: '2Embed' },
+    { id: 'superembed', name: 'SuperEmbed' },
+  ];
 
   return (
     <div className="min-h-screen pt-16 bg-black">
@@ -79,15 +96,56 @@ export default function WatchPage({ params }: PageProps) {
           {type === "tv" && ` - T${selectedSeason}:E${selectedEpisode}`}
         </h1>
 
+        {/* Player Selector */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {players.map((player) => (
+            <Button
+              key={player.id}
+              onClick={() => handlePlayerChange(player.id)}
+              variant={currentPlayer === player.id ? "default" : "outline"}
+              className={`${
+                currentPlayer === player.id
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "border-purple-500/50 hover:bg-purple-500/10"
+              }`}
+            >
+              {player.name}
+            </Button>
+          ))}
+        </div>
+
+        {/* Player Error Message */}
+        {playerError && (
+          <div className="mb-4 p-4 glass-effect border border-yellow-500/50 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+            <div className="text-sm text-gray-300">
+              <p className="font-semibold text-yellow-400 mb-1">Vídeo não disponível</p>
+              <p>Tente selecionar outro player acima. Alguns conteúdos podem não estar disponíveis em todos os players.</p>
+            </div>
+          </div>
+        )}
+
         {/* Player */}
         <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl glow-effect mb-8">
-          <iframe
-            src={embedUrl}
-            className="w-full h-full"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            title={title}
-          />
+          {embedUrl ? (
+            <iframe
+              key={`${currentPlayer}-${embedUrl}`}
+              src={embedUrl}
+              className="w-full h-full"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              title={title}
+              onError={() => setPlayerError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center text-gray-400">
+                <AlertCircle className="w-16 h-16 mx-auto mb-4" />
+                <p className="text-lg">Player não disponível</p>
+                <p className="text-sm mt-2">Tente selecionar outro player</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Episode Selector for TV Shows */}
