@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import { tmdb, type Movie, getImageUrl } from "@/lib/tmdb";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
-import { AuthModal } from "@/components/AuthModal";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 
 interface Genre {
@@ -28,8 +27,6 @@ export function Navbar() {
   const [showMovieDropdown, setShowMovieDropdown] = useState(false);
   const [showTvDropdown, setShowTvDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [genreCounts, setGenreCounts] = useState<Record<number, number>>({});
   const router = useRouter();
   const searchRef = useRef<HTMLDivElement>(null);
@@ -385,25 +382,21 @@ export function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => {
-                    setAuthModalMode('login');
-                    setShowAuthModal(true);
-                  }}
-                  variant="ghost"
-                  className="text-gray-300 hover:text-white hover:bg-purple-500/20 transition-all"
-                >
-                  Entrar
-                </Button>
-                <Button
-                  onClick={() => {
-                    setAuthModalMode('register');
-                    setShowAuthModal(true);
-                  }}
-                  className="glow-effect transition-all active:scale-95"
-                >
-                  Cadastrar
-                </Button>
+                <Link href="/login">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white hover:bg-purple-500/20 transition-all"
+                  >
+                    Entrar
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button
+                    className="glow-effect transition-all active:scale-95"
+                  >
+                    Cadastrar
+                  </Button>
+                </Link>
               </div>
             )}
             </div>
@@ -438,20 +431,89 @@ export function Navbar() {
             >
               Início
             </Link>
-            <Link
-              href="/movies"
-              className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Filmes
-            </Link>
-            <Link
-              href="/series"
-              className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Séries
-            </Link>
+
+            {/* Mobile Movies Dropdown */}
+            <div className="space-y-2">
+              <button
+                onClick={toggleMovieDropdown}
+                className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+              >
+                <span>Filmes</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showMovieDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              {showMovieDropdown && (
+                <div className="pl-4 space-y-2 animate-slide-in">
+                  <Link
+                    href="/movies"
+                    className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Todos os Filmes
+                  </Link>
+                  {movieGenres.map((genre) => (
+                    <Link
+                      key={genre.id}
+                      href={`/genre/${genre.id}?type=movie`}
+                      className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <span>{genre.name}</span>
+                      <span className="text-xs text-gray-500">
+                        {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile TV Shows Dropdown */}
+            <div className="space-y-2">
+              <button
+                onClick={toggleTvDropdown}
+                className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+              >
+                <span>Séries</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showTvDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              {showTvDropdown && (
+                <div className="pl-4 space-y-2 animate-slide-in">
+                  <Link
+                    href="/series"
+                    className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Todas as Séries
+                  </Link>
+                  <Link
+                    href="/genre/10759?type=tv"
+                    className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <span>Ação & Aventura</span>
+                    <span className="text-xs text-gray-500">
+                      {genreCounts[10759] ? genreCounts[10759].toLocaleString('pt-BR') : '...'}
+                    </span>
+                  </Link>
+                  {tvGenres
+                    .filter((genre) => genre.id !== 10759)
+                    .map((genre) => (
+                      <Link
+                        key={genre.id}
+                        href={`/genre/${genre.id}?type=tv`}
+                        className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <span>{genre.name}</span>
+                        <span className="text-xs text-gray-500">
+                          {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
+                        </span>
+                      </Link>
+                    ))}
+                </div>
+              )}
+            </div>
+
             <Link
               href="/tv"
               className="flex items-center gap-2 text-gray-300 hover:text-purple-400 transition-colors py-2"
@@ -480,39 +542,26 @@ export function Navbar() {
               </>
             ) : (
               <div className="flex flex-col gap-2">
-                <Button
-                  onClick={() => {
-                    setAuthModalMode('login');
-                    setShowAuthModal(true);
-                    setIsMenuOpen(false);
-                  }}
-                  variant="ghost"
-                  className="w-full text-gray-300 hover:text-white hover:bg-purple-500/20"
-                >
-                  Entrar
-                </Button>
-                <Button
-                  onClick={() => {
-                    setAuthModalMode('register');
-                    setShowAuthModal(true);
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full glow-effect"
-                >
-                  Cadastrar
-                </Button>
+                <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-gray-300 hover:text-white hover:bg-purple-500/20"
+                  >
+                    Entrar
+                  </Button>
+                </Link>
+                <Link href="/register" onClick={() => setIsMenuOpen(false)}>
+                  <Button
+                    className="w-full glow-effect"
+                  >
+                    Cadastrar
+                  </Button>
+                </Link>
               </div>
             )}
           </div>
         )}
       </div>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        initialMode={authModalMode}
-      />
     </nav>
   );
 }

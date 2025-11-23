@@ -24,6 +24,8 @@ export interface Movie {
   first_air_date?: string;
   genre_ids: number[];
   media_type?: string;
+  runtime?: number;
+  number_of_seasons?: number;
 }
 
 export interface MovieDetails extends Movie {
@@ -119,8 +121,12 @@ export const getBackdropUrl = (path: string, size: 'w780' | 'w1280' | 'original'
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
-export type VideoPlayer = 'megaembed' | 'warezcdn' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'nontongo';
+export type VideoPlayer = 'megaembed' | 'warezcdn' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'nontongo' | 'embedmovies' | 'primevicio';
 
+/**
+ * Gera URL do player com parâmetros de idioma PT-BR
+ * Os players que suportam configuração de idioma são automaticamente configurados para português/dublado
+ */
 export const getPlayerUrl = (
   player: VideoPlayer,
   mediaType: 'movie' | 'tv',
@@ -143,7 +149,7 @@ export const getPlayerUrl = (
       return `${baseUrl}/serie/${tmdbId}/${season || 1}/${episode || 1}`;
     }
   } else if (player === 'vidsrc') {
-    const baseUrl = process.env.NEXT_PUBLIC_VIDSRC_EMBED_URL || 'https://vidsrc.to/embed';
+    const baseUrl = 'https://vidsrc.xyz/embed';
     if (mediaType === 'movie') {
       return `${baseUrl}/movie/${tmdbId}`;
     } else {
@@ -164,11 +170,11 @@ export const getPlayerUrl = (
       return `${baseUrl}/tv/${tmdbId}-${season || 1}-${episode || 1}`;
     }
   } else if (player === 'superembed') {
-    const baseUrl = 'https://www.superembed.stream';
+    const baseUrl = 'https://multiembed.mov';
     if (mediaType === 'movie') {
-      return `${baseUrl}/embed/${tmdbId}`;
+      return `${baseUrl}/?video_id=${tmdbId}&tmdb=1`;
     } else {
-      return `${baseUrl}/embed/${tmdbId}&s=${season || 1}&e=${episode || 1}`;
+      return `${baseUrl}/?video_id=${tmdbId}&tmdb=1&s=${season || 1}&e=${episode || 1}`;
     }
   } else if (player === 'smashystream') {
     const baseUrl = 'https://player.smashy.stream';
@@ -178,11 +184,25 @@ export const getPlayerUrl = (
       return `${baseUrl}/tv/${tmdbId}?s=${season || 1}&e=${episode || 1}`;
     }
   } else if (player === 'nontongo') {
-    const baseUrl = 'https://www.nontongo.win/embed';
+    const baseUrl = 'https://www.nontongo.win/e';
     if (mediaType === 'movie') {
-      return `${baseUrl}/movie?tmdb=${tmdbId}`;
+      return `${baseUrl}/movie/${tmdbId}`;
     } else {
-      return `${baseUrl}/tv?tmdb=${tmdbId}&season=${season || 1}&episode=${episode || 1}`;
+      return `${baseUrl}/tv/${tmdbId}/${season || 1}/${episode || 1}`;
+    }
+  } else if (player === 'embedmovies') {
+    const baseUrl = 'https://embedmovies.org';
+    if (mediaType === 'movie') {
+      return `${baseUrl}/movie/${tmdbId}`;
+    } else {
+      return `${baseUrl}/tv/${tmdbId}/${season || 1}/${episode || 1}`;
+    }
+  } else if (player === 'primevicio') {
+    const baseUrl = 'https://primevicio.netlify.app';
+    if (mediaType === 'movie') {
+      return `${baseUrl}/movie/${tmdbId}`;
+    } else {
+      return `${baseUrl}/tv/${tmdbId}/${season || 1}/${episode || 1}`;
     }
   }
   return '';

@@ -12,7 +12,7 @@ import { updateAchievementProgress, initializeAchievements } from "@/lib/achieve
 import toast from "react-hot-toast";
 
 interface MovieCardProps {
-  movie: Movie & { runtime?: number };
+  movie: Movie & { runtime?: number; number_of_seasons?: number };
 }
 
 export function MovieCard({ movie }: MovieCardProps) {
@@ -116,12 +116,21 @@ export function MovieCard({ movie }: MovieCardProps) {
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-300">{year}</span>
-                  {movie.runtime && (
+                  {mediaType === "movie" && movie.runtime && (
                     <>
                       <span className="text-gray-500">•</span>
                       <div className="flex items-center gap-1 text-purple-400">
                         <Clock className="w-3 h-3" />
                         <span>{formatRuntime(movie.runtime)}</span>
+                      </div>
+                    </>
+                  )}
+                  {mediaType === "tv" && movie.number_of_seasons && (
+                    <>
+                      <span className="text-gray-500">•</span>
+                      <div className="flex items-center gap-1 text-purple-400">
+                        <Clock className="w-3 h-3" />
+                        <span>{movie.number_of_seasons} {movie.number_of_seasons === 1 ? 'Temporada' : 'Temporadas'}</span>
                       </div>
                     </>
                   )}
@@ -138,14 +147,12 @@ export function MovieCard({ movie }: MovieCardProps) {
           <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full ${
             mediaType === "movie"
               ? "bg-blue-500/90 shadow-lg shadow-blue-500/50"
-              : "bg-purple-500/90 shadow-lg shadow-purple-500/50"
+              : "bg-red-500/90 shadow-lg shadow-red-500/50"
           }`}>
             <span className="text-white text-xs font-bold uppercase tracking-wide">
               {mediaType === "movie" ? "Filme" : "Série"}
             </span>
-          </div>
-
-          {/* Favorite Button */}
+          </div>          {/* Favorite Button */}
           {user && (
             <button
               onClick={toggleFavorite}

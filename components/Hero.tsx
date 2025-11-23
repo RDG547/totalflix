@@ -41,7 +41,7 @@ export function Hero() {
   const mediaType = movie.media_type || "movie";
 
   return (
-    <div className="relative h-[80vh] w-full overflow-hidden mt-16">
+    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16">
       {/* Background Image with Overlay */}
       <div
         className="absolute inset-0 bg-cover bg-center"
@@ -55,14 +55,14 @@ export function Hero() {
 
       {/* Content */}
       <div className="relative h-full container mx-auto px-4 flex items-center">
-        <div className="max-w-2xl space-y-6 animate-fade-in">
-          <h1 className="text-5xl md:text-7xl font-bold text-white drop-shadow-2xl">
+        <div className="max-w-2xl space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold text-white drop-shadow-2xl line-clamp-2">
             {title}
           </h1>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 text-sm sm:text-base">
             <div className="flex items-center space-x-2">
-              <span className="text-yellow-400 text-lg">★</span>
+              <span className="text-yellow-400 text-base sm:text-lg">★</span>
               <span className="text-white font-semibold">
                 {movie.vote_average?.toFixed(1)}
               </span>
@@ -72,11 +72,11 @@ export function Hero() {
             </span>
           </div>
 
-          <p className="text-gray-200 text-lg line-clamp-3 max-w-xl">
+          <p className="text-gray-200 text-sm sm:text-base md:text-lg line-clamp-2 sm:line-clamp-3 max-w-xl">
             {movie.overview}
           </p>
 
-          <div className="flex space-x-4">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
             <WatchButton
               type={mediaType as "movie" | "tv"}
               tmdbId={movie.id}
@@ -84,8 +84,8 @@ export function Hero() {
               numberOfSeasons={movieDetails?.number_of_seasons}
             />
             <Link href={`/details/${mediaType}/${movie.id}`}>
-              <Button size="lg" variant="outline" className="glass-effect border-purple-500/50">
-                <Info className="w-5 h-5 mr-2" />
+              <Button size="lg" variant="outline" className="glass-effect border-purple-500/50 w-full sm:w-auto">
+                <Info className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Mais Informações
               </Button>
             </Link>
@@ -94,7 +94,7 @@ export function Hero() {
       </div>
 
       {/* Bottom Fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-32 bg-gradient-to-t from-black to-transparent" />
     </div>
   );
 }

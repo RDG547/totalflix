@@ -13,7 +13,7 @@ interface PageProps {
   };
 }
 
-type PlayerType = 'vidsrc' | 'megaembed' | '2embed' | 'superembed';
+type PlayerType = 'vidsrc' | 'megaembed' | '2embed' | 'superembed' | 'embedmovies' | 'primevicio';
 
 export default function WatchPage({ params }: PageProps) {
   const { type, id } = params;
@@ -75,6 +75,8 @@ export default function WatchPage({ params }: PageProps) {
     { id: 'megaembed', name: 'MegaEmbed' },
     { id: '2embed', name: '2Embed' },
     { id: 'superembed', name: 'SuperEmbed' },
+    { id: 'embedmovies', name: 'EmbedMovies' },
+    { id: 'primevicio', name: 'PrimeVicio' },
   ];
 
   return (
@@ -114,6 +116,15 @@ export default function WatchPage({ params }: PageProps) {
           ))}
         </div>
 
+        {/* Language Info Message */}
+        <div className="mb-4 p-4 glass-effect border border-blue-500/50 rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />
+          <div className="text-sm text-gray-300">
+            <p className="font-semibold text-blue-400 mb-1">💡 Dica sobre Idioma</p>
+            <p>Para assistir em <strong>português/dublado</strong>, clique no ícone de configurações (⚙️) ou CC no player e selecione "Português" ou "Portuguese" nas opções de áudio/legendas.</p>
+          </div>
+        </div>
+
         {/* Player Error Message */}
         {playerError && (
           <div className="mb-4 p-4 glass-effect border border-yellow-500/50 rounded-lg flex items-center gap-3">
@@ -136,6 +147,25 @@ export default function WatchPage({ params }: PageProps) {
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               title={title}
               onError={() => setPlayerError(true)}
+              onLoad={(e) => {
+                // Tentar configurar idioma português através de postMessage
+                const iframe = e.currentTarget;
+                try {
+                  // Enviar mensagens para tentar configurar o idioma
+                  iframe.contentWindow?.postMessage({ type: 'setLanguage', language: 'pt' }, '*');
+                  iframe.contentWindow?.postMessage({ type: 'setLanguage', language: 'pt-BR' }, '*');
+                  iframe.contentWindow?.postMessage({ type: 'changeLanguage', language: 'pt' }, '*');
+                  iframe.contentWindow?.postMessage({ type: 'changeLanguage', language: 'pt-BR' }, '*');
+
+                  // Tentar configurar áudio dublado
+                  iframe.contentWindow?.postMessage({ type: 'setAudio', audio: 'pt' }, '*');
+                  iframe.contentWindow?.postMessage({ type: 'setAudio', audio: 'por' }, '*');
+                  iframe.contentWindow?.postMessage({ type: 'setAudio', audio: 'portuguese' }, '*');
+                } catch (err) {
+                  // Ignorar erros de cross-origin
+                  console.log('Não foi possível configurar idioma automaticamente');
+                }
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

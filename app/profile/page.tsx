@@ -8,7 +8,7 @@ import { tmdb, Movie } from "@/lib/tmdb";
 import { MovieCard } from "@/components/MovieCard";
 import { AchievementCard } from "@/components/AchievementCard";
 import { AchievementTree } from "@/components/AchievementTree";
-import { getUserAchievements, getAchievementPercentage, UserAchievements } from "@/lib/achievements";
+import { getUserAchievements, getAchievementPercentage, UserAchievements, initializeAchievements } from "@/lib/achievements";
 import {
   User,
   Heart,
@@ -130,9 +130,21 @@ export default function ProfilePage() {
 
         // Carregar favoritos
         if (userProfile.favorites.length > 0) {
-          const favPromises = userProfile.favorites.map(id =>
-            tmdb.getDetails('movie', id).catch(() => null)
-          );
+          const favPromises = userProfile.favorites.map(async (id) => {
+            // Tentar buscar como filme primeiro
+            try {
+              const movieData = await tmdb.getDetails('movie', id);
+              return { ...movieData, media_type: 'movie' };
+            } catch {
+              // Se falhar, tentar como série
+              try {
+                const tvData = await tmdb.getDetails('tv', id);
+                return { ...tvData, media_type: 'tv' };
+              } catch {
+                return null;
+              }
+            }
+          });
           const favResults = await Promise.all(favPromises);
           setFavorites(favResults.filter(Boolean) as Movie[]);
         }        // Carregar histórico
@@ -145,7 +157,12 @@ export default function ProfilePage() {
         }
 
         // Carregar conquistas
-        const userAchievements = await getUserAchievements(user.uid);
+        let userAchievements = await getUserAchievements(user.uid);
+        if (!userAchievements) {
+          // Inicializar conquistas se não existir
+          await initializeAchievements(user.uid);
+          userAchievements = await getUserAchievements(user.uid);
+        }
         if (userAchievements) {
           setAchievements(userAchievements);
         }
