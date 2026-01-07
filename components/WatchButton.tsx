@@ -14,6 +14,7 @@ interface WatchButtonProps {
   selectedEpisode?: number;
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
+  posterPath?: string;
 }
 
 export function WatchButton({
@@ -25,6 +26,7 @@ export function WatchButton({
   selectedEpisode = 1,
   size = "lg",
   className = "",
+  posterPath,
 }: WatchButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -48,6 +50,7 @@ export function WatchButton({
         numberOfSeasons={numberOfSeasons}
         initialSeason={selectedSeason}
         initialEpisode={selectedEpisode}
+        posterPath={posterPath}
       />
     </>
   );

@@ -126,6 +126,7 @@ export default async function DetailsPage({ params }: PageProps) {
                   tmdbId={details.id}
                   title={title}
                   numberOfSeasons={details.number_of_seasons}
+                  posterPath={details.poster_path}
                 />
                 <TrailerButton mediaType={type} id={details.id} />
                 <FavoriteButton
@@ -153,6 +154,7 @@ export default async function DetailsPage({ params }: PageProps) {
             tmdbId={details.id}
             title={title}
             numberOfSeasons={details.number_of_seasons}
+            posterPath={details.poster_path}
           />
         </div>
       </div>

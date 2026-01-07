@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Maximize2, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getPlayerUrl, type VideoPlayer } from "@/lib/tmdb";
+import { useRef } from "react";
+import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
+import { TorrentPlayer } from "./TorrentPlayer";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface VideoPlayerModalProps {
   numberOfSeasons?: number;
   initialSeason?: number;
   initialEpisode?: number;
+  posterPath?: string;
 }
 
 const PLAYER_OPTIONS = [
@@ -25,6 +28,7 @@ const PLAYER_OPTIONS = [
   { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
   { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },
   { id: 'nontongo' as VideoPlayer, name: 'NontonGo', icon: '🚀' },
+  { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
 ];
 
 export function VideoPlayerModal({
@@ -36,6 +40,7 @@ export function VideoPlayerModal({
   numberOfSeasons = 1,
   initialSeason = 1,
   initialEpisode = 1,
+  posterPath,
 }: VideoPlayerModalProps) {
   const [selectedSeason, setSelectedSeason] = useState(initialSeason);
   const [selectedEpisode, setSelectedEpisode] = useState(initialEpisode);
@@ -128,11 +133,10 @@ export function VideoPlayerModal({
               <button
                 key={player.id}
                 onClick={() => setSelectedPlayer(player.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${
-                  selectedPlayer === player.id
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${selectedPlayer === player.id
                     ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                     : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
-                }`}
+                  }`}
               >
                 <span className="mr-1">{player.icon}</span>
                 {player.name}
@@ -141,7 +145,7 @@ export function VideoPlayerModal({
           </div>
 
           {/* Season/Episode Selector for TV Shows */}
-          {type === "tv" && (
+          {type === "tv" && selectedPlayer !== 'webtorrent' && (
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-400 font-medium">Temporada:</label>
@@ -178,14 +182,18 @@ export function VideoPlayerModal({
 
         {/* Video Player Container */}
         <div id="player-container" className="relative aspect-video bg-black">
-          <iframe
-            id="video-player"
-            key={embedUrl}
-            src={embedUrl}
-            className="w-full h-full"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          />
+          {selectedPlayer === 'webtorrent' ? (
+            <TorrentPlayer poster={posterPath ? getImageUrl(posterPath) : undefined} />
+          ) : (
+            <iframe
+              id="video-player"
+              key={embedUrl}
+              src={embedUrl}
+              className="w-full h-full"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            />
+          )}
         </div>
       </div>
     </div>

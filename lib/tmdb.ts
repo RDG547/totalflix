@@ -121,7 +121,7 @@ export const getBackdropUrl = (path: string, size: 'w780' | 'w1280' | 'original'
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
-export type VideoPlayer = 'megaembed' | 'warezcdn' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'nontongo' | 'embedmovies' | 'primevicio';
+export type VideoPlayer = 'megaembed' | 'warezcdn' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'nontongo' | 'embedmovies' | 'primevicio' | 'webtorrent';
 
 /**
  * Gera URL do player com parâmetros de idioma PT-BR

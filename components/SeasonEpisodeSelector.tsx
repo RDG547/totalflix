@@ -10,6 +10,7 @@ interface SeasonEpisodeSelectorProps {
   tmdbId: number;
   title: string;
   numberOfSeasons?: number;
+  posterPath?: string;
 }
 
 export function SeasonEpisodeSelector({
@@ -17,6 +18,7 @@ export function SeasonEpisodeSelector({
   tmdbId,
   title,
   numberOfSeasons = 1,
+  posterPath,
 }: SeasonEpisodeSelectorProps) {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
@@ -73,6 +75,7 @@ export function SeasonEpisodeSelector({
         numberOfSeasons={numberOfSeasons}
         initialSeason={selectedSeason}
         initialEpisode={selectedEpisode}
+        posterPath={posterPath}
       />
     </div>
   );
