@@ -27,10 +27,12 @@ export function AchievementTree({ achievements }: AchievementTreeProps) {
   ]
 
   const getNodeStyle = (unlocked: boolean, color: string) => {
-    if (unlocked) {
-      return `bg-gradient-to-br from-${color}-500 to-${color}-700 border-${color}-400 shadow-lg shadow-${color}-500/50`
+    const colors: Record<string, { from: string; to: string; border: string; shadow: string }> = {
+      purple: { from: '#a855f7', to: '#7c3aed', border: '#c084fc', shadow: '#a855f7' },
+      blue: { from: '#3b82f6', to: '#2563eb', border: '#60a5fa', shadow: '#3b82f6' },
+      green: { from: '#22c55e', to: '#16a34a', border: '#4ade80', shadow: '#22c55e' },
     }
-    return 'bg-gray-800 border-gray-700'
+    return colors[color] || colors.purple
   }
 
   const getProgressColor = (color: string) => {
@@ -42,13 +44,27 @@ export function AchievementTree({ achievements }: AchievementTreeProps) {
     return colors[color] || colors.purple
   }
 
+  const getCategoryIconBg = (color: string) => {
+    const colors: Record<string, { from: string; to: string }> = {
+      purple: { from: '#a855f7', to: '#7c3aed' },
+      blue: { from: '#3b82f6', to: '#2563eb' },
+      green: { from: '#22c55e', to: '#16a34a' },
+    }
+    return colors[color] || colors.purple
+  }
+
   return (
     <div className="space-y-12">
       {categories.map((category, categoryIndex) => (
         <div key={categoryIndex} className="relative">
           {/* Título da Categoria */}
           <div className="flex items-center gap-3 mb-8">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br from-${category.color}-500 to-${category.color}-700 flex items-center justify-center`}>
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{
+                background: `linear-gradient(to bottom right, ${getCategoryIconBg(category.color).from}, ${getCategoryIconBg(category.color).to})`
+              }}
+            >
               {category.name === 'Assistir' && <Star className="w-6 h-6 text-white" />}
               {category.name === 'Social' && <Trophy className="w-6 h-6 text-white" />}
               {category.name === 'Explorar' && <CheckCircle className="w-6 h-6 text-white" />}
@@ -91,13 +107,15 @@ export function AchievementTree({ achievements }: AchievementTreeProps) {
                       className={`
                         relative z-10 w-16 h-16 rounded-full border-4 flex items-center justify-center
                         transition-all duration-300 cursor-pointer
-                        ${achievement.unlocked
-                          ? `bg-gradient-to-br from-${category.color}-500 to-${category.color}-700 border-${category.color}-400`
-                          : 'bg-gray-800 border-gray-700'
-                        }
+                        ${!achievement.unlocked ? 'bg-gray-800 border-gray-700' : ''}
                         ${isNext ? 'ring-4 ring-yellow-400/50' : ''}
                         hover:scale-110
                       `}
+                      style={achievement.unlocked ? {
+                        background: `linear-gradient(to bottom right, ${getNodeStyle(achievement.unlocked, category.color).from}, ${getNodeStyle(achievement.unlocked, category.color).to})`,
+                        borderColor: getNodeStyle(achievement.unlocked, category.color).border,
+                        boxShadow: `0 10px 25px -5px ${getNodeStyle(achievement.unlocked, category.color).shadow}80`
+                      } : undefined}
                     >
                       {achievement.unlocked ? (
                         <CheckCircle className="w-8 h-8 text-white" />
@@ -110,8 +128,11 @@ export function AchievementTree({ achievements }: AchievementTreeProps) {
                         <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-20">
                           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                             <div
-                              className={`h-full bg-gradient-to-r from-${category.color}-500 to-${category.color}-600 transition-all duration-500`}
-                              style={{ width: `${progress}%` }}
+                              className="h-full transition-all duration-500"
+                              style={{
+                                width: `${progress}%`,
+                                background: `linear-gradient(to right, ${getProgressColor(category.color)}, ${getProgressColor(category.color)}cc)`
+                              }}
                             />
                           </div>
                         </div>
@@ -146,8 +167,11 @@ export function AchievementTree({ achievements }: AchievementTreeProps) {
                             </div>
                             <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                               <div
-                                className={`h-full bg-gradient-to-r from-${category.color}-500 to-${category.color}-600 transition-all duration-500`}
-                                style={{ width: `${progress}%` }}
+                                className="h-full transition-all duration-500"
+                                style={{
+                                  width: `${progress}%`,
+                                  background: `linear-gradient(to right, ${getProgressColor(category.color)}, ${getProgressColor(category.color)}99)`
+                                }}
                               />
                             </div>
                             {isNext && (

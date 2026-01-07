@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { addToHistory } from "@/lib/userProfile";
+import { addToHistory, getUserProfile } from "@/lib/userProfile";
 import { updateAchievementProgress, initializeAchievements, Achievement } from "@/lib/achievements";
 import { AchievementNotification } from "./AchievementNotification";
 
@@ -20,19 +20,27 @@ export function HistoryTracker({ contentId, type }: HistoryTrackerProps) {
       // Adicionar ao histórico após 3 segundos (para garantir que o usuário realmente visualizou)
       const timer = setTimeout(async () => {
         try {
+          // Verificar se este conteúdo já foi assistido antes
+          const profile = await getUserProfile(user.uid);
+          const wasWatchedBefore = profile?.history.some(item => item.id === contentId) || false;
+
+          // Adicionar ao histórico
           await addToHistory(user.uid, contentId, type);
 
-          // Inicializar conquistas se necessário
-          await initializeAchievements(user.uid);
+          // Só atualizar conquistas se for a primeira vez assistindo este conteúdo
+          if (!wasWatchedBefore) {
+            // Inicializar conquistas se necessário
+            await initializeAchievements(user.uid);
 
-          // Atualizar progresso de conquista
-          const newlyUnlocked = await updateAchievementProgress(
-            user.uid,
-            type === "movie" ? "movie" : "series"
-          );
+            // Atualizar progresso de conquista
+            const newlyUnlocked = await updateAchievementProgress(
+              user.uid,
+              type === "movie" ? "movie" : "series"
+            );
 
-          if (newlyUnlocked.length > 0) {
-            setUnlockedAchievements(newlyUnlocked);
+            if (newlyUnlocked.length > 0) {
+              setUnlockedAchievements(newlyUnlocked);
+            }
           }
         } catch (error) {
           console.error("Erro ao adicionar ao histórico:", error);

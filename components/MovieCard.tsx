@@ -11,6 +11,8 @@ import { addToFavorites, removeFromFavorites, getUserProfile } from "@/lib/userP
 import { updateAchievementProgress, initializeAchievements } from "@/lib/achievements";
 import toast from "react-hot-toast";
 
+import { getGenreName } from "@/lib/genres";
+
 interface MovieCardProps {
   movie: Movie & { runtime?: number; number_of_seasons?: number };
 }
@@ -19,6 +21,10 @@ export function MovieCard({ movie }: MovieCardProps) {
   const { user } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const hoverTimerRef = useState<{ current: NodeJS.Timeout | null }>({ current: null })[0];
+  const countdownTimerRef = useState<{ current: NodeJS.Timeout | null }>({ current: null })[0];
 
   const title = movie.title || movie.name || "";
   const mediaType = movie.media_type || (movie.title ? "movie" : "tv");
@@ -40,6 +46,28 @@ export function MovieCard({ movie }: MovieCardProps) {
       checkFavoriteStatus();
     }
   }, [user, movie.id]);
+
+  // Timer do countdown
+  useEffect(() => {
+    if (showPreview) {
+      setCountdown(3);
+      countdownTimerRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+      setCountdown(3);
+    }
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, [showPreview]);
 
   const checkFavoriteStatus = async () => {
     if (!user) return;
@@ -95,20 +123,38 @@ export function MovieCard({ movie }: MovieCardProps) {
     }
   };
 
+  const handleMouseEnter = () => {
+    hoverTimerRef.current = setTimeout(() => {
+      setShowPreview(true);
+    }, 2000);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setShowPreview(false);
+  };
+
   return (
-    <Link href={`/details/${mediaType}/${movie.id}`}>
-      <Card className="group relative overflow-hidden bg-transparent border-0 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-100">
+    <Link
+      href={`/details/${mediaType}/${movie.id}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <Card className="group relative overflow-hidden bg-transparent border-0 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-100 h-full">
         <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
           <Image
             src={getImageUrl(movie.poster_path)}
             alt={title}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-110"
+            className={`object-cover transition-transform duration-300 ${showPreview ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
           />
 
-          {/* Overlay on Hover */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          {/* Overlay on Hover (Standard) */}
+          <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent transition-opacity duration-300 ${showPreview ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
             <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
               <h3 className="text-white font-semibold line-clamp-2 text-sm">
                 {title}
@@ -143,12 +189,58 @@ export function MovieCard({ movie }: MovieCardProps) {
             </div>
           </div>
 
+          {/* Preview Overlay (Activated after 2s) */}
+          <div className={`absolute inset-0 bg-black/80 backdrop-blur-md p-4 transition-all duration-500 flex flex-col ${showPreview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}>
+            {/* Countdown Ball */}
+            <div className="absolute top-2 right-2 flex items-center justify-center w-8 h-8">
+              <svg className="w-full h-full -rotate-90">
+                <circle
+                  cx="16"
+                  cy="16"
+                  r="14"
+                  fill="none"
+                  stroke="#374151"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="16"
+                  cy="16"
+                  r="14"
+                  fill="none"
+                  stroke="#a855f7"
+                  strokeWidth="3"
+                  strokeDasharray={88}
+                  strokeDashoffset={88 - (88 * countdown) / 3}
+                  className="transition-all duration-1000 ease-linear"
+                />
+              </svg>
+              <span className="absolute text-[10px] font-bold text-white">{countdown}</span>
+            </div>
+
+            <div className="mt-8 space-y-3 overflow-y-auto no-scrollbar">
+              <h3 className="text-white font-bold text-sm leading-tight">
+                {title}
+              </h3>
+
+              <div className="flex flex-wrap gap-1">
+                {movie.genre_ids?.slice(0, 3).map(id => (
+                  <span key={id} className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                    {getGenreName(id)}
+                  </span>
+                ))}
+              </div>
+
+              <p className="text-gray-300 text-xs line-clamp-6 leading-relaxed">
+                {movie.overview || "Sem descrição disponível."}
+              </p>
+            </div>
+          </div>
+
           {/* Media Type Tag */}
-          <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full ${
-            mediaType === "movie"
+          <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full z-10 ${mediaType === "movie"
               ? "bg-blue-500/90 shadow-lg shadow-blue-500/50"
               : "bg-red-500/90 shadow-lg shadow-red-500/50"
-          }`}>
+            }`}>
             <span className="text-white text-xs font-bold uppercase tracking-wide">
               {mediaType === "movie" ? "Filme" : "Série"}
             </span>
@@ -157,13 +249,12 @@ export function MovieCard({ movie }: MovieCardProps) {
             <button
               onClick={toggleFavorite}
               disabled={isLoading}
-              className="absolute top-2 right-2 bg-black/80 backdrop-blur-sm p-2 rounded-full transition-all hover:scale-110 active:scale-95 disabled:opacity-50"
+              className="absolute top-2 right-2 bg-black/80 backdrop-blur-sm p-2 rounded-full transition-all hover:scale-110 active:scale-95 disabled:opacity-50 z-20"
               aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
             >
               <Heart
-                className={`w-4 h-4 transition-colors ${
-                  isFavorite ? "text-red-500 fill-red-500" : "text-white"
-                }`}
+                className={`w-4 h-4 transition-colors ${isFavorite ? "text-red-500 fill-red-500" : "text-white"
+                  }`}
               />
             </button>
           )}

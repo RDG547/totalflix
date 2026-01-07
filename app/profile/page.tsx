@@ -25,33 +25,10 @@ import {
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-// Mapa de gêneros
-const GENRE_MAP: Record<number, string> = {
-  28: "Ação",
-  12: "Aventura",
-  16: "Animação",
-  35: "Comédia",
-  80: "Crime",
-  99: "Documentário",
-  18: "Drama",
-  10751: "Família",
-  14: "Fantasia",
-  36: "História",
-  27: "Terror",
-  10402: "Música",
-  9648: "Mistério",
-  10749: "Romance",
-  878: "Ficção Científica",
-  10770: "Cinema TV",
-  53: "Thriller",
-  10752: "Guerra",
-  37: "Faroeste",
-};
 
-const getGenreName = (genreId: number): string => {
-  return GENRE_MAP[genreId] || "Outros";
-};
+import { GENRE_MAP, getGenreName } from "@/lib/genres";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -65,6 +42,7 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<"favorites" | "history" | "achievements" | "settings">("favorites");
   const [isEditing, setIsEditing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [editForm, setEditForm] = useState({
     displayName: "",
     bio: "",
@@ -236,12 +214,13 @@ export default function ProfilePage() {
   };
 
   const handleClearHistory = async () => {
-    if (!user || !confirm("Deseja realmente limpar todo o histórico?")) return;
+    if (!user) return;
 
     try {
       await clearHistory(user.uid);
       setHistoryMovies([]);
       setProfile(prev => prev ? { ...prev, history: [] } : null);
+      setShowClearConfirm(false);
       toast.success("Histórico limpo com sucesso!");
     } catch (error) {
       console.error("Erro ao limpar histórico:", error);
@@ -410,33 +389,30 @@ export default function ProfilePage() {
         <div className="flex gap-2 border-b border-purple-500/30">
           <button
             onClick={() => setActiveTab("favorites")}
-            className={`px-6 py-3 font-medium transition-all ${
-              activeTab === "favorites"
-                ? "text-purple-400 border-b-2 border-purple-400"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`px-6 py-3 font-medium transition-all ${activeTab === "favorites"
+              ? "text-purple-400 border-b-2 border-purple-400"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             <Heart className="w-5 h-5 inline mr-2" />
             Favoritos
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`px-6 py-3 font-medium transition-all ${
-              activeTab === "history"
-                ? "text-purple-400 border-b-2 border-purple-400"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`px-6 py-3 font-medium transition-all ${activeTab === "history"
+              ? "text-purple-400 border-b-2 border-purple-400"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             <History className="w-5 h-5 inline mr-2" />
             Histórico
           </button>
           <button
             onClick={() => setActiveTab("achievements")}
-            className={`px-6 py-3 font-medium transition-all ${
-              activeTab === "achievements"
-                ? "text-purple-400 border-b-2 border-purple-400"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`px-6 py-3 font-medium transition-all ${activeTab === "achievements"
+              ? "text-purple-400 border-b-2 border-purple-400"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             <Trophy className="w-5 h-5 inline mr-2" />
             Conquistas
@@ -561,7 +537,7 @@ export default function ProfilePage() {
                 <>
                   <div className="flex justify-end">
                     <Button
-                      onClick={handleClearHistory}
+                      onClick={() => setShowClearConfirm(true)}
                       variant="outline"
                       className="border-red-500/50 text-red-400 hover:bg-red-500/10"
                     >
@@ -657,6 +633,18 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Dialog for Clear History */}
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        title="Limpar Histórico"
+        message="Deseja realmente limpar todo o histórico? Esta ação não pode ser desfeita."
+        confirmText="Limpar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleClearHistory}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   );
 }

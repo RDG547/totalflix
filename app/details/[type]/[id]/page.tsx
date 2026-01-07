@@ -7,6 +7,7 @@ import { SeasonEpisodeSelector } from "@/components/SeasonEpisodeSelector";
 import { CommentsSection } from "@/components/CommentsSection";
 import { HistoryTracker } from "@/components/HistoryTracker";
 import { TrailerButton } from "@/components/TrailerButton";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { notFound } from "next/navigation";
 
 interface PageProps {
@@ -127,6 +128,12 @@ export default async function DetailsPage({ params }: PageProps) {
                   numberOfSeasons={details.number_of_seasons}
                 />
                 <TrailerButton mediaType={type} id={details.id} />
+                <FavoriteButton
+                  contentId={details.id}
+                  contentTitle={title}
+                  size="lg"
+                  showText={false}
+                />
               </div>
             </div>
           </div>
