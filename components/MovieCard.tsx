@@ -217,7 +217,7 @@ export function MovieCard({ movie }: MovieCardProps) {
               <span className="absolute text-[10px] font-bold text-white">{countdown}</span>
             </div>
 
-            <div className="mt-8 space-y-3 overflow-y-auto no-scrollbar">
+            <div className="mt-8 flex-1 space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-500/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-purple-500/50">
               <h3 className="text-white font-bold text-sm leading-tight">
                 {title}
               </h3>
@@ -230,7 +230,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                 ))}
               </div>
 
-              <p className="text-gray-300 text-xs line-clamp-6 leading-relaxed">
+              <p className="text-gray-300 text-xs leading-relaxed">
                 {movie.overview || "Sem descrição disponível."}
               </p>
             </div>
@@ -238,8 +238,8 @@ export function MovieCard({ movie }: MovieCardProps) {
 
           {/* Media Type Tag */}
           <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full z-10 ${mediaType === "movie"
-              ? "bg-blue-500/90 shadow-lg shadow-blue-500/50"
-              : "bg-red-500/90 shadow-lg shadow-red-500/50"
+            ? "bg-blue-500/90 shadow-lg shadow-blue-500/50"
+            : "bg-red-500/90 shadow-lg shadow-red-500/50"
             }`}>
             <span className="text-white text-xs font-bold uppercase tracking-wide">
               {mediaType === "movie" ? "Filme" : "Série"}

@@ -5,7 +5,7 @@ import { X, Maximize2, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
-import { TorrentPlayer } from "./TorrentPlayer";
+import TorrentPlayer from "./TorrentPlayer";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -21,13 +21,11 @@ interface VideoPlayerModalProps {
 
 const PLAYER_OPTIONS = [
   { id: 'megaembed' as VideoPlayer, name: 'Mega Embed', icon: '🎬' },
-  { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🎥' },
   { id: 'vidsrc' as VideoPlayer, name: 'VidSrc', icon: '📺' },
   { id: '2embed' as VideoPlayer, name: '2Embed', icon: '🎞️' },
   { id: 'moviesapi' as VideoPlayer, name: 'MoviesAPI', icon: '🎪' },
   { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
   { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },
-  { id: 'nontongo' as VideoPlayer, name: 'NontonGo', icon: '🚀' },
   { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
 ];
 
@@ -134,8 +132,8 @@ export function VideoPlayerModal({
                 key={player.id}
                 onClick={() => setSelectedPlayer(player.id)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${selectedPlayer === player.id
-                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
-                    : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                  : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
                   }`}
               >
                 <span className="mr-1">{player.icon}</span>
@@ -183,7 +181,13 @@ export function VideoPlayerModal({
         {/* Video Player Container */}
         <div id="player-container" className="relative aspect-video bg-black">
           {selectedPlayer === 'webtorrent' ? (
-            <TorrentPlayer poster={posterPath ? getImageUrl(posterPath) : undefined} />
+            <TorrentPlayer
+              poster={posterPath ? getImageUrl(posterPath) : undefined}
+              tmdbId={tmdbId}
+              mediaType={type}
+              season={selectedSeason}
+              episode={selectedEpisode}
+            />
           ) : (
             <iframe
               id="video-player"

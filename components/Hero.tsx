@@ -11,6 +11,8 @@ export function Hero() {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [movieDetails, setMovieDetails] = useState<MovieDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [trailerKey, setTrailerKey] = useState<string | null>(null);
+  const [showTrailer, setShowTrailer] = useState(false);
 
   useEffect(() => {
     const fetchHeroMovie = async () => {
@@ -20,6 +22,15 @@ export function Hero() {
           setMovie(trending[0]);
           const details = await tmdb.getDetails("movie", trending[0].id);
           setMovieDetails(details);
+
+          // Find trailer
+          const videos = details.videos?.results || [];
+          const trailer = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube') ||
+            videos.find(v => v.site === 'YouTube');
+
+          if (trailer) {
+            setTrailerKey(trailer.key);
+          }
         }
       } catch (error) {
         console.error("Error fetching hero movie:", error);
@@ -31,6 +42,17 @@ export function Hero() {
     fetchHeroMovie();
   }, []);
 
+  // Timer to show trailer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (trailerKey && !isLoading) {
+      timer = setTimeout(() => {
+        setShowTrailer(true);
+      }, 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [trailerKey, isLoading]);
+
   if (isLoading || !movie) {
     return (
       <div className="relative h-[80vh] w-full skeleton" />
@@ -41,10 +63,10 @@ export function Hero() {
   const mediaType = movie.media_type || "movie";
 
   return (
-    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16">
-      {/* Background Image with Overlay */}
+    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
+      {/* Background Image (Fades out when trailer shows) */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${showTrailer ? 'opacity-0' : 'opacity-100'}`}
         style={{
           backgroundImage: `url(${getBackdropUrl(movie.backdrop_path)})`,
         }}
@@ -52,6 +74,20 @@ export function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
       </div>
+
+      {/* Video Background */}
+      {showTrailer && trailerKey && (
+        <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden animate-fade-in">
+          <iframe
+            className="absolute top-1/2 left-1/2 w-[150vw] h-[150vh] -translate-x-1/2 -translate-y-1/2 object-cover opacity-60"
+            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${trailerKey}&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+            allow="autoplay; encrypted-media"
+            style={{ pointerEvents: 'none' }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+        </div>
+      )}
 
       {/* Content */}
       <div className="relative h-full container mx-auto px-4 flex items-center">
