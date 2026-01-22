@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <>
       <Hero />
-      <div className="relative z-20 -mt-32">
+      <div className="relative z-20 -mt-10 sm:-mt-32">
         <TrendingSection />
         <CategorySection category="movie" title="Filmes Populares" />
         <CategorySection category="tv" title="Séries Populares" />
