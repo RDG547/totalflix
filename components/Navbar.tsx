@@ -148,6 +148,17 @@ export function Navbar() {
     }
   };
 
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isMenuOpen]);
+
   return (
     <nav className="fixed top-0 w-full z-50 glass-effect">
       <div className="container mx-auto px-4">
@@ -365,49 +376,49 @@ export function Navbar() {
                     )}
                   </Button>
 
-                {showUserDropdown && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-black/95 backdrop-blur-xl border border-purple-500/30 rounded-lg overflow-hidden shadow-2xl">
-                    <div className="px-4 py-3 border-b border-purple-500/30">
-                      <p className="text-sm text-gray-400">Conectado como</p>
-                      <p className="text-white font-medium truncate">{user.email}</p>
+                  {showUserDropdown && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-black/95 backdrop-blur-xl border border-purple-500/30 rounded-lg overflow-hidden shadow-2xl">
+                      <div className="px-4 py-3 border-b border-purple-500/30">
+                        <p className="text-sm text-gray-400">Conectado como</p>
+                        <p className="text-white font-medium truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        href="/profile"
+                        className="w-full flex items-center gap-2 px-4 py-3 text-gray-300 hover:bg-purple-500/20 hover:text-white transition-colors"
+                        onClick={() => setShowUserDropdown(false)}
+                      >
+                        <User className="w-4 h-4" />
+                        Meu Perfil
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sair
+                      </button>
                     </div>
-                    <Link
-                      href="/profile"
-                      className="w-full flex items-center gap-2 px-4 py-3 text-gray-300 hover:bg-purple-500/20 hover:text-white transition-colors"
-                      onClick={() => setShowUserDropdown(false)}
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link href="/login">
+                    <Button
+                      variant="ghost"
+                      className="text-gray-300 hover:text-white hover:bg-purple-500/20 transition-all"
                     >
-                      <User className="w-4 h-4" />
-                      Meu Perfil
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-3 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                      Entrar
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button
+                      className="glow-effect transition-all active:scale-95"
                     >
-                      <LogOut className="w-4 h-4" />
-                      Sair
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link href="/login">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white hover:bg-purple-500/20 transition-all"
-                  >
-                    Entrar
-                  </Button>
-                </Link>
-                <Link href="/register">
-                  <Button
-                    className="glow-effect transition-all active:scale-95"
-                  >
-                    Cadastrar
-                  </Button>
-                </Link>
-              </div>
-            )}
+                      Cadastrar
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
 
@@ -422,94 +433,48 @@ export function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 space-y-4 animate-slide-in">
-            <form onSubmit={handleSearch} className="relative mb-4">
-              <Input
-                type="text"
-                placeholder="Buscar..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 bg-black/50 border-purple-500/30"
-              />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            </form>
-            <Link
-              href="/"
-              className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Início
-            </Link>
-
-            {/* Mobile Movies Dropdown */}
-            <div className="space-y-2">
-              <button
-                onClick={toggleMovieDropdown}
-                className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+          <div className="fixed inset-0 top-16 z-50 bg-black/95 backdrop-blur-xl overflow-y-auto px-4 pb-8 md:hidden animate-slide-in">
+            <div className="py-4 space-y-4">
+              <form onSubmit={handleSearch} className="relative mb-4">
+                <Input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 bg-black/50 border-purple-500/30"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              </form>
+              <Link
+                href="/"
+                className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
+                onClick={() => setIsMenuOpen(false)}
               >
-                <span>Filmes</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showMovieDropdown ? 'rotate-180' : ''}`} />
-              </button>
-              {showMovieDropdown && (
-                <div className="pl-4 space-y-2 animate-slide-in">
-                  <Link
-                    href="/movies"
-                    className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Todos os Filmes
-                  </Link>
-                  {movieGenres.map((genre) => (
+                Início
+              </Link>
+
+              {/* Mobile Movies Dropdown */}
+              <div className="space-y-2">
+                <button
+                  onClick={toggleMovieDropdown}
+                  className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                >
+                  <span>Filmes</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showMovieDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showMovieDropdown && (
+                  <div className="pl-4 space-y-2 animate-slide-in">
                     <Link
-                      key={genre.id}
-                      href={`/genre/${genre.id}?type=movie`}
-                      className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                      href="/movies"
+                      className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <span>{genre.name}</span>
-                      <span className="text-xs text-gray-500">
-                        {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
-                      </span>
+                      Todos os Filmes
                     </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Mobile TV Shows Dropdown */}
-            <div className="space-y-2">
-              <button
-                onClick={toggleTvDropdown}
-                className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
-              >
-                <span>Séries</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showTvDropdown ? 'rotate-180' : ''}`} />
-              </button>
-              {showTvDropdown && (
-                <div className="pl-4 space-y-2 animate-slide-in">
-                  <Link
-                    href="/series"
-                    className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Todas as Séries
-                  </Link>
-                  <Link
-                    href="/genre/10759?type=tv"
-                    className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <span>Ação & Aventura</span>
-                    <span className="text-xs text-gray-500">
-                      {genreCounts[10759] ? genreCounts[10759].toLocaleString('pt-BR') : '...'}
-                    </span>
-                  </Link>
-                  {tvGenres
-                    .filter((genre) => genre.id !== 10759)
-                    .map((genre) => (
+                    {movieGenres.map((genre) => (
                       <Link
                         key={genre.id}
-                        href={`/genre/${genre.id}?type=tv`}
+                        href={`/genre/${genre.id}?type=movie`}
                         className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
                         onClick={() => setIsMenuOpen(false)}
                       >
@@ -519,55 +484,103 @@ export function Navbar() {
                         </span>
                       </Link>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile TV Shows Dropdown */}
+              <div className="space-y-2">
+                <button
+                  onClick={toggleTvDropdown}
+                  className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                >
+                  <span>Séries</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showTvDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showTvDropdown && (
+                  <div className="pl-4 space-y-2 animate-slide-in">
+                    <Link
+                      href="/series"
+                      className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Todas as Séries
+                    </Link>
+                    <Link
+                      href="/genre/10759?type=tv"
+                      className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <span>Ação & Aventura</span>
+                      <span className="text-xs text-gray-500">
+                        {genreCounts[10759] ? genreCounts[10759].toLocaleString('pt-BR') : '...'}
+                      </span>
+                    </Link>
+                    {tvGenres
+                      .filter((genre) => genre.id !== 10759)
+                      .map((genre) => (
+                        <Link
+                          key={genre.id}
+                          href={`/genre/${genre.id}?type=tv`}
+                          className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          <span>{genre.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
+                          </span>
+                        </Link>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <Link
+                href="/tv"
+                className="flex items-center gap-2 text-gray-300 hover:text-purple-400 transition-colors py-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Radio className="w-4 h-4" />
+                TV ao Vivo
+              </Link>
+
+              {user ? (
+                <>
+                  <Link
+                    href="/profile"
+                    className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Meu Perfil
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors py-2 w-full"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sair
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Button
+                      variant="ghost"
+                      className="w-full text-gray-300 hover:text-white hover:bg-purple-500/20"
+                    >
+                      Entrar
+                    </Button>
+                  </Link>
+                  <Link href="/register" onClick={() => setIsMenuOpen(false)}>
+                    <Button
+                      className="w-full glow-effect"
+                    >
+                      Cadastrar
+                    </Button>
+                  </Link>
                 </div>
               )}
             </div>
-
-            <Link
-              href="/tv"
-              className="flex items-center gap-2 text-gray-300 hover:text-purple-400 transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Radio className="w-4 h-4" />
-              TV ao Vivo
-            </Link>
-
-            {user ? (
-              <>
-                <Link
-                  href="/profile"
-                  className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Meu Perfil
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors py-2 w-full"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sair
-                </button>
-              </>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    variant="ghost"
-                    className="w-full text-gray-300 hover:text-white hover:bg-purple-500/20"
-                  >
-                    Entrar
-                  </Button>
-                </Link>
-                <Link href="/register" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    className="w-full glow-effect"
-                  >
-                    Cadastrar
-                  </Button>
-                </Link>
-              </div>
-            )}
           </div>
         )}
       </div>

@@ -230,7 +230,7 @@ export function MovieCard({ movie }: MovieCardProps) {
             />
 
             {/* Overlay on Hover (Standard) - Shows Buttons */}
-            <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent transition-opacity duration-300 ${showPreview || mobileStage === 2 ? 'opacity-0' : (mobileStage === 1 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}`}>
+            <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent transition-opacity duration-300 pointer-events-none sm:group-hover:pointer-events-auto ${showPreview || mobileStage === 2 ? '!opacity-0 !pointer-events-none' : (mobileStage === 1 ? '!opacity-100 !pointer-events-auto' : 'opacity-0 sm:group-hover:opacity-100')}`}>
               <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 flex flex-col items-center text-center">
                 <h3 className="text-white font-bold line-clamp-2 text-base">
                   {title}
@@ -269,7 +269,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                       onClick={handleWatchClick}
                       className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 min-w-0"
                     >
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                       </svg>
                       Assistir
@@ -279,7 +279,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                       disabled={loadingTrailer}
                       className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 disabled:opacity-50 min-w-0"
                     >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -296,7 +296,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                       ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20'
                       : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/20'
                       }`}>
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       Ver Detalhes
@@ -308,31 +308,6 @@ export function MovieCard({ movie }: MovieCardProps) {
 
             {/* Preview Overlay (Activated after 2s or Stage 2) - Shows Description */}
             <div className={`absolute inset-0 bg-black/80 backdrop-blur-md p-4 transition-all duration-500 flex flex-col ${showPreview || mobileStage === 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}>
-              {/* Countdown Ball */}
-              <div className="absolute top-2 right-2 flex items-center justify-center w-8 h-8">
-                <svg className="w-full h-full -rotate-90">
-                  <circle
-                    cx="16"
-                    cy="16"
-                    r="14"
-                    fill="none"
-                    stroke="#374151"
-                    strokeWidth="3"
-                  />
-                  <circle
-                    cx="16"
-                    cy="16"
-                    r="14"
-                    fill="none"
-                    stroke="#a855f7"
-                    strokeWidth="3"
-                    strokeDasharray={88}
-                    strokeDashoffset={88 - (88 * countdown) / 3}
-                    className="transition-all duration-1000 ease-linear"
-                  />
-                </svg>
-                <span className="absolute text-[10px] font-bold text-white">{countdown}</span>
-              </div>
 
               <div className="mt-8 flex-1 space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-500/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-purple-500/50">
                 <h3 className="text-white font-bold text-sm leading-tight">
