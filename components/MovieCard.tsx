@@ -23,6 +23,7 @@ export function MovieCard({ movie }: MovieCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const [mobileStage, setMobileStage] = useState(0); // 0: Banner, 1: Buttons, 2: Description
   const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
@@ -202,32 +203,18 @@ export function MovieCard({ movie }: MovieCardProps) {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={(e) => {
-          // Mobile interaction: First tap shows preview overlay
+          // Mobile interaction: 3-stage tap
+          // 1. First tap: Show Buttons (Stage 1)
+          // 2. Second tap: Show Description (Stage 2)
+          // 3. Third tap: Reset (Stage 0)
           if (window.innerWidth < 768) {
-            if (!showPreview) {
-              e.preventDefault();
-              setShowPreview(true);
-            }
-            // If preview is already shown, we let the link work?
-            // User asked for a specific "See Details" button.
-            // To be safe and strictly follow "tap to reveal", we can keep preventing default if we want the button to be the primary way.
-            // But usually, a second tap on the card is expected to enter.
-            // HOWEVER, the standard MovieCard behavior on desktop has the overlay covering everything.
-            // When overlay is active, where does the user click?
-            // The overlay sits ON TOP of the image. The content inside (buttons) handles clicks.
-            // If the user clicks the black background of the overlay, does it propagate to Link? Yes.
-            // So if showPreview is true, the user sees buttons.
-            // If we want to force using the "Ver Detalhes" button, we should preventDefault always on mobile?
-            // Let's preventDefault if < 768. The "Ver Detalhes" button I added is a Link or has a click handler that stops propagation!
-            // Wait, provided replacement for "Ver Detalhes" was a Link inside a button container.
-            // That Link should have `e.stopPropagation()` on click!
-            // So, the main Card Link `onClick`: if mobile, ALWAYS preventDefault?
-            // If I do that, clicking the "background" of the overlay won't take you to the page.
-            // That seems consistent with "show info... add button to see details".
-
-            if (window.innerWidth < 768) {
-              e.preventDefault();
-              setShowPreview(true);
+            e.preventDefault(); // Prevent navigation on mobile taps on the card background
+            if (mobileStage === 0) {
+              setMobileStage(1);
+            } else if (mobileStage === 1) {
+              setMobileStage(2);
+            } else {
+              setMobileStage(0);
             }
           }
         }}
@@ -238,18 +225,18 @@ export function MovieCard({ movie }: MovieCardProps) {
               src={getImageUrl(movie.poster_path)}
               alt={title}
               fill
-              className={`object-cover transition-transform duration-300 ${showPreview ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
+              className={`object-cover transition-transform duration-300 ${showPreview || mobileStage === 2 ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
             />
 
-            {/* Overlay on Hover (Standard) */}
-            <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent transition-opacity duration-300 ${showPreview ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-              <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3">
+            {/* Overlay on Hover (Standard) - Shows Buttons */}
+            <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent transition-opacity duration-300 ${showPreview || mobileStage === 2 ? 'opacity-0' : (mobileStage === 1 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}`}>
+              <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 flex flex-col items-center text-center">
                 <h3 className="text-white font-bold line-clamp-2 text-base">
                   {title}
                 </h3>
 
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center justify-center gap-2 text-xs w-full">
                   <div className="flex items-center gap-1 text-yellow-400">
                     <Star className="w-4 h-4 fill-current" />
                     <span className="font-semibold">{movie.vote_average?.toFixed(1)}</span>
@@ -276,27 +263,29 @@ export function MovieCard({ movie }: MovieCardProps) {
                   )}
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={handleWatchClick}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 min-w-[90px]"
-                  >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                    </svg>
-                    Assistir
-                  </button>
-                  <button
-                    onClick={handleTrailerClick}
-                    disabled={loadingTrailer}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 disabled:opacity-50 min-w-[80px]"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {loadingTrailer ? "..." : "Trailer"}
-                  </button>
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex flex-row gap-2 w-full justify-center">
+                    <button
+                      onClick={handleWatchClick}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 min-w-0"
+                    >
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                      </svg>
+                      Assistir
+                    </button>
+                    <button
+                      onClick={handleTrailerClick}
+                      disabled={loadingTrailer}
+                      className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 disabled:opacity-50 min-w-0"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {loadingTrailer ? "..." : "Trailer"}
+                    </button>
+                  </div>
 
                   <Link
                     href={`/details/${mediaType}/${movie.id}`}
@@ -304,8 +293,8 @@ export function MovieCard({ movie }: MovieCardProps) {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button className={`w-full text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 ${mediaType === 'movie'
-                        ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20'
-                        : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/20'
+                      ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20'
+                      : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/20'
                       }`}>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -317,8 +306,8 @@ export function MovieCard({ movie }: MovieCardProps) {
               </div>
             </div>
 
-            {/* Preview Overlay (Activated after 2s) */}
-            <div className={`absolute inset-0 bg-black/80 backdrop-blur-md p-4 transition-all duration-500 flex flex-col ${showPreview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}>
+            {/* Preview Overlay (Activated after 2s or Stage 2) - Shows Description */}
+            <div className={`absolute inset-0 bg-black/80 backdrop-blur-md p-4 transition-all duration-500 flex flex-col ${showPreview || mobileStage === 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}>
               {/* Countdown Ball */}
               <div className="absolute top-2 right-2 flex items-center justify-center w-8 h-8">
                 <svg className="w-full h-full -rotate-90">
