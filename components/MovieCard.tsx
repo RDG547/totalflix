@@ -303,7 +303,10 @@ export function MovieCard({ movie }: MovieCardProps) {
                     className="w-full sm:hidden"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1">
+                    <button className={`w-full text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 ${mediaType === 'movie'
+                        ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20'
+                        : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/20'
+                      }`}>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
