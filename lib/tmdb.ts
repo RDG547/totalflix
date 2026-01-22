@@ -122,12 +122,12 @@ export const tmdb = {
 };
 
 export const getImageUrl = (path: string, size: 'w300' | 'w500' | 'original' = 'w500') => {
-  if (!path) return '/placeholder.jpg';
+  if (!path) return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="500" height="750" viewBox="0 0 500 750"%3E%3Crect width="500" height="750" fill="%23111"/>%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="24" fill="%23666"%3ESem Imagem%3C/text%3E%3C/svg%3E';
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
 export const getBackdropUrl = (path: string, size: 'w780' | 'w1280' | 'original' = 'original') => {
-  if (!path) return '/placeholder.jpg';
+  if (!path) return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"%3E%3Crect width="1280" height="720" fill="%23111"/>%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="32" fill="%23666"%3ESem Imagem%3C/text%3E%3C/svg%3E';
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 

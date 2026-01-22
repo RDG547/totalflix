@@ -65,7 +65,7 @@ export default function SeriesPage() {
   return (
     <div className="min-h-screen pt-24 pb-12">
       <div className="container mx-auto px-4 space-y-12">
-        <div>
+        <div className="text-center">
           <h1 className="text-4xl font-bold text-gradient mb-2">📺 Todas as Séries</h1>
           <p className="text-gray-400">Explore nossa coleção completa de séries</p>
         </div>

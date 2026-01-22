@@ -1,4 +1,4 @@
-import { Film, Tv } from "lucide-react";
+import { Film, Tv, Newspaper, Music, Gamepad2, Trophy, BookOpen, Globe, Sparkles } from "lucide-react";
 
 export interface TVChannel {
   id: string;
@@ -127,8 +127,14 @@ export const TV_CHANNELS: TVChannel[] = [
 
 export const TV_CATEGORIES = [
   { id: "all", name: "Todos", icon: Tv },
-  { id: "Notícias", name: "Notícias", icon: Film },
-  { id: "Entretenimento", name: "Entretenimento", icon: Film },
+  { id: "Notícias", name: "Notícias", icon: Newspaper },
+  { id: "Filmes", name: "Filmes", icon: Film },
+  { id: "Esportes", name: "Esportes", icon: Trophy },
+  { id: "Entretenimento", name: "Entretenimento", icon: Sparkles },
+  { id: "Música", name: "Música", icon: Music },
+  { id: "Documentários", name: "Documentários", icon: BookOpen },
+  { id: "Internacional", name: "Internacional", icon: Globe },
+  { id: "Infantil", name: "Infantil", icon: Gamepad2 },
 ];
 
 export const getChannelsByCategory = (category: string): TVChannel[] => {

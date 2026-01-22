@@ -341,14 +341,23 @@ export function Navbar() {
                     onClick={() => setShowUserDropdown(!showUserDropdown)}
                     variant="ghost"
                     size="icon"
-                    className="rounded-full hover:bg-purple-500/20 transition-all overflow-hidden"
+                    className="rounded-full hover:bg-purple-500/20 transition-all overflow-hidden p-0"
                   >
-                    {user.photoURL ? (
-                      <img
-                        src={user.photoURL}
-                        alt="Avatar"
-                        className="w-8 h-8 rounded-full object-cover"
-                      />
+                    {user.photoURL && user.photoURL.trim() !== '' ? (
+                      <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                        <Image
+                          src={user.photoURL}
+                          alt="Avatar"
+                          width={32}
+                          height={32}
+                          className="rounded-full object-cover"
+                          unoptimized={!user.photoURL.includes('googleusercontent.com') && !user.photoURL.includes('firebasestorage.googleapis.com')}
+                          onError={(e) => {
+                            // Fallback para o ícone se a imagem falhar
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-purple-800 flex items-center justify-center">
                         <User className="w-5 h-5 text-white" />

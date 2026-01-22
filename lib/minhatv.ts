@@ -24,16 +24,29 @@ export interface MinhaTVStream {
 }
 
 /**
- * Fetch TV channels from Minha TV addon
+ * Fetch TV channels from Minha TV addon - uses local API route to avoid CORS
  */
 export async function getMinhaTVChannels(): Promise<MinhaTVMeta[]> {
     try {
-        const response = await axios.get<MinhaTVCatalog>(
-            `${MINHATV_BASE_URL}/catalog/tv/minhatv_channels.json`,
-            { timeout: 10000 }
-        );
+        // Usar API route local para evitar problemas de CORS
+        const isClient = typeof window !== 'undefined';
+        const baseUrl = isClient ? '' : 'http://localhost:3000';
+        const url = `${baseUrl}/api/tv-channels`;
 
-        return response.data.metas || [];
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            },
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            throw new Error(`API responded with status ${response.status}`);
+        }
+
+        const data: MinhaTVCatalog = await response.json();
+        return data.metas || [];
     } catch (error) {
         console.error('Error fetching Minha TV channels:', error);
         return [];
