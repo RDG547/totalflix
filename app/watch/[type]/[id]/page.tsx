@@ -105,11 +105,10 @@ export default function WatchPage({ params }: PageProps) {
               key={player.id}
               onClick={() => handlePlayerChange(player.id)}
               variant={currentPlayer === player.id ? "default" : "outline"}
-              className={`${
-                currentPlayer === player.id
+              className={`${currentPlayer === player.id
                   ? "bg-purple-600 hover:bg-purple-700"
                   : "border-purple-500/50 hover:bg-purple-500/10"
-              }`}
+                }`}
             >
               {player.name}
             </Button>
@@ -121,7 +120,7 @@ export default function WatchPage({ params }: PageProps) {
           <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />
           <div className="text-sm text-gray-300">
             <p className="font-semibold text-blue-400 mb-1">💡 Dica sobre Idioma</p>
-            <p>Para assistir em <strong>português/dublado</strong>, clique no ícone de configurações (⚙️) ou CC no player e selecione "Português" ou "Portuguese" nas opções de áudio/legendas.</p>
+            <p>Para assistir em <strong>português/dublado</strong>, clique no ícone de configurações (⚙️) ou CC no player e selecione &quot;Português&quot; ou &quot;Portuguese&quot; nas opções de áudio/legendas.</p>
           </div>
         </div>
 
@@ -213,11 +212,10 @@ export default function WatchPage({ params }: PageProps) {
                     <button
                       key={episode}
                       onClick={() => setSelectedEpisode(episode)}
-                      className={`px-4 py-2 rounded-lg transition-all ${
-                        selectedEpisode === episode
+                      className={`px-4 py-2 rounded-lg transition-all ${selectedEpisode === episode
                           ? "bg-purple-600 text-white glow-effect"
                           : "bg-black/50 text-gray-300 border border-purple-500/30 hover:border-purple-500 hover:bg-purple-900/20"
-                      }`}
+                        }`}
                     >
                       {episode}
                     </button>

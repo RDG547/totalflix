@@ -189,7 +189,7 @@ export default function TermsPage() {
                 <h2 className="text-2xl font-bold text-white mb-3">6. Isenção de Responsabilidade</h2>
                 <div className="space-y-3 text-gray-300">
                   <p className="leading-relaxed">
-                    A TotalFlix é fornecida "como está" e "conforme disponível". Não garantimos que:
+                    A TotalFlix é fornecida &quot;como está&quot; e &quot;conforme disponível&quot;. Não garantimos que:
                   </p>
                   <ul className="space-y-2">
                     <li className="flex items-start gap-2">

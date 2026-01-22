@@ -75,7 +75,7 @@ export default async function DetailsPage({ params }: PageProps) {
 
               {details.tagline && (
                 <p className="text-xl text-purple-300 italic">
-                  "{details.tagline}"
+                  &quot;{details.tagline}&quot;
                 </p>
               )}
 

@@ -31,7 +31,7 @@ export function MovieCard({ movie }: MovieCardProps) {
   const countdownTimerRef = useState<{ current: NodeJS.Timeout | null }>({ current: null })[0];
 
   const title = movie.title || movie.name || "";
-  const mediaType = movie.media_type || (movie.title ? "movie" : "tv");
+  const mediaType = (movie.media_type || (movie.title ? "movie" : "tv")) as "movie" | "tv";
   const year = movie.release_date?.split("-")[0] || movie.first_air_date?.split("-")[0];
 
   // Formatar duração
