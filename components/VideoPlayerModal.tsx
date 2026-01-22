@@ -29,6 +29,8 @@ const PLAYER_OPTIONS = [
   { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
 ];
 
+import { useScrollLock } from "@/hooks/useScrollLock";
+
 export function VideoPlayerModal({
   isOpen,
   onClose,
@@ -52,13 +54,10 @@ export function VideoPlayerModal({
     setSelectedEpisode(initialEpisode);
   }, [initialSeason, initialEpisode]);
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+  // ... inside component ...
+  useScrollLock(isOpen);
 
+  useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };

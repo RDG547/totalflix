@@ -13,6 +13,8 @@ import toast from "react-hot-toast";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { getGenreName } from "@/lib/genres";
 
+import { useScrollLock } from "@/hooks/useScrollLock";
+
 interface MovieCardProps {
   movie: Movie & { runtime?: number; number_of_seasons?: number };
 }
@@ -184,17 +186,8 @@ export function MovieCard({ movie }: MovieCardProps) {
     }
   };
 
-  useEffect(() => {
-    if (isTrailerOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isTrailerOpen]);
+  // ... inside component ...
+  useScrollLock(isTrailerOpen);
 
   return (
     <>

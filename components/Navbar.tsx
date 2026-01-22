@@ -10,6 +10,7 @@ import { tmdb, type Movie, getImageUrl } from "@/lib/tmdb";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
+import { useScrollLock } from "@/hooks/useScrollLock";
 
 interface Genre {
   id: number;
@@ -148,19 +149,11 @@ export function Navbar() {
     }
   };
 
-  useEffect(() => {
-    if (isMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isMenuOpen]);
+  // ... inside component ...
+  useScrollLock(isMenuOpen);
 
   return (
-    <nav className="fixed top-0 w-full z-[100] glass-effect">
+    <nav className="fixed top-0 w-full z-[100] bg-black/80 backdrop-blur-xl border-b border-white/10 transition-all duration-300">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}

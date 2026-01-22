@@ -6,6 +6,8 @@ import { X, Mail, Lock, User as UserIcon, Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { useScrollLock } from "@/hooks/useScrollLock";
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +15,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+  useScrollLock(isOpen);
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
