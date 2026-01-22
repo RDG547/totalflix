@@ -83,6 +83,9 @@ export function Navbar() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Don't handle outside clicks when mobile menu is open
+      if (isMenuOpen) return;
+
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowResults(false);
       }
@@ -99,7 +102,7 @@ export function Navbar() {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     const searchContent = async () => {
