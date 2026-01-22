@@ -59,7 +59,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
       {/* Backdrop com Blur */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-md"
@@ -169,8 +169,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               {loading
                 ? "Carregando..."
                 : isLogin
-                ? "Entrar"
-                : "Criar Conta"}
+                  ? "Entrar"
+                  : "Criar Conta"}
             </Button>
           </form>
 

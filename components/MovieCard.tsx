@@ -370,7 +370,7 @@ export function MovieCard({ movie }: MovieCardProps) {
       {/* Trailer Modal */}
       {isTrailerOpen && trailerKey && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4"
           onClick={() => setIsTrailerOpen(false)}
         >
           <div className="relative w-full max-w-5xl aspect-video">

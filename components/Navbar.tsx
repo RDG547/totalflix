@@ -160,7 +160,7 @@ export function Navbar() {
   }, [isMenuOpen]);
 
   return (
-    <nav className="fixed top-0 w-full z-50 glass-effect">
+    <nav className="fixed top-0 w-full z-[100] glass-effect">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
