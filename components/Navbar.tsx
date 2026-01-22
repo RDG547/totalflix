@@ -426,7 +426,7 @@ export function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="fixed inset-0 top-16 z-50 bg-black/95 backdrop-blur-xl overflow-y-auto px-4 pb-8 md:hidden animate-slide-in">
+          <div className="fixed top-16 left-0 right-0 bottom-0 z-50 bg-black/95 backdrop-blur-xl overflow-y-auto px-4 pb-8 md:hidden h-[calc(100dvh-4rem)] animate-in fade-in">
             <div className="py-4 space-y-4">
               <form onSubmit={handleSearch} className="relative mb-4">
                 <Input
