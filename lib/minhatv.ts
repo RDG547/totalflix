@@ -58,13 +58,20 @@ export async function getMinhaTVChannels(): Promise<MinhaTVMeta[]> {
  */
 export async function getMinhaTVStream(channelId: string): Promise<string | null> {
     try {
-        const response = await axios.get<MinhaTVStream>(
-            `${MINHATV_BASE_URL}/stream/tv/${channelId}.json`,
-            { timeout: 10000 }
-        );
+        const isClient = typeof window !== 'undefined';
+        const baseUrl = isClient ? '' : 'http://localhost:3000';
+        const url = `${baseUrl}/api/tv-stream?id=${channelId}`;
 
-        if (response.data.streams && response.data.streams.length > 0) {
-            return response.data.streams[0].url;
+        const response = await fetch(url, {
+            cache: 'no-store'
+        });
+
+        if (!response.ok) return null;
+
+        const data: MinhaTVStream = await response.json();
+
+        if (data.streams && data.streams.length > 0) {
+            return data.streams[0].url;
         }
 
         return null;

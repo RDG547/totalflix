@@ -99,7 +99,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
         <div id="tv-player-container" className="relative aspect-video bg-black">
           <iframe
             key={channel.streamUrl}
-            src={channel.streamUrl}
+            src={`${channel.streamUrl}${channel.streamUrl.includes('?') ? '&' : '?'}autoplay=1&mute=1`}
             className="w-full h-full"
             allowFullScreen
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

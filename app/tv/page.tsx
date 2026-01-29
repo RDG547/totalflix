@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, Radio, Loader2 } from "lucide-react";
 import { TVPlayerModal } from "@/components/TVPlayerModal";
+import toast from "react-hot-toast";
 
 // Mapeamento de nomes de canais para categorias (detecta pela palavra-chave no nome)
 const CATEGORY_CHANNEL_KEYWORDS: Record<string, string[]> = {
@@ -177,10 +178,38 @@ export default function TVPage() {
 
   // Handler para assistir canal
   const handleWatchChannel = async (channel: MinhaTVMeta) => {
+    // Show loading toast
+    const toastId = toast.loading("Carregando canal, aguarde...", {
+      position: "top-center",
+      style: {
+        marginTop: "40vh",
+        backgroundColor: "#1a1a1a",
+        color: "#fff",
+        border: "1px solid rgba(139, 92, 246, 0.3)"
+      }
+    });
+
     try {
       const streamUrl = await getMinhaTVStream(channel.id);
 
+      // Dismiss loading toast
+      toast.dismiss(toastId);
+
       if (!streamUrl) {
+        toast.error(
+          "Não foi possível carregar este canal. Pode ser uma instabilidade específica. Por favor, tente outro canal.",
+          {
+            duration: 6000,
+            position: "top-center",
+            style: {
+              marginTop: "40vh",
+              textAlign: "center",
+              backgroundColor: "#1a1a1a",
+              color: "#fff",
+              border: "1px solid rgba(239, 68, 68, 0.5)"
+            }
+          }
+        );
         console.error('Stream URL não encontrada');
         return;
       }
@@ -198,6 +227,10 @@ export default function TVPage() {
       setSelectedChannel(tvChannel);
       setIsPlayerOpen(true);
     } catch (error) {
+      toast.dismiss(toastId);
+      toast.error("Erro ao tentar abrir o canal. Tente novamente.", {
+        position: "top-center"
+      });
       console.error('Erro ao abrir canal:', error);
     }
   };
@@ -234,10 +267,10 @@ export default function TVPage() {
                 {searchQuery
                   ? `Pesquisa: "${searchQuery}"`
                   : selectedCategory !== 'all'
-                  ? TV_CATEGORIES.find(c => c.id === selectedCategory)?.name
-                  : selectedLetter !== 'all'
-                  ? `Letra ${selectedLetter}`
-                  : 'Todos'}
+                    ? TV_CATEGORIES.find(c => c.id === selectedCategory)?.name
+                    : selectedLetter !== 'all'
+                      ? `Letra ${selectedLetter}`
+                      : 'Todos'}
               </span>
               {(searchQuery || selectedCategory !== 'all' || selectedLetter !== 'all') && (
                 <button
@@ -289,11 +322,10 @@ export default function TVPage() {
                         type="button"
                         onClick={() => handleCategorySelect(category.id)}
                         variant={isActive ? "default" : "ghost"}
-                        className={`justify-start w-full transition-all text-left ${
-                          isActive
-                            ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50"
-                            : "text-gray-300 hover:text-white hover:bg-white/10"
-                        }`}
+                        className={`justify-start w-full transition-all text-left ${isActive
+                          ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50"
+                          : "text-gray-300 hover:text-white hover:bg-white/10"
+                          }`}
                       >
                         <Icon className="w-4 h-4 mr-2 shrink-0" />
                         <span className="truncate">{category.name}</span>
@@ -315,11 +347,10 @@ export default function TVPage() {
                         type="button"
                         onClick={() => handleLetterSelect(letter)}
                         variant={isActive ? "default" : "ghost"}
-                        className={`w-10 h-10 p-0 transition-all ${
-                          isActive
-                            ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50"
-                            : "text-gray-300 hover:text-white hover:bg-white/10"
-                        }`}
+                        className={`w-10 h-10 p-0 transition-all ${isActive
+                          ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50"
+                          : "text-gray-300 hover:text-white hover:bg-white/10"
+                          }`}
                       >
                         {letter}
                       </Button>
@@ -350,9 +381,9 @@ export default function TVPage() {
             </h3>
             <p className="text-gray-500">
               {searchQuery ? `Nenhum canal encontrado para "${searchQuery}"` :
-               selectedCategory !== 'all' ? `Nenhum canal na categoria "${TV_CATEGORIES.find(c => c.id === selectedCategory)?.name}"` :
-               selectedLetter !== 'all' ? `Nenhum canal com a letra "${selectedLetter}"` :
-               'Não foi possível carregar os canais'}
+                selectedCategory !== 'all' ? `Nenhum canal na categoria "${TV_CATEGORIES.find(c => c.id === selectedCategory)?.name}"` :
+                  selectedLetter !== 'all' ? `Nenhum canal com a letra "${selectedLetter}"` :
+                    'Não foi possível carregar os canais'}
             </p>
             {(searchQuery || selectedCategory !== 'all' || selectedLetter !== 'all') && (
               <button
