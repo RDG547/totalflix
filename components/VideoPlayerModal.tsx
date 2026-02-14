@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Maximize2, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
+import { ShortenerGate } from "./ShortenerGate";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -47,6 +48,22 @@ export function VideoPlayerModal({
   const [episodeCount, setEpisodeCount] = useState(10);
   const [selectedPlayer, setSelectedPlayer] = useState<VideoPlayer>('megaembed');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [gatePassed, setGatePassed] = useState(false);
+
+  // Chave única por conteúdo (muda quando muda o filme/episódio)
+  const contentKey = type === 'movie'
+    ? `gate-movie-${tmdbId}`
+    : `gate-tv-${tmdbId}-s${selectedSeason}e${selectedEpisode}`;
+
+  // Verifica se já passou pelo gate quando o conteúdo muda
+  useEffect(() => {
+    const stored = localStorage.getItem(contentKey);
+    setGatePassed(!!stored);
+  }, [contentKey]);
+
+  const handleGatePassed = useCallback(() => {
+    setGatePassed(true);
+  }, []);
 
   // Atualiza season/episode quando props mudarem
   useEffect(() => {
@@ -179,7 +196,14 @@ export function VideoPlayerModal({
 
         {/* Video Player Container */}
         <div id="player-container" className="relative aspect-video bg-black">
-          {selectedPlayer === 'webtorrent' ? (
+          {!gatePassed ? (
+            <ShortenerGate
+              contentKey={contentKey}
+              onPassed={handleGatePassed}
+              title={title}
+              posterUrl={posterPath ? getImageUrl(posterPath) : undefined}
+            />
+          ) : selectedPlayer === 'webtorrent' ? (
             <TorrentPlayer
               poster={posterPath ? getImageUrl(posterPath) : undefined}
               tmdbId={tmdbId}

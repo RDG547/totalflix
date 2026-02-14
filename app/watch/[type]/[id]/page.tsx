@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { tmdb, getPlayerUrl, type MovieDetails } from "@/lib/tmdb";
+import { useEffect, useState, useCallback } from "react";
+import { tmdb, getPlayerUrl, getImageUrl, type MovieDetails } from "@/lib/tmdb";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ShortenerGate } from "@/components/ShortenerGate";
 
 interface PageProps {
   params: {
@@ -24,6 +25,22 @@ export default function WatchPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('vidsrc');
   const [playerError, setPlayerError] = useState(false);
+  const [gatePassed, setGatePassed] = useState(false);
+
+  // Chave única por conteúdo
+  const contentKey = type === 'movie'
+    ? `gate-movie-${id}`
+    : `gate-tv-${id}-s${selectedSeason}e${selectedEpisode}`;
+
+  // Verifica se já passou pelo gate quando o conteúdo muda
+  useEffect(() => {
+    const stored = localStorage.getItem(contentKey);
+    setGatePassed(!!stored);
+  }, [contentKey]);
+
+  const handleGatePassed = useCallback(() => {
+    setGatePassed(true);
+  }, []);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -106,8 +123,8 @@ export default function WatchPage({ params }: PageProps) {
               onClick={() => handlePlayerChange(player.id)}
               variant={currentPlayer === player.id ? "default" : "outline"}
               className={`${currentPlayer === player.id
-                  ? "bg-purple-600 hover:bg-purple-700"
-                  : "border-purple-500/50 hover:bg-purple-500/10"
+                ? "bg-purple-600 hover:bg-purple-700"
+                : "border-purple-500/50 hover:bg-purple-500/10"
                 }`}
             >
               {player.name}
@@ -137,7 +154,14 @@ export default function WatchPage({ params }: PageProps) {
 
         {/* Player */}
         <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl glow-effect mb-8">
-          {embedUrl ? (
+          {!gatePassed ? (
+            <ShortenerGate
+              contentKey={contentKey}
+              onPassed={handleGatePassed}
+              title={title}
+              posterUrl={details.poster_path ? getImageUrl(details.poster_path) : undefined}
+            />
+          ) : embedUrl ? (
             <iframe
               key={`${currentPlayer}-${embedUrl}`}
               src={embedUrl}
@@ -147,21 +171,16 @@ export default function WatchPage({ params }: PageProps) {
               title={title}
               onError={() => setPlayerError(true)}
               onLoad={(e) => {
-                // Tentar configurar idioma português através de postMessage
                 const iframe = e.currentTarget;
                 try {
-                  // Enviar mensagens para tentar configurar o idioma
                   iframe.contentWindow?.postMessage({ type: 'setLanguage', language: 'pt' }, '*');
                   iframe.contentWindow?.postMessage({ type: 'setLanguage', language: 'pt-BR' }, '*');
                   iframe.contentWindow?.postMessage({ type: 'changeLanguage', language: 'pt' }, '*');
                   iframe.contentWindow?.postMessage({ type: 'changeLanguage', language: 'pt-BR' }, '*');
-
-                  // Tentar configurar áudio dublado
                   iframe.contentWindow?.postMessage({ type: 'setAudio', audio: 'pt' }, '*');
                   iframe.contentWindow?.postMessage({ type: 'setAudio', audio: 'por' }, '*');
                   iframe.contentWindow?.postMessage({ type: 'setAudio', audio: 'portuguese' }, '*');
                 } catch (err) {
-                  // Ignorar erros de cross-origin
                   console.log('Não foi possível configurar idioma automaticamente');
                 }
               }}
@@ -213,8 +232,8 @@ export default function WatchPage({ params }: PageProps) {
                       key={episode}
                       onClick={() => setSelectedEpisode(episode)}
                       className={`px-4 py-2 rounded-lg transition-all ${selectedEpisode === episode
-                          ? "bg-purple-600 text-white glow-effect"
-                          : "bg-black/50 text-gray-300 border border-purple-500/30 hover:border-purple-500 hover:bg-purple-900/20"
+                        ? "bg-purple-600 text-white glow-effect"
+                        : "bg-black/50 text-gray-300 border border-purple-500/30 hover:border-purple-500 hover:bg-purple-900/20"
                         }`}
                     >
                       {episode}

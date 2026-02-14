@@ -149,7 +149,7 @@ export const getPlayerUrl = (
     if (mediaType === 'movie') {
       return `${baseUrl}/embed/${tmdbId}`;
     } else {
-      return `${baseUrl}/embed/${tmdbId}-${season || 1}-${episode || 1}`;
+      return `${baseUrl}/embed/${tmdbId}/${season || 1}/${episode || 1}`;
     }
   } else if (player === 'vidsrc') {
     const baseUrl = 'https://vidsrc.xyz/embed';
