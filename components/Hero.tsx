@@ -13,21 +13,76 @@ interface FeaturedMovie {
   trailerKey: string | null;
 }
 
-// Duração típica de um trailer em segundos (2 minutos)
-const TRAILER_DURATION = 120;
 // Delay antes de iniciar o trailer
 const TRAILER_START_DELAY = 5000;
+
+declare global {
+  interface Window {
+    YT: {
+      Player: new (
+        elementId: string,
+        options: {
+          videoId: string;
+          playerVars?: Record<string, number | string>;
+          events?: {
+            onReady?: (event: { target: YTPlayer }) => void;
+            onStateChange?: (event: { data: number; target: YTPlayer }) => void;
+          };
+        }
+      ) => YTPlayer;
+      PlayerState: {
+        ENDED: number;
+        PLAYING: number;
+        PAUSED: number;
+        BUFFERING: number;
+        CUED: number;
+      };
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+interface YTPlayer {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  stopVideo: () => void;
+  destroy: () => void;
+  getDuration: () => number;
+  getCurrentTime: () => number;
+}
 
 export function Hero() {
   const [featuredMovies, setFeaturedMovies] = useState<FeaturedMovie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
+  const [isYTAPILoaded, setIsYTAPILoaded] = useState(false);
   
-  // Refs para controle de timers
+  // Refs
+  const playerRef = useRef<YTPlayer | null>(null);
   const trailerStartTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const trailerEndTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Carrega a API do YouTube
+  useEffect(() => {
+    if (window.YT) {
+      setIsYTAPILoaded(true);
+      return;
+    }
+
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+    window.onYouTubeIframeAPIReady = () => {
+      setIsYTAPILoaded(true);
+    };
+
+    return () => {
+      window.onYouTubeIframeAPIReady = undefined;
+    };
+  }, []);
 
   const fetchFeaturedMovies = useCallback(async () => {
     try {
@@ -64,19 +119,74 @@ export function Hero() {
     fetchFeaturedMovies();
   }, [fetchFeaturedMovies]);
 
-  // Limpa todos os timers
-  const clearAllTimers = useCallback(() => {
-    if (trailerStartTimerRef.current) clearTimeout(trailerStartTimerRef.current);
-    if (autoAdvanceTimerRef.current) clearInterval(autoAdvanceTimerRef.current);
-    if (trailerEndTimerRef.current) clearTimeout(trailerEndTimerRef.current);
+  // Destrói o player anterior
+  const destroyPlayer = useCallback(() => {
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
+    if (trailerStartTimerRef.current) {
+      clearTimeout(trailerStartTimerRef.current);
+      trailerStartTimerRef.current = null;
+    }
   }, []);
 
-  // Gerencia o trailer e auto-avanço
+  // Avança para o próximo filme
+  const goToNext = useCallback(() => {
+    destroyPlayer();
+    setShowTrailer(false);
+    setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
+  }, [featuredMovies.length, destroyPlayer]);
+
+  // Inicializa o player do YouTube
+  const initPlayer = useCallback((videoId: string) => {
+    if (!window.YT || !containerRef.current) return;
+
+    // Limpa o container
+    containerRef.current.innerHTML = '';
+    
+    // Cria o div para o player
+    const playerDiv = document.createElement('div');
+    playerDiv.id = 'youtube-player-' + videoId;
+    containerRef.current.appendChild(playerDiv);
+
+    playerRef.current = new window.YT.Player(playerDiv.id, {
+      videoId: videoId,
+      playerVars: {
+        autoplay: 1,
+        mute: 1,
+        controls: 0,
+        showinfo: 0,
+        rel: 0,
+        loop: 0,
+        modestbranding: 1,
+        iv_load_policy: 3,
+        disablekb: 1,
+        fs: 0,
+        playsinline: 1,
+        origin: typeof window !== 'undefined' ? window.location.origin : '',
+      },
+      events: {
+        onReady: (event) => {
+          event.target.playVideo();
+        },
+        onStateChange: (event) => {
+          // Quando o vídeo termina (ENDED = 0)
+          if (event.data === window.YT.PlayerState.ENDED) {
+            // Avança para o próximo filme
+            goToNext();
+          }
+        },
+      },
+    });
+  }, [goToNext]);
+
+  // Gerencia o trailer
   useEffect(() => {
-    clearAllTimers();
+    destroyPlayer();
     
     const currentFeatured = featuredMovies[currentIndex];
-    if (!currentFeatured?.trailerKey || isLoading) {
+    if (!currentFeatured?.trailerKey || isLoading || !isYTAPILoaded) {
       setShowTrailer(false);
       return;
     }
@@ -87,26 +197,26 @@ export function Hero() {
     // Timer para iniciar o trailer após 5 segundos
     trailerStartTimerRef.current = setTimeout(() => {
       setShowTrailer(true);
-      
-      // Timer para auto-avançar após o trailer terminar
-      trailerEndTimerRef.current = setTimeout(() => {
-        if (featuredMovies.length > 1) {
-          setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
-        }
-      }, TRAILER_DURATION * 1000);
+      initPlayer(currentFeatured.trailerKey!);
     }, TRAILER_START_DELAY);
 
-    return () => clearAllTimers();
-  }, [currentIndex, featuredMovies, isLoading, clearAllTimers]);
+    return () => {
+      destroyPlayer();
+    };
+  }, [currentIndex, featuredMovies, isLoading, isYTAPILoaded, initPlayer, destroyPlayer]);
 
   const goToPrevious = () => {
-    clearAllTimers();
+    destroyPlayer();
+    setShowTrailer(false);
     setCurrentIndex((prev) => (prev - 1 + featuredMovies.length) % featuredMovies.length);
   };
 
-  const goToNext = () => {
-    clearAllTimers();
-    setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
+  const goToIndex = (index: number) => {
+    if (index !== currentIndex) {
+      destroyPlayer();
+      setShowTrailer(false);
+      setCurrentIndex(index);
+    }
   };
 
   if (isLoading || featuredMovies.length === 0) {
@@ -144,7 +254,7 @@ export function Hero() {
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
           </div>
 
-          {/* Video Background - Corrigido para evitar linha preta */}
+          {/* Video Background Container */}
           {index === currentIndex && featured.trailerKey && (
             <div 
               className={`absolute inset-0 w-full h-full pointer-events-none overflow-hidden transition-opacity duration-1000 ${
@@ -152,29 +262,16 @@ export function Hero() {
               }`}
               style={{ backgroundColor: '#000' }}
             >
-              {/* Container expandido para cobrir gaps */}
+              {/* Container do YouTube Player */}
               <div 
+                ref={containerRef}
                 className="absolute inset-0 flex items-center justify-center"
                 style={{ 
                   width: 'calc(100% + 40px)', 
                   height: 'calc(100% + 40px)',
                   margin: '-20px',
                 }}
-              >
-                <iframe
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${featured.trailerKey}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${featured.trailerKey}&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
-                  allow="autoplay; encrypted-media"
-                  style={{ 
-                    pointerEvents: 'none',
-                    border: 'none',
-                    margin: 0,
-                    padding: 0,
-                    transform: 'scale(1.05)',
-                    objectFit: 'cover',
-                  }}
-                />
-              </div>
+              />
               {/* Overlays gradientes */}
               <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none" />
@@ -243,16 +340,13 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Dots Indicator - z-index reduzido para não sobrepor modais */}
+      {/* Dots Indicator */}
       {featuredMovies.length > 1 && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[5] flex space-x-2">
           {featuredMovies.map((_, index) => (
             <button
               key={index}
-              onClick={() => {
-                clearAllTimers();
-                setCurrentIndex(index);
-              }}
+              onClick={() => goToIndex(index)}
               className={`w-2 h-2 rounded-full transition-all ${
                 index === currentIndex 
                   ? 'bg-white w-8' 
