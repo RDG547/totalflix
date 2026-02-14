@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function RedirectPage() {
+function RedirectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [countdown, setCountdown] = useState(5);
@@ -122,5 +123,17 @@ export default function RedirectPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RedirectPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-purple-900/20 to-black">
+        <Loader2 className="w-16 h-16 text-purple-500 animate-spin" />
+      </div>
+    }>
+      <RedirectContent />
+    </Suspense>
   );
 }

@@ -1,92 +1,181 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { tmdb, getBackdropUrl, type Movie, type MovieDetails } from "@/lib/tmdb";
 import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
+import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { WatchButton } from "@/components/WatchButton";
 
+interface FeaturedMovie {
+  movie: Movie;
+  details: MovieDetails | null;
+  trailerKey: string | null;
+}
+
 export function Hero() {
-  const [movie, setMovie] = useState<Movie | null>(null);
-  const [movieDetails, setMovieDetails] = useState<MovieDetails | null>(null);
+  const [featuredMovies, setFeaturedMovies] = useState<FeaturedMovie[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [showTrailer, setShowTrailer] = useState(false);
 
-  useEffect(() => {
-    const fetchHeroMovie = async () => {
-      try {
-        const trending = await tmdb.getTrending("movie", "day");
-        if (trending && trending.length > 0) {
-          setMovie(trending[0]);
-          const details = await tmdb.getDetails("movie", trending[0].id);
-          setMovieDetails(details);
-
-          // Find trailer
-          const videos = details.videos?.results || [];
-          const trailer = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube') ||
-            videos.find(v => v.site === 'YouTube');
-
-          if (trailer) {
-            setTrailerKey(trailer.key);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching hero movie:", error);
-      } finally {
-        setIsLoading(false);
+  const fetchFeaturedMovies = useCallback(async () => {
+    try {
+      const trending = await tmdb.getTrending("movie", "day");
+      if (trending && trending.length > 0) {
+        // Pega os 3 primeiros filmes
+        const top3 = trending.slice(0, 3);
+        
+        const moviesWithDetails = await Promise.all(
+          top3.map(async (movie: Movie) => {
+            const details = await tmdb.getDetails("movie", movie.id);
+            
+            // Find trailer
+            const videos = details.videos?.results || [];
+            const trailer = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube') ||
+              videos.find(v => v.site === 'YouTube');
+            
+            return {
+              movie,
+              details,
+              trailerKey: trailer?.key || null,
+            };
+          })
+        );
+        
+        setFeaturedMovies(moviesWithDetails);
       }
-    };
-
-    fetchHeroMovie();
+    } catch (error) {
+      console.error("Error fetching featured movies:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchFeaturedMovies();
+  }, [fetchFeaturedMovies]);
 
   // Timer to show trailer
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (trailerKey && !isLoading) {
+    const currentMovie = featuredMovies[currentIndex];
+    if (currentMovie?.trailerKey && !isLoading) {
+      setShowTrailer(false);
       timer = setTimeout(() => {
         setShowTrailer(true);
       }, 5000);
     }
     return () => clearTimeout(timer);
-  }, [trailerKey, isLoading]);
+  }, [currentIndex, featuredMovies, isLoading]);
 
-  if (isLoading || !movie) {
+  // Auto-advance carousel
+  useEffect(() => {
+    if (featuredMovies.length <= 1) return;
+    
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
+    }, 15000); // Muda a cada 15 segundos
+    
+    return () => clearInterval(timer);
+  }, [featuredMovies.length]);
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev - 1 + featuredMovies.length) % featuredMovies.length);
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
+  };
+
+  if (isLoading || featuredMovies.length === 0) {
     return (
       <div className="relative h-[80vh] w-full skeleton" />
     );
   }
 
-  const title = movie.title || movie.name || "";
-  const mediaType = movie.media_type || "movie";
+  const currentFeatured = featuredMovies[currentIndex];
+  const currentMovie = currentFeatured.movie;
+  const currentDetails = currentFeatured.details;
+  const title = currentMovie.title || currentMovie.name || "";
+  const mediaType = currentMovie.media_type || "movie";
 
   return (
     <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
-      {/* Background Image (Fades out when trailer shows) */}
-      <div
-        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${showTrailer ? 'opacity-0' : 'opacity-100'}`}
-        style={{
-          backgroundImage: `url(${getBackdropUrl(movie.backdrop_path)})`,
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-      </div>
+      {/* Background Images */}
+      {featuredMovies.map((featured, index) => (
+        <div
+          key={featured.movie.id}
+          className={`absolute inset-0 transition-opacity duration-1000 ${
+            index === currentIndex ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {/* Background Image (Fades out when trailer shows) */}
+          <div
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
+              index === currentIndex && showTrailer ? 'opacity-0' : 'opacity-100'
+            }`}
+            style={{
+              backgroundImage: `url(${getBackdropUrl(featured.movie.backdrop_path)})`,
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+          </div>
 
-      {/* Video Background */}
-      {showTrailer && trailerKey && (
-        <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden animate-fade-in">
-          <iframe
-            className="absolute top-1/2 left-1/2 w-[150vw] h-[150vh] -translate-x-1/2 -translate-y-1/2 object-cover opacity-60"
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${trailerKey}&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
-            allow="autoplay; encrypted-media"
-            style={{ pointerEvents: 'none' }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+          {/* Video Background */}
+          {index === currentIndex && featured.trailerKey && (
+            <div 
+              className={`absolute inset-0 w-full h-full pointer-events-none overflow-hidden transition-opacity duration-1000 ${
+                showTrailer ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              {/* Container que cobre toda a área sem gaps */}
+              <div className="absolute inset-[-10%] w-[120%] h-[120%]">
+                <iframe
+                  className="w-full h-full object-cover"
+                  src={`https://www.youtube.com/embed/${featured.trailerKey}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${featured.trailerKey}&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+                  allow="autoplay; encrypted-media"
+                  style={{ 
+                    pointerEvents: 'none',
+                    border: 'none',
+                    margin: 0,
+                    padding: 0,
+                  }}
+                />
+              </div>
+              {/* Overlays para esconder qualquer linha/borda do iframe */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+              {/* Overlay adicional para cobrir bordas do iframe */}
+              <div className="absolute inset-0 border-[20px] border-black/0 pointer-events-none" 
+                style={{ 
+                  boxShadow: 'inset 0 0 50px 20px rgba(0,0,0,0.3)',
+                }} 
+              />
+            </div>
+          )}
         </div>
+      ))}
+
+      {/* Navigation Arrows */}
+      {featuredMovies.length > 1 && (
+        <>
+          <button
+            onClick={goToPrevious}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            aria-label="Filme anterior"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            aria-label="Próximo filme"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </>
       )}
 
       {/* Content */}
@@ -100,26 +189,26 @@ export function Hero() {
             <div className="flex items-center space-x-2">
               <span className="text-yellow-400 text-base sm:text-lg">★</span>
               <span className="text-white font-semibold">
-                {movie.vote_average?.toFixed(1)}
+                {currentMovie.vote_average?.toFixed(1)}
               </span>
             </div>
             <span className="text-gray-300">
-              {movie.release_date?.split("-")[0] || movie.first_air_date?.split("-")[0]}
+              {currentMovie.release_date?.split("-")[0] || currentMovie.first_air_date?.split("-")[0]}
             </span>
           </div>
 
           <p className="text-gray-200 text-sm sm:text-base md:text-lg line-clamp-2 sm:line-clamp-3 max-w-xl">
-            {movie.overview}
+            {currentMovie.overview}
           </p>
 
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
             <WatchButton
               type={mediaType as "movie" | "tv"}
-              tmdbId={movie.id}
+              tmdbId={currentMovie.id}
               title={title}
-              numberOfSeasons={movieDetails?.number_of_seasons}
+              numberOfSeasons={currentDetails?.number_of_seasons}
             />
-            <Link href={`/details/${mediaType}/${movie.id}`}>
+            <Link href={`/details/${mediaType}/${currentMovie.id}`}>
               <Button size="lg" variant="outline" className="glass-effect border-purple-500/50 w-full sm:w-auto">
                 <Info className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Mais Informações
@@ -129,8 +218,26 @@ export function Hero() {
         </div>
       </div>
 
+      {/* Dots Indicator */}
+      {featuredMovies.length > 1 && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 flex space-x-2">
+          {featuredMovies.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentIndex(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentIndex 
+                  ? 'bg-white w-8' 
+                  : 'bg-white/50 hover:bg-white/70'
+              }`}
+              aria-label={`Ir para filme ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Bottom Fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-32 bg-gradient-to-t from-black to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-32 bg-gradient-to-t from-black to-transparent pointer-events-none" />
     </div>
   );
 }
