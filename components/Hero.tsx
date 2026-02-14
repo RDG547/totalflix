@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { tmdb, getBackdropUrl, type Movie, type MovieDetails } from "@/lib/tmdb";
 import { Button } from "@/components/ui/button";
 import { Info, ChevronLeft, ChevronRight } from "lucide-react";
@@ -13,24 +13,32 @@ interface FeaturedMovie {
   trailerKey: string | null;
 }
 
+// Duração típica de um trailer em segundos (2 minutos)
+const TRAILER_DURATION = 120;
+// Delay antes de iniciar o trailer
+const TRAILER_START_DELAY = 5000;
+
 export function Hero() {
   const [featuredMovies, setFeaturedMovies] = useState<FeaturedMovie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
+  
+  // Refs para controle de timers
+  const trailerStartTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const trailerEndTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchFeaturedMovies = useCallback(async () => {
     try {
       const trending = await tmdb.getTrending("movie", "day");
       if (trending && trending.length > 0) {
-        // Pega os 3 primeiros filmes
         const top3 = trending.slice(0, 3);
         
         const moviesWithDetails = await Promise.all(
           top3.map(async (movie: Movie) => {
             const details = await tmdb.getDetails("movie", movie.id);
             
-            // Find trailer
             const videos = details.videos?.results || [];
             const trailer = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube') ||
               videos.find(v => v.site === 'YouTube');
@@ -56,35 +64,48 @@ export function Hero() {
     fetchFeaturedMovies();
   }, [fetchFeaturedMovies]);
 
-  // Timer to show trailer
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    const currentMovie = featuredMovies[currentIndex];
-    if (currentMovie?.trailerKey && !isLoading) {
-      setShowTrailer(false);
-      timer = setTimeout(() => {
-        setShowTrailer(true);
-      }, 5000);
-    }
-    return () => clearTimeout(timer);
-  }, [currentIndex, featuredMovies, isLoading]);
+  // Limpa todos os timers
+  const clearAllTimers = useCallback(() => {
+    if (trailerStartTimerRef.current) clearTimeout(trailerStartTimerRef.current);
+    if (autoAdvanceTimerRef.current) clearInterval(autoAdvanceTimerRef.current);
+    if (trailerEndTimerRef.current) clearTimeout(trailerEndTimerRef.current);
+  }, []);
 
-  // Auto-advance carousel
+  // Gerencia o trailer e auto-avanço
   useEffect(() => {
-    if (featuredMovies.length <= 1) return;
+    clearAllTimers();
     
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
-    }, 15000); // Muda a cada 15 segundos
-    
-    return () => clearInterval(timer);
-  }, [featuredMovies.length]);
+    const currentFeatured = featuredMovies[currentIndex];
+    if (!currentFeatured?.trailerKey || isLoading) {
+      setShowTrailer(false);
+      return;
+    }
+
+    // Reset trailer visibility
+    setShowTrailer(false);
+
+    // Timer para iniciar o trailer após 5 segundos
+    trailerStartTimerRef.current = setTimeout(() => {
+      setShowTrailer(true);
+      
+      // Timer para auto-avançar após o trailer terminar
+      trailerEndTimerRef.current = setTimeout(() => {
+        if (featuredMovies.length > 1) {
+          setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
+        }
+      }, TRAILER_DURATION * 1000);
+    }, TRAILER_START_DELAY);
+
+    return () => clearAllTimers();
+  }, [currentIndex, featuredMovies, isLoading, clearAllTimers]);
 
   const goToPrevious = () => {
+    clearAllTimers();
     setCurrentIndex((prev) => (prev - 1 + featuredMovies.length) % featuredMovies.length);
   };
 
   const goToNext = () => {
+    clearAllTimers();
     setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
   };
 
@@ -101,7 +122,7 @@ export function Hero() {
   const mediaType = currentMovie.media_type || "movie";
 
   return (
-    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
+    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group isolate">
       {/* Background Images */}
       {featuredMovies.map((featured, index) => (
         <div
@@ -110,7 +131,7 @@ export function Hero() {
             index === currentIndex ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {/* Background Image (Fades out when trailer shows) */}
+          {/* Background Image */}
           <div
             className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
               index === currentIndex && showTrailer ? 'opacity-0' : 'opacity-100'
@@ -123,17 +144,25 @@ export function Hero() {
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
           </div>
 
-          {/* Video Background */}
+          {/* Video Background - Corrigido para evitar linha preta */}
           {index === currentIndex && featured.trailerKey && (
             <div 
               className={`absolute inset-0 w-full h-full pointer-events-none overflow-hidden transition-opacity duration-1000 ${
                 showTrailer ? 'opacity-100' : 'opacity-0'
               }`}
+              style={{ backgroundColor: '#000' }}
             >
-              {/* Container que cobre toda a área sem gaps */}
-              <div className="absolute inset-[-10%] w-[120%] h-[120%]">
+              {/* Container expandido para cobrir gaps */}
+              <div 
+                className="absolute inset-0 flex items-center justify-center"
+                style={{ 
+                  width: 'calc(100% + 40px)', 
+                  height: 'calc(100% + 40px)',
+                  margin: '-20px',
+                }}
+              >
                 <iframe
-                  className="w-full h-full object-cover"
+                  className="w-full h-full"
                   src={`https://www.youtube.com/embed/${featured.trailerKey}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${featured.trailerKey}&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
                   allow="autoplay; encrypted-media"
                   style={{ 
@@ -141,18 +170,14 @@ export function Hero() {
                     border: 'none',
                     margin: 0,
                     padding: 0,
+                    transform: 'scale(1.05)',
+                    objectFit: 'cover',
                   }}
                 />
               </div>
-              {/* Overlays para esconder qualquer linha/borda do iframe */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-              {/* Overlay adicional para cobrir bordas do iframe */}
-              <div className="absolute inset-0 border-[20px] border-black/0 pointer-events-none" 
-                style={{ 
-                  boxShadow: 'inset 0 0 50px 20px rgba(0,0,0,0.3)',
-                }} 
-              />
+              {/* Overlays gradientes */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none" />
             </div>
           )}
         </div>
@@ -163,14 +188,14 @@ export function Hero() {
         <>
           <button
             onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
             aria-label="Filme anterior"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
             aria-label="Próximo filme"
           >
             <ChevronRight className="w-6 h-6" />
@@ -218,13 +243,16 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Dots Indicator */}
+      {/* Dots Indicator - z-index reduzido para não sobrepor modais */}
       {featuredMovies.length > 1 && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 flex space-x-2">
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[5] flex space-x-2">
           {featuredMovies.map((_, index) => (
             <button
               key={index}
-              onClick={() => setCurrentIndex(index)}
+              onClick={() => {
+                clearAllTimers();
+                setCurrentIndex(index);
+              }}
               className={`w-2 h-2 rounded-full transition-all ${
                 index === currentIndex 
                   ? 'bg-white w-8' 
