@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { Bell, Check, X, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -23,33 +22,6 @@ export function NotificationsDropdown() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Carregar notificações
-  const loadNotifications = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const data = await getUserNotifications(user.uid);
-      setNotifications(data);
-    } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Carregar contagem de não lidas
-  const loadUnreadCount = async () => {
-    if (!user) return;
-
-    try {
-      const count = await getUnreadCount(user.uid);
-      setUnreadCount(count);
-    } catch (error) {
-      console.error('Erro ao carregar contagem:', error);
-    }
-  };
-
   useEffect(() => {
     if (user) {
       loadNotifications();
@@ -62,8 +34,32 @@ export function NotificationsDropdown() {
 
       return () => clearInterval(interval);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  async function loadNotifications() {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const data = await getUserNotifications(user.uid);
+      setNotifications(data);
+    } catch (error) {
+      console.error('Erro ao carregar notificações:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadUnreadCount() {
+    if (!user) return;
+
+    try {
+      const count = await getUnreadCount(user.uid);
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Erro ao carregar contagem:', error);
+    }
+  }
 
   async function handleMarkAsRead(notificationId: string) {
     try {
@@ -209,11 +205,9 @@ export function NotificationsDropdown() {
                       {/* Avatar ou ícone */}
                       <div className="flex-shrink-0">
                         {notification.fromUserPhoto ? (
-                          <Image
+                          <img
                             src={notification.fromUserPhoto}
                             alt={notification.fromUserName || ''}
-                            width={40}
-                            height={40}
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (

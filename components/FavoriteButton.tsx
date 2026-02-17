@@ -37,21 +37,23 @@ export function FavoriteButton({
     };
 
     useEffect(() => {
-        const checkStatus = async () => {
-            if (!user) return;
-
-            try {
-                const profile = await getUserProfile(user.uid);
-                if (profile) {
-                    setIsFavorite(profile.favorites.includes(contentId));
-                }
-            } catch (error) {
-                console.error("Erro ao verificar favorito:", error);
-            }
-        };
-
-        checkStatus();
+        if (user) {
+            checkFavoriteStatus();
+        }
     }, [user, contentId]);
+
+    const checkFavoriteStatus = async () => {
+        if (!user) return;
+
+        try {
+            const profile = await getUserProfile(user.uid);
+            if (profile) {
+                setIsFavorite(profile.favorites.includes(contentId));
+            }
+        } catch (error) {
+            console.error("Erro ao verificar favorito:", error);
+        }
+    };
 
     const toggleFavorite = async () => {
         if (!user || isLoading) {

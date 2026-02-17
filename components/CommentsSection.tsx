@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getComments,
@@ -29,8 +28,11 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Carregar comentários
-  const loadComments = async () => {
+  useEffect(() => {
+    loadComments();
+  }, [contentId, contentType]);
+
+  async function loadComments() {
     try {
       const allComments = await getComments(contentId, contentType);
       setComments(allComments);
@@ -39,12 +41,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadComments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contentId, contentType]);
+  }
 
   async function handleSubmitComment() {
     if (!user) {
@@ -201,11 +198,9 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
           {/* Avatar */}
           <div className="flex-shrink-0">
             {comment.userPhoto ? (
-              <Image
+              <img
                 src={comment.userPhoto}
                 alt={comment.userName}
-                width={40}
-                height={40}
                 className="w-10 h-10 rounded-full object-cover"
               />
             ) : (
@@ -342,11 +337,9 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
             {/* Avatar do usuário */}
             <div className="flex-shrink-0">
               {user.photoURL ? (
-                <Image
+                <img
                   src={user.photoURL}
                   alt={user.displayName || 'Usuário'}
-                  width={40}
-                  height={40}
                   className="w-10 h-10 rounded-full object-cover"
                 />
               ) : (

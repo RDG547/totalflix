@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStreamsFromAddon, sortStreamsByQuality, groupStreamsByQuality, type StreamSource } from "@/lib/stremio";
@@ -65,8 +65,14 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         };
     }, []);
 
-    // Fetch streams function
-    const fetchStreams = useCallback(async (addon: 'torrentio' | 'brazuca') => {
+    // Auto-fetch streams when addon is selected
+    useEffect(() => {
+        if (tmdbId && mediaType && selectedAddon && !isPlaying) {
+            fetchStreams(selectedAddon);
+        }
+    }, [selectedAddon, tmdbId, mediaType, season, episode]);
+
+    const fetchStreams = async (addon: 'torrentio' | 'brazuca') => {
         if (!tmdbId || !mediaType) return;
 
         setIsLoadingStreams(true);
@@ -88,14 +94,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         } finally {
             setIsLoadingStreams(false);
         }
-    }, [tmdbId, mediaType, season, episode]);
-
-    // Auto-fetch streams when addon is selected
-    useEffect(() => {
-        if (tmdbId && mediaType && selectedAddon && !isPlaying) {
-            fetchStreams(selectedAddon);
-        }
-    }, [selectedAddon, tmdbId, mediaType, season, episode, isPlaying, fetchStreams]);
+    };
 
     const startTorrent = (magnet: string) => {
         if (!magnet || !clientRef.current) return;
