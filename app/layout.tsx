@@ -7,6 +7,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
+import { AdsterraAds } from "@/components/AdsterraAds";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
+        <AdsterraAds />
         <AuthProvider>
           <PlayerProvider>
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
