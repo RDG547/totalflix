@@ -110,6 +110,19 @@ html, body {
   background-size: 1000px 100%;
 }
 
+/* YouTube Player - Fill container */
+#youtube-player-container,
+#youtube-player-container iframe,
+[id^="youtube-player-"],
+[id^="youtube-player-"] iframe {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
 /* Animations */
 @keyframes fade-in {
   from {
