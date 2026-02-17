@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getImageUrl, type Movie, tmdb } from "@/lib/tmdb";
 import { Card } from "@/components/ui/card";
-import { Star, Heart, Clock } from "lucide-react";
+import { Star, Heart, Clock, Play } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { addToFavorites, removeFromFavorites, getUserProfile } from "@/lib/userProfile";
 import { updateAchievementProgress, initializeAchievements } from "@/lib/achievements";
@@ -21,16 +21,16 @@ interface MovieCardProps {
 
 export function MovieCard({ movie }: MovieCardProps) {
   const { user } = useAuth();
-  const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [countdown, setCountdown] = useState(3);
-  const [mobileStage, setMobileStage] = useState(0); // 0: Banner, 1: Buttons, 2: Description
+  const [mobileStage, setMobileStage] = useState(0);
   const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [loadingTrailer, setLoadingTrailer] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -39,7 +39,6 @@ export function MovieCard({ movie }: MovieCardProps) {
   const mediaType = (movie.media_type || (movie.title ? "movie" : "tv")) as "movie" | "tv";
   const year = movie.release_date?.split("-")[0] || movie.first_air_date?.split("-")[0];
 
-  // Formatar duração
   const formatRuntime = (minutes?: number) => {
     if (!minutes) return null;
     const hours = Math.floor(minutes / 60);
@@ -50,10 +49,8 @@ export function MovieCard({ movie }: MovieCardProps) {
     return `${mins}m`;
   };
 
-  // Verificar status de favorito
   const checkFavoriteStatus = useCallback(async () => {
     if (!user) return;
-
     try {
       const profile = await getUserProfile(user.uid);
       if (profile) {
@@ -70,7 +67,6 @@ export function MovieCard({ movie }: MovieCardProps) {
     }
   }, [user, movie.id, checkFavoriteStatus]);
 
-  // Timer do countdown
   useEffect(() => {
     if (showPreview) {
       setCountdown(3);
@@ -92,62 +88,51 @@ export function MovieCard({ movie }: MovieCardProps) {
     };
   }, [showPreview]);
 
-  const toggleFavorite = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    if (!user || isLoading) return;
-
-    setIsLoading(true);
-    try {
-      if (isFavorite) {
-        await removeFromFavorites(user.uid, movie.id);
-        setIsFavorite(false);
-        toast.success("Removido dos favoritos");
-
-        window.dispatchEvent(new CustomEvent('favoriteRemoved', {
-          detail: { movieId: movie.id }
-        }));
-      } else {
-        await addToFavorites(user.uid, movie.id);
-        setIsFavorite(true);
-        toast.success("Adicionado aos favoritos");
-
-        window.dispatchEvent(new CustomEvent('favoriteAdded', {
-          detail: { movieId: movie.id }
-        }));
-
-        initializeAchievements(user.uid)
-          .then(() => updateAchievementProgress(user.uid, 'favorite'))
-          .catch((err) => console.error("Erro ao atualizar conquistas:", err));
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar favorito:", error);
-      setIsFavorite(!isFavorite);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleMouseEnter = () => {
+    setIsHovering(true);
     hoverTimerRef.current = setTimeout(() => {
       setShowPreview(true);
     }, 2000);
   };
 
   const handleMouseLeave = () => {
+    setIsHovering(false);
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
     setShowPreview(false);
+    setMobileStage(0);
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Se o click foi em um botão ou elemento interativo, não faz nada
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('[data-interactive]')) {
+      return;
+    }
+
+    // Mobile: 3-stage tap
+    if (window.innerWidth < 768) {
+      e.preventDefault();
+      if (mobileStage === 0) {
+        setMobileStage(1);
+      } else if (mobileStage === 1) {
+        setMobileStage(2);
+      } else {
+        setMobileStage(0);
+      }
+    }
   };
 
   const handleWatchClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setIsWatchModalOpen(true);
   };
 
   const handleTrailerClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
 
     if (trailerKey) {
@@ -158,7 +143,6 @@ export function MovieCard({ movie }: MovieCardProps) {
     setLoadingTrailer(true);
     try {
       const videos = await tmdb.getVideos(mediaType, movie.id);
-
       const trailer = videos.find((video: any) =>
         video.type === "Trailer" &&
         video.site === "YouTube" &&
@@ -172,7 +156,7 @@ export function MovieCard({ movie }: MovieCardProps) {
         setTrailerKey(trailer.key);
         setIsTrailerOpen(true);
       } else {
-        toast.error("Trailer não disponível para este conteúdo.");
+        toast.error("Trailer não disponível.");
       }
     } catch (error) {
       console.error("Erro ao carregar trailer:", error);
@@ -182,170 +166,189 @@ export function MovieCard({ movie }: MovieCardProps) {
     }
   };
 
-  const handleCardClick = () => {
-    // Mobile interaction: 3-stage tap
-    if (window.innerWidth < 768) {
-      if (mobileStage === 0) {
-        setMobileStage(1);
-      } else if (mobileStage === 1) {
-        setMobileStage(2);
-      } else {
-        setMobileStage(0);
-      }
-    } else {
-      // Desktop: navigate to details
-      router.push(`/details/${mediaType}/${movie.id}`);
-    }
-  };
-
-  const handleDetailsClick = (e: React.MouseEvent) => {
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    router.push(`/details/${mediaType}/${movie.id}`);
+
+    if (!user || isLoading) return;
+
+    setIsLoading(true);
+    try {
+      if (isFavorite) {
+        await removeFromFavorites(user.uid, movie.id);
+        setIsFavorite(false);
+        toast.success("Removido dos favoritos");
+        window.dispatchEvent(new CustomEvent('favoriteRemoved', { detail: { movieId: movie.id } }));
+      } else {
+        await addToFavorites(user.uid, movie.id);
+        setIsFavorite(true);
+        toast.success("Adicionado aos favoritos");
+        window.dispatchEvent(new CustomEvent('favoriteAdded', { detail: { movieId: movie.id } }));
+        initializeAchievements(user.uid)
+          .then(() => updateAchievementProgress(user.uid, 'favorite'))
+          .catch((err) => console.error("Erro ao atualizar conquistas:", err));
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar favorito:", error);
+      setIsFavorite(!isFavorite);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useScrollLock(isTrailerOpen);
 
+  const showOverlay = isHovering || mobileStage > 0;
+  const showButtons = mobileStage === 1 || (window.innerWidth >= 768 && isHovering && !showPreview);
+  const showPreviewOverlay = showPreview || mobileStage === 2;
+
   return (
     <>
-      <Card 
+      <div 
         ref={cardRef}
-        className="group relative overflow-hidden bg-transparent border-0 cursor-pointer transition-transform duration-200 ease-out will-change-transform hover:scale-105 active:scale-100 h-full"
+        className="group relative h-full"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onClick={handleCardClick}
       >
-        <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
-          <Image
-            src={getImageUrl(movie.poster_path)}
-            alt={title}
-            fill
-            draggable={false}
-            className={`object-cover transition-transform duration-300 select-none no-drag ${showPreview || mobileStage === 2 ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
-            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          />
+        {/* Link para a página de detalhes - cobre o card inteiro */}
+        <Link 
+          href={`/details/${mediaType}/${movie.id}`}
+          className="absolute inset-0 z-0 block"
+          onClick={handleCardClick}
+        >
+          <Card className="relative overflow-hidden bg-transparent border-0 cursor-pointer transition-transform duration-200 ease-out will-change-transform hover:scale-105 active:scale-100 h-full">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
+              <Image
+                src={getImageUrl(movie.poster_path)}
+                alt={title}
+                fill
+                draggable={false}
+                className={`object-cover transition-transform duration-300 select-none ${showPreviewOverlay ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
+                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              />
+            </div>
+          </Card>
+        </Link>
 
-          {/* Overlay on Hover (Standard) - Shows Buttons */}
-          <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent transition-opacity duration-300 pointer-events-none sm:group-hover:pointer-events-auto ${showPreview || mobileStage === 2 ? '!opacity-0 !pointer-events-none' : (mobileStage === 1 ? '!opacity-100 !pointer-events-auto' : 'opacity-0 sm:group-hover:opacity-100')}`}>
-            <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 flex flex-col items-center text-center">
-              <h3 className="text-white font-bold line-clamp-2 text-base">
-                {title}
-              </h3>
+        {/* Overlay de botões - SEMPRE com pointer-events ativos quando visível */}
+        <div 
+          className={`absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent rounded-lg transition-opacity duration-300 z-10 ${
+            showButtons ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{ pointerEvents: showButtons ? 'auto' : 'none' }}
+        >
+          <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 flex flex-col items-center text-center">
+            <h3 className="text-white font-bold line-clamp-2 text-base">
+              {title}
+            </h3>
 
-              <div className="flex items-center justify-center gap-2 text-xs w-full">
-                <div className="flex items-center gap-1 text-yellow-400">
-                  <Star className="w-4 h-4 fill-current" />
-                  <span className="font-semibold">{movie.vote_average?.toFixed(1)}</span>
-                </div>
-                <span className="text-gray-400">•</span>
-                <span className="text-gray-300">{year}</span>
-                {mediaType === "movie" && movie.runtime && (
-                  <>
-                    <span className="text-gray-400">•</span>
-                    <div className="flex items-center gap-1 text-gray-300">
-                      <Clock className="w-3 h-3" />
-                      <span>{formatRuntime(movie.runtime)}</span>
-                    </div>
-                  </>
-                )}
-                {mediaType === "tv" && movie.number_of_seasons && (
-                  <>
-                    <span className="text-gray-400">•</span>
-                    <div className="flex items-center gap-1 text-gray-300">
-                      <Clock className="w-3 h-3" />
-                      <span>{movie.number_of_seasons} {movie.number_of_seasons === 1 ? 'T' : 'Ts'}</span>
-                    </div>
-                  </>
-                )}
+            <div className="flex items-center justify-center gap-2 text-xs w-full flex-wrap">
+              <div className="flex items-center gap-1 text-yellow-400">
+                <Star className="w-4 h-4 fill-current" />
+                <span className="font-semibold">{movie.vote_average?.toFixed(1)}</span>
               </div>
+              <span className="text-gray-400">•</span>
+              <span className="text-gray-300">{year}</span>
+              {mediaType === "movie" && movie.runtime && (
+                <>
+                  <span className="text-gray-400">•</span>
+                  <div className="flex items-center gap-1 text-gray-300">
+                    <Clock className="w-3 h-3" />
+                    <span>{formatRuntime(movie.runtime)}</span>
+                  </div>
+                </>
+              )}
+            </div>
 
-              <div className="flex flex-col gap-2 w-full">
-                <div className="flex flex-row gap-2 w-full justify-center">
-                  <button
-                    onClick={handleWatchClick}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 min-w-0 pointer-events-auto"
-                  >
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                    </svg>
-                    Assistir
-                  </button>
-                  <button
-                    onClick={handleTrailerClick}
-                    disabled={loadingTrailer}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 disabled:opacity-50 min-w-0 pointer-events-auto"
-                  >
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {loadingTrailer ? "..." : "Trailer"}
-                  </button>
-                </div>
-
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex flex-row gap-2 w-full justify-center">
                 <button
-                  onClick={handleDetailsClick}
-                  className={`w-full sm:hidden text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 pointer-events-auto ${mediaType === 'movie'
-                    ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20'
-                    : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/20'
-                    }`}
+                  type="button"
+                  onClick={handleWatchClick}
+                  data-interactive="true"
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 min-w-0"
+                >
+                  <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+                  Assistir
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTrailerClick}
+                  data-interactive="true"
+                  disabled={loadingTrailer}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] sm:text-xs font-semibold py-2 px-1 sm:px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 disabled:opacity-50 min-w-0"
                 >
                   <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Ver Detalhes
+                  {loadingTrailer ? "..." : "Trailer"}
                 </button>
               </div>
+
+              <Link
+                href={`/details/${mediaType}/${movie.id}`}
+                data-interactive="true"
+                className="w-full sm:hidden"
+              >
+                <span className={`block w-full text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 text-center ${mediaType === 'movie'
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-red-600 hover:bg-red-700'
+                  }`}>
+                  Ver Detalhes
+                </span>
+              </Link>
             </div>
           </div>
-
-          {/* Preview Overlay (Activated after 2s or Stage 2) - Shows Description */}
-          <div className={`absolute inset-0 bg-black/80 backdrop-blur-md p-4 transition-all duration-500 flex flex-col ${showPreview || mobileStage === 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}>
-
-            <div className="mt-8 flex-1 space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-500/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-purple-500/50">
-              <h3 className="text-white font-bold text-sm leading-tight">
-                {title}
-              </h3>
-
-              <div className="flex flex-wrap gap-1">
-                {movie.genre_ids?.slice(0, 3).map(id => (
-                  <span key={id} className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
-                    {getGenreName(id)}
-                  </span>
-                ))}
-              </div>
-
-              <p className="text-gray-300 text-xs leading-relaxed">
-                {movie.overview || "Sem descrição disponível."}
-              </p>
-            </div>
-          </div>
-
-          {/* Media Type Tag */}
-          <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full z-10 ${mediaType === "movie"
-            ? "bg-blue-500/90 shadow-lg shadow-blue-500/50"
-            : "bg-red-500/90 shadow-lg shadow-red-500/50"
-            }`}>
-            <span className="text-white text-xs font-bold uppercase tracking-wide">
-              {mediaType === "movie" ? "Filme" : "Série"}
-            </span>
-          </div>
-          
-          {/* Favorite Button */}
-          {user && (
-            <button
-              onClick={toggleFavorite}
-              disabled={isLoading}
-              className="absolute top-2 right-2 bg-black/80 backdrop-blur-sm p-2 rounded-full transition-all hover:scale-110 active:scale-95 disabled:opacity-50 z-20 pointer-events-auto"
-              aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-            >
-              <Heart
-                className={`w-4 h-4 transition-colors ${isFavorite ? "text-red-500 fill-red-500" : "text-white"
-                  }`}
-              />
-            </button>
-          )}
         </div>
-      </Card>
+
+        {/* Preview Overlay (descrição) */}
+        <div 
+          className={`absolute inset-0 bg-black/90 backdrop-blur-md p-4 rounded-lg transition-all duration-500 z-20 flex flex-col ${
+            showPreviewOverlay ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{ pointerEvents: showPreviewOverlay ? 'auto' : 'none' }}
+        >
+          <div className="mt-8 flex-1 space-y-3 overflow-y-auto pr-1">
+            <h3 className="text-white font-bold text-sm leading-tight">
+              {title}
+            </h3>
+            <div className="flex flex-wrap gap-1">
+              {movie.genre_ids?.slice(0, 3).map(id => (
+                <span key={id} className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                  {getGenreName(id)}
+                </span>
+              ))}
+            </div>
+            <p className="text-gray-300 text-xs leading-relaxed">
+              {movie.overview || "Sem descrição disponível."}
+            </p>
+          </div>
+        </div>
+
+        {/* Media Type Tag */}
+        <div className={`absolute top-2 left-2 backdrop-blur-sm px-3 py-1.5 rounded-full z-10 ${
+          mediaType === "movie" ? "bg-blue-500/90" : "bg-red-500/90"
+        }`}>
+          <span className="text-white text-xs font-bold uppercase tracking-wide">
+            {mediaType === "movie" ? "Filme" : "Série"}
+          </span>
+        </div>
+        
+        {/* Favorite Button */}
+        {user && (
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            data-interactive="true"
+            disabled={isLoading}
+            className="absolute top-2 right-2 bg-black/80 backdrop-blur-sm p-2 rounded-full transition-all hover:scale-110 active:scale-95 disabled:opacity-50 z-30"
+            aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          >
+            <Heart className={`w-4 h-4 transition-colors ${isFavorite ? "text-red-500 fill-red-500" : "text-white"}`} />
+          </button>
+        )}
+      </div>
 
       {/* Video Player Modal */}
       <VideoPlayerModal
@@ -382,7 +385,6 @@ export function MovieCard({ movie }: MovieCardProps) {
               title="Trailer"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </div>
