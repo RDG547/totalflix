@@ -150,12 +150,17 @@ export function Hero() {
   // Toggle som
   const toggleMute = useCallback(() => {
     if (playerRef.current) {
-      if (isMuted) {
-        playerRef.current.unMute();
-      } else {
-        playerRef.current.mute();
+      try {
+        if (isMuted && typeof playerRef.current.unMute === 'function') {
+          playerRef.current.unMute();
+          setIsMuted(false);
+        } else if (typeof playerRef.current.mute === 'function') {
+          playerRef.current.mute();
+          setIsMuted(true);
+        }
+      } catch (e) {
+        // Ignora erros se o player não estiver pronto
       }
-      setIsMuted(!isMuted);
     }
   }, [isMuted]);
 
@@ -245,14 +250,22 @@ export function Hero() {
   useEffect(() => {
     if (isPlayerOpen) {
       // Pausa o trailer
-      if (playerRef.current) {
-        playerRef.current.pauseVideo();
+      if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+        try {
+          playerRef.current.pauseVideo();
+        } catch (e) {
+          // Ignora erros se o player não estiver pronto
+        }
       }
       setIsPlayerActive(false);
     } else {
       // Retoma o trailer se estava tocando
-      if (showTrailer && playerRef.current) {
-        playerRef.current.playVideo();
+      if (showTrailer && playerRef.current && typeof playerRef.current.playVideo === 'function') {
+        try {
+          playerRef.current.playVideo();
+        } catch (e) {
+          // Ignora erros se o player não estiver pronto
+        }
       }
       setIsPlayerActive(true);
     }
