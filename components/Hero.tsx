@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { tmdb, getBackdropUrl, type Movie, type MovieDetails } from "@/lib/tmdb";
 import { Button } from "@/components/ui/button";
-import { Info, ChevronLeft, ChevronRight, Volume2, VolumeX, ChevronDown, ChevronUp } from "lucide-react";
+import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { WatchButton } from "@/components/WatchButton";
 
@@ -49,9 +49,6 @@ interface YTPlayer {
   destroy: () => void;
   getDuration: () => number;
   getCurrentTime: () => number;
-  mute: () => void;
-  unMute: () => void;
-  isMuted: () => boolean;
 }
 
 export function Hero() {
@@ -60,15 +57,11 @@ export function Hero() {
   const [isLoading, setIsLoading] = useState(true);
   const [showTrailer, setShowTrailer] = useState(false);
   const [isYTAPILoaded, setIsYTAPILoaded] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   // Refs
   const playerRef = useRef<YTPlayer | null>(null);
   const trailerStartTimerRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hasEndedRef = useRef(false);
-  const isMutedRef = useRef(true);
-  const [, forceUpdate] = useState({}); // Para forçar re-render do ícone apenas
 
   // Carrega a API do YouTube
   useEffect(() => {
@@ -140,10 +133,8 @@ export function Hero() {
 
   // Avança para o próximo filme
   const goToNext = useCallback(() => {
-    hasEndedRef.current = false;
     destroyPlayer();
     setShowTrailer(false);
-    setIsDescriptionExpanded(false);
     setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
   }, [featuredMovies.length, destroyPlayer]);
 
@@ -163,11 +154,11 @@ export function Hero() {
       videoId: videoId,
       playerVars: {
         autoplay: 1,
-        mute: isMutedRef.current ? 1 : 0,
+        mute: 1,
         controls: 0,
         showinfo: 0,
         rel: 0,
-  
+        loop: 0,
         modestbranding: 1,
         iv_load_policy: 3,
         disablekb: 1,
@@ -180,17 +171,10 @@ export function Hero() {
           event.target.playVideo();
         },
         onStateChange: (event) => {
-          // Quando o vídeo termina (ENDED = 0) - verificar após um delay para evitar sugestões
+          // Quando o vídeo termina (ENDED = 0)
           if (event.data === window.YT.PlayerState.ENDED) {
-            if (!hasEndedRef.current) {
-              hasEndedRef.current = true;
-              // Pequeno delay para garantir que não mostre sugestões
-              setTimeout(() => {
-                goToNext();
-              }, 100);
-            }
-          } else if (event.data === window.YT.PlayerState.PLAYING) {
-            hasEndedRef.current = false;
+            // Avança para o próximo filme
+            goToNext();
           }
         },
       },
@@ -222,35 +206,18 @@ export function Hero() {
   }, [currentIndex, featuredMovies, isLoading, isYTAPILoaded, initPlayer, destroyPlayer]);
 
   const goToPrevious = () => {
-    hasEndedRef.current = false;
     destroyPlayer();
     setShowTrailer(false);
-    setIsDescriptionExpanded(false);
     setCurrentIndex((prev) => (prev - 1 + featuredMovies.length) % featuredMovies.length);
   };
 
   const goToIndex = (index: number) => {
     if (index !== currentIndex) {
-      hasEndedRef.current = false;
       destroyPlayer();
       setShowTrailer(false);
-      setIsDescriptionExpanded(false);
       setCurrentIndex(index);
     }
   };
-
-  // Toggle mute/unmute (usando ref para não resetar o player)
-  const toggleMute = useCallback(() => {
-    if (playerRef.current) {
-      if (isMutedRef.current) {
-        playerRef.current.unMute();
-      } else {
-        playerRef.current.mute();
-      }
-      isMutedRef.current = !isMutedRef.current;
-      forceUpdate({}); // Apenas atualiza o ícone
-    }
-  }, []);
 
   if (isLoading || featuredMovies.length === 0) {
     return (
@@ -265,7 +232,7 @@ export function Hero() {
   const mediaType = currentMovie.media_type || "movie";
 
   return (
-    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
+    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group isolate">
       {/* Background Images */}
       {featuredMovies.map((featured, index) => (
         <div
@@ -298,12 +265,11 @@ export function Hero() {
               {/* Container do YouTube Player */}
               <div 
                 ref={containerRef}
-                id="youtube-player-container"
-                className="absolute top-1/2 left-1/2"
+                className="absolute inset-0 flex items-center justify-center"
                 style={{ 
-                  width: '150vw',
-                  height: '150vh',
-                  transform: 'translate(-50%, -50%)',
+                  width: 'calc(100% + 40px)', 
+                  height: 'calc(100% + 40px)',
+                  margin: '-20px',
                 }}
               />
               {/* Overlays gradientes */}
@@ -314,7 +280,7 @@ export function Hero() {
         </div>
       ))}
 
-      {/* Navigation Arrows & Mute Button */}
+      {/* Navigation Arrows */}
       {featuredMovies.length > 1 && (
         <>
           <button
@@ -332,17 +298,6 @@ export function Hero() {
             <ChevronRight className="w-6 h-6" />
           </button>
         </>
-      )}
-      
-      {/* Mute/Unmute Button */}
-      {showTrailer && (
-        <button
-          onClick={toggleMute}
-          className="absolute bottom-28 right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 backdrop-blur-sm"
-          aria-label={isMutedRef.current ? "Ativar som" : "Desativar som"}
-        >
-          {isMutedRef.current ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-        </button>
       )}
 
       {/* Content */}
@@ -364,34 +319,9 @@ export function Hero() {
             </span>
           </div>
 
-          {/* Description with expand/collapse */}
-          <div className="max-w-xl">
-            <p 
-              className={`text-gray-200 text-sm sm:text-base md:text-lg transition-all duration-300 ${
-                isDescriptionExpanded 
-                  ? 'line-clamp-none' 
-                  : 'line-clamp-2 sm:line-clamp-3'
-              }`}
-            >
-              {currentMovie.overview}
-            </p>
-            {currentMovie.overview && currentMovie.overview.length > 100 && (
-              <button
-                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                className="mt-2 flex items-center gap-1 text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
-              >
-                {isDescriptionExpanded ? (
-                  <>
-                    Ler menos <ChevronUp className="w-4 h-4" />
-                  </>
-                ) : (
-                  <>
-                    Ler mais <ChevronDown className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          <p className="text-gray-200 text-sm sm:text-base md:text-lg line-clamp-2 sm:line-clamp-3 max-w-xl">
+            {currentMovie.overview}
+          </p>
 
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
             <WatchButton

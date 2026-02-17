@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Lock, ExternalLink, Loader2, Eye, ShieldCheck, AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import { Lock, ExternalLink, Loader2, Eye, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ShortenerGateProps {
@@ -10,9 +10,6 @@ interface ShortenerGateProps {
     title: string;
     posterUrl?: string;
 }
-
-// Tempo de expiração do acesso em horas (24 horas)
-const ACCESS_EXPIRY_HOURS = 24;
 
 export function ShortenerGate({
     contentKey,
@@ -28,27 +25,11 @@ export function ShortenerGate({
 
     const stableOnPassed = useCallback(onPassed, [onPassed]);
 
-    // Verifica se já passou pelo gate e se o acesso ainda é válido
+    // Verifica se já passou pelo gate
     useEffect(() => {
         const stored = localStorage.getItem(contentKey);
         if (stored) {
-            try {
-                const data = JSON.parse(stored);
-                const timestamp = data.timestamp || 0;
-                const now = Date.now();
-                const hoursDiff = (now - timestamp) / (1000 * 60 * 60);
-                
-                // Se passou menos de 24 horas, libera
-                if (hoursDiff < ACCESS_EXPIRY_HOURS) {
-                    stableOnPassed();
-                } else {
-                    // Expirou, remove do localStorage
-                    localStorage.removeItem(contentKey);
-                }
-            } catch {
-                // Formato antigo (apenas string), converte para novo formato
-                localStorage.removeItem(contentKey);
-            }
+            stableOnPassed();
         }
     }, [contentKey, stableOnPassed]);
 
@@ -77,15 +58,17 @@ export function ShortenerGate({
                 if (data.shortenedUrl) {
                     setShortenedUrl(data.shortenedUrl);
                 } else {
-                    // Fallback: mostra erro (não libera direto)
-                    console.warn("[Gate] Erro ao encurtar:", data.error);
-                    setError(data.error || "Erro ao gerar link");
-                    setShortenedUrl(null);
+                    // Fallback: use direct callback URL (dev mode ou erro)
+                    console.warn("[Gate] Fallback para URL direta:", data.error);
+                    setError(data.error);
+                    setShortenedUrl(callbackUrl);
                 }
             } catch (err) {
                 console.error("[Gate] Erro:", err);
                 setError("Erro ao conectar com o servidor");
-                setShortenedUrl(null);
+                // Fallback
+                const callbackUrl = `${window.location.origin}/shortener-callback?key=${encodeURIComponent(contentKey)}`;
+                setShortenedUrl(callbackUrl);
             } finally {
                 setLoading(false);
             }
@@ -108,20 +91,9 @@ export function ShortenerGate({
         const interval = setInterval(() => {
             const stored = localStorage.getItem(contentKey);
             if (stored) {
-                try {
-                    const data = JSON.parse(stored);
-                    const timestamp = data.timestamp || 0;
-                    const now = Date.now();
-                    const hoursDiff = (now - timestamp) / (1000 * 60 * 60);
-                    
-                    if (hoursDiff < ACCESS_EXPIRY_HOURS) {
-                        stableOnPassed();
-                    }
-                } catch {
-                    // Ignora erro
-                }
+                stableOnPassed();
             }
-        }, 2000);
+        }, 1500);
 
         return () => {
             window.removeEventListener("storage", handleStorage);
@@ -181,26 +153,10 @@ export function ShortenerGate({
                     </h3>
                     <p className="text-sm text-gray-400 max-w-xs">
                         {clicked
-                            ? "Siga as instruções na nova aba para liberar o conteúdo."
-                            : `Para assistir "${title}", complete a verificação rápida.`}
+                            ? "Complete a verificação na nova aba e volte aqui. O player será liberado automaticamente."
+                            : `Para assistir "${title}", clique no botão abaixo e complete a verificação rápida.`}
                     </p>
                 </div>
-
-                {/* Aviso importante */}
-                {!clicked && !loading && (
-                    <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center gap-2 text-yellow-400 text-sm font-medium">
-                            <AlertTriangle className="w-4 h-4" />
-                            <span>Importante para liberar:</span>
-                        </div>
-                        <ul className="text-xs text-gray-400 text-left space-y-1 list-disc list-inside">
-                            <li>Clique em <strong>&quot;Continuar&quot;</strong> no encurtador</li>
-                            <li>Interaja com os anúncios que aparecerem</li>
-                            <li>Aguarde o tempo mínimo de 15 segundos</li>
-                            <li>Clique em <strong>&quot;Já cliquei nos anúncios&quot;</strong></li>
-                        </ul>
-                    </div>
-                )}
 
                 {/* Botão principal */}
                 {loading ? (
@@ -219,7 +175,7 @@ export function ShortenerGate({
                                 </span>
                             </div>
                             <p className="text-xs text-gray-500">
-                                O player será desbloqueado automaticamente após você completar os passos na outra aba
+                                O player será desbloqueado automaticamente após a verificação
                             </p>
                         </div>
 
@@ -231,19 +187,6 @@ export function ShortenerGate({
                             Abrir link novamente
                         </button>
                     </div>
-                ) : error ? (
-                    <div className="space-y-3">
-                        <p className="text-sm text-red-400">
-                            ⚠️ {error}
-                        </p>
-                        <Button
-                            onClick={handleRetry}
-                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
-                        >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Tentar novamente
-                        </Button>
-                    </div>
                 ) : (
                     <Button
                         onClick={handleClick}
@@ -253,6 +196,13 @@ export function ShortenerGate({
                         <ExternalLink className="w-5 h-5 mr-2" />
                         Liberar Conteúdo
                     </Button>
+                )}
+
+                {/* Erro (não bloqueia, apenas informa) */}
+                {error && !clicked && (
+                    <p className="text-xs text-yellow-500/70">
+                        ⚠️ {error} — usando link direto
+                    </p>
                 )}
 
                 {/* Info */}

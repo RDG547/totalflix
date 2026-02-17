@@ -16,17 +16,7 @@ interface CategorySectionProps {
 export function CategorySection({ category, title, genreId }: CategorySectionProps) {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { 
-    scrollRef, 
-    handleMouseDown, 
-    handleMouseLeave, 
-    handleMouseUp, 
-    handleMouseMove, 
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
-    handleClick 
-  } = useDragScroll();
+  const { scrollRef, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove, handleClick } = useDragScroll();
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -116,17 +106,9 @@ export function CategorySection({ category, title, genreId }: CategorySectionPro
         onMouseLeave={handleMouseLeave}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         onClick={handleClick}
-        className="flex space-x-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
-        style={{ 
-          scrollbarWidth: "none", 
-          msOverflowStyle: "none",
-          WebkitOverflowScrolling: "touch",
-          scrollBehavior: "auto"
-        }}
+        className="flex space-x-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-proximity cursor-grab active:cursor-grabbing select-none scroll-smooth"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {movies.map((movie) => (
           <div key={movie.id} className="flex-none w-48 snap-start">

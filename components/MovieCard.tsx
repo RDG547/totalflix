@@ -193,7 +193,6 @@ export function MovieCard({ movie }: MovieCardProps) {
     <>
       <Link
         href={`/details/${mediaType}/${movie.id}`}
-        draggable={false}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={(e) => {
@@ -213,14 +212,13 @@ export function MovieCard({ movie }: MovieCardProps) {
           }
         }}
       >
-        <Card className="group relative overflow-hidden bg-transparent border-0 cursor-pointer transition-transform duration-200 ease-out will-change-transform hover:scale-105 active:scale-100 h-full">
+        <Card className="group relative overflow-hidden bg-transparent border-0 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-100 h-full">
           <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
             <Image
               src={getImageUrl(movie.poster_path)}
               alt={title}
               fill
-              draggable={false}
-              className={`object-cover transition-transform duration-300 select-none no-drag ${showPreview || mobileStage === 2 ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
+              className={`object-cover transition-transform duration-300 ${showPreview || mobileStage === 2 ? 'scale-110 blur-sm' : 'group-hover:scale-110'}`}
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
             />
 
