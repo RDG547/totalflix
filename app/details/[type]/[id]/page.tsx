@@ -1,4 +1,4 @@
-import { tmdb, getBackdropUrl, getImageUrl, type MovieDetails } from "@/lib/tmdb";
+import { tmdb, getBackdropUrl, getImageUrl, type MovieDetails, type Movie } from "@/lib/tmdb";
 import Image from "next/image";
 import { Star, Calendar, Clock } from "lucide-react";
 import { MovieCard } from "@/components/MovieCard";
@@ -15,6 +15,39 @@ interface PageProps {
     type: string;
     id: string;
   };
+}
+
+// Componente separado para buscar detalhes dos títulos similares
+async function SimilarContentSection({ type, similar }: { type: "movie" | "tv"; similar: Movie[] }) {
+  if (!similar || similar.length === 0) return null;
+
+  // Buscar detalhes para cada título similar (incluindo runtime)
+  const similarWithDetails = await Promise.all(
+    similar.map(async (item) => {
+      try {
+        const details = await tmdb.getDetails(type, item.id);
+        return {
+          ...item,
+          runtime: details.runtime,
+          number_of_seasons: details.number_of_seasons,
+        };
+      } catch (error) {
+        // Se falhar, retorna o item sem os detalhes extras
+        return item;
+      }
+    })
+  );
+
+  return (
+    <section>
+      <h2 className="text-2xl font-bold text-white mb-6">Títulos Similares</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {similarWithDetails.map((movie) => (
+          <MovieCard key={movie.id} movie={movie} />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export default async function DetailsPage({ params }: PageProps) {
@@ -170,15 +203,7 @@ export default async function DetailsPage({ params }: PageProps) {
         </section>
 
         {/* Similar Content */}
-        <section>
-          <h2 className="text-2xl font-bold text-white mb-6">Títulos Similares</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {/* @ts-ignore */}
-            {details.similar?.results?.slice(0, 6).map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
-        </section>
+        <SimilarContentSection type={type} similar={details.similar?.results?.slice(0, 6) || []} />
       </div>
     </div>
   );

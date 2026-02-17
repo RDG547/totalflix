@@ -46,6 +46,9 @@ export interface MovieDetails extends Movie {
       official: boolean;
     }[];
   };
+  similar?: {
+    results: Movie[];
+  };
 }
 
 export const tmdb = {
