@@ -10,6 +10,7 @@ import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
+import { GlobalPopunder } from "@/components/GlobalPopunder";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AdsterraAds />
+        <GlobalPopunder />
         <AntiAdBlock />
         <PWARegister />
         <AuthProvider>
