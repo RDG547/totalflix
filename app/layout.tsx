@@ -9,6 +9,7 @@ import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
 import { HilltopAds } from "@/components/HilltopAds";
+import { Clickadilla, ClickadillaBanner } from "@/components/Clickadilla";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
 import { GlobalPopunder } from "@/components/GlobalPopunder";
@@ -74,6 +75,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AdsterraAds />
         <HilltopAds />
+        <Clickadilla />
         <GlobalPopunder />
         <AntiAdBlock />
         <PWARegister />
@@ -90,6 +92,10 @@ export default function RootLayout({
                   {children}
                 </ClientLayout>
               </main>
+              {/* Clickadilla Banner */}
+              <div className="w-full flex justify-center py-4 bg-black/50">
+                <ClickadillaBanner />
+              </div>
               {/* Adsterra Banner 300x250 no footer */}
               <div className="w-full flex justify-center py-4 bg-black/50">
                 <div id="banner-300x250-container" style={{ width: '300px', height: '250px' }} />
