@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { tmdb, getPlayerUrl, getImageUrl, type MovieDetails } from "@/lib/tmdb";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ShortenerGate } from "@/components/ShortenerGate";
 
 interface PageProps {
   params: {
@@ -25,22 +24,6 @@ export default function WatchPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('vidsrc');
   const [playerError, setPlayerError] = useState(false);
-  const [gatePassed, setGatePassed] = useState(false);
-
-  // Chave única por conteúdo
-  const contentKey = type === 'movie'
-    ? `gate-movie-${id}`
-    : `gate-tv-${id}-s${selectedSeason}e${selectedEpisode}`;
-
-  // Verifica se já passou pelo gate quando o conteúdo muda
-  useEffect(() => {
-    const stored = localStorage.getItem(contentKey);
-    setGatePassed(!!stored);
-  }, [contentKey]);
-
-  const handleGatePassed = useCallback(() => {
-    setGatePassed(true);
-  }, []);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -154,14 +137,7 @@ export default function WatchPage({ params }: PageProps) {
 
         {/* Player */}
         <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl glow-effect mb-8">
-          {!gatePassed ? (
-            <ShortenerGate
-              contentKey={contentKey}
-              onPassed={handleGatePassed}
-              title={title}
-              posterUrl={details.poster_path ? getImageUrl(details.poster_path) : undefined}
-            />
-          ) : embedUrl ? (
+          {embedUrl ? (
             <iframe
               key={`${currentPlayer}-${embedUrl}`}
               src={embedUrl}

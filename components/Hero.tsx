@@ -49,6 +49,7 @@ interface YTPlayer {
   destroy: () => void;
   getDuration: () => number;
   getCurrentTime: () => number;
+  getPlayerState: () => number;
   mute: () => void;
   unMute: () => void;
   isMuted: () => boolean;
@@ -196,18 +197,40 @@ export function Hero() {
         playsinline: 1,
         cc_load_policy: 0,
         autohide: 1,
-        wmode: 'transparent',
+        wmode: 'opaque',
+        start: 0,
+        end: 0,
+        hl: 'pt',
+        widget_referrer: typeof window !== 'undefined' ? window.location.origin : '',
         origin: typeof window !== 'undefined' ? window.location.origin : '',
       },
       events: {
         onReady: (event) => {
+          // Força o vídeo a tocar e garante que não está pausado
+          event.target.unMute();
           event.target.playVideo();
           setIsMuted(false);
+          
+          // Verifica se o vídeo está realmente tocando após 1 segundo
+          setTimeout(() => {
+            const player = event.target;
+            if (player && player.getPlayerState && player.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+              player.playVideo();
+            }
+          }, 1000);
         },
         onStateChange: (event) => {
+          // Se o vídeo foi pausado (PAUSED = 2), tenta tocar novamente
+          if (event.data === window.YT.PlayerState.PAUSED) {
+            // Pequeno delay antes de tentar tocar novamente
+            setTimeout(() => {
+              if (event.target && event.target.playVideo) {
+                event.target.playVideo();
+              }
+            }, 500);
+          }
           // Quando o vídeo termina (ENDED = 0)
-          if (event.data === window.YT.PlayerState.ENDED) {
-            // Avança para o próximo filme
+          else if (event.data === window.YT.PlayerState.ENDED) {
             goToNext();
           }
         },
@@ -300,13 +323,15 @@ export function Hero() {
             >
               {/* Container do YouTube Player - Preenche 100% */}
               <div 
-                ref={containerRef}
-                className="absolute inset-0 w-full h-full"
+                ref={index === currentIndex ? containerRef : null}
+                className="absolute inset-0 w-full h-full overflow-hidden"
                 style={{ 
                   minWidth: '100%',
                   minHeight: '100%',
                 }}
               />
+              {/* Overlay para esconder UI do YouTube na parte superior */}
+              <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/90 via-black/50 to-transparent pointer-events-none z-10" />
               {/* Overlays gradientes */}
               <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none" />

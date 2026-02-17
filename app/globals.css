@@ -111,35 +111,69 @@ html, body {
 }
 
 /* YouTube Player - Fill container and hide UI elements */
-#youtube-player-container,
-#youtube-player-container iframe,
 [id^="youtube-player-"],
 [id^="youtube-player-"] iframe {
   position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100vw !important;
+  height: 56.25vw !important;
+  min-width: 177.78vh !important;
+  min-height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  transform: translate(-50%, -50%) scale(1.15) !important;
+  border: none !important;
+  pointer-events: none !important;
 }
 
-/* Hide YouTube player UI elements */
+/* Hide all YouTube player UI elements */
 .ytp-chrome-top,
+.ytp-chrome-top-buttons,
 .ytp-title,
 .ytp-title-channel,
 .ytp-title-text,
+.ytp-title-link,
 .ytp-share-button,
 .ytp-watch-later-button,
 .ytp-youtube-button,
 .ytp-cards-button,
 .ytp-ce-element,
+.ytp-ce-covering-overlay,
+.ytp-ce-expanding-overlay,
+.ytp-ce-playlist-index,
 .ytp-pause-overlay,
 .ytp-watermark,
 .ytp-show-cards-title,
-.ytp-title-link {
+.ytp-endscreen-content,
+.ytp-endscreen-previous,
+.ytp-endscreen-next,
+.ytp-spinner,
+.ytp-large-play-button,
+.ytp-bezel,
+.ytp-bezel-text,
+.ytp-upnext,
+.ytp-upnext-autoplay-icon,
+.ytp-mdx-button,
+.ytp-miniplayer-button,
+.ytp-remote-button,
+.ytp-multicam-button,
+.ytp-playlist-menu-button,
+.ytp-settings-button,
+.ytp-subtitles-button,
+.ytp-fullscreen-button,
+.ytp-size-button,
+.ytp-volume-area,
+.ytp-time-display,
+.ytp-progress-bar-container,
+.ytp-chrome-controls,
+.ytp-chrome-bottom,
+.ytp-gradient-top,
+.ytp-gradient-bottom {
   display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Animations */
