@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
+import { HilltopAds } from "@/components/HilltopAds";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
 import { GlobalPopunder } from "@/components/GlobalPopunder";
@@ -65,11 +66,14 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
         {/* HilltopAds Verification */}
         <meta name="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" content="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" />
+        {/* HilltopAds Referrer Tag para +20% receita */}
+        <meta name="referrer" content="no-referrer-when-downgrade" />
         {/* JuicyAds Verification */}
         <meta name="juicyads-site-verification" content="37acd2f7cebf47784cc6890c393e3281" />
       </head>
       <body className={inter.className}>
         <AdsterraAds />
+        <HilltopAds />
         <GlobalPopunder />
         <AntiAdBlock />
         <PWARegister />
