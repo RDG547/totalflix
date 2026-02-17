@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { X, Maximize2, Radio, Loader2 } from "lucide-react";
+import { X, Maximize2, Radio, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TVChannel } from "@/lib/tv-channels";
 import Hls from "hls.js";
@@ -17,6 +17,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -42,21 +43,27 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     const video = videoRef.current;
     if (!video) return;
 
-    const streamUrl = channel.streamUrl;
+    let streamUrl = channel.streamUrl;
 
     // Check if it's a YouTube URL
     if (streamUrl.includes("youtube.com") || streamUrl.includes("youtu.be")) {
-      // For YouTube, we use iframe
       setIsLoading(false);
       return;
     }
 
-    // For M3U8 streams
-    if (streamUrl.includes(".m3u8") || streamUrl.includes("live")) {
+    // For M3U8 streams, use proxy to bypass CORS
+    if (streamUrl.includes(".m3u8")) {
+      // Use proxy for external M3U8 URLs to bypass CORS
+      const proxyUrl = `/api/tv-proxy?url=${encodeURIComponent(streamUrl)}`;
+      streamUrl = proxyUrl;
+    }
+
+    const setupHls = () => {
       if (Hls.isSupported()) {
         // Destroy previous HLS instance
         if (hlsRef.current) {
           hlsRef.current.destroy();
+          hlsRef.current = null;
         }
 
         const hls = new Hls({
@@ -65,6 +72,15 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
           maxMaxBufferLength: 60,
           liveSyncDurationCount: 3,
           liveMaxLatencyDurationCount: 10,
+          debug: false,
+          xhrSetup: function(xhr, url) {
+            // For segment requests that are not proxied yet
+            if (url.includes('.ts') && !url.startsWith('/api/')) {
+              // Try to proxy segment requests too
+              const proxiedUrl = `/api/tv-proxy?url=${encodeURIComponent(url)}`;
+              xhr.open('GET', proxiedUrl, true);
+            }
+          }
         });
 
         hlsRef.current = hls;
@@ -86,11 +102,19 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
-                setError("Erro de rede. Verifique sua conexão.");
+                // Tentar recuperar de erro de rede
+                if (data.details === 'manifestLoadError') {
+                  setError("Não foi possível carregar o canal. O servidor pode estar indisponível.");
+                } else {
+                  setError("Erro de rede. Tentando recuperar...");
+                  hls.startLoad();
+                  return; // Não marcar como erro fatal ainda
+                }
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
-                setError("Erro no stream do canal.");
-                break;
+                setError("Erro no stream do canal. Tentando recuperar...");
+                hls.recoverMediaError();
+                return; // Não marcar como erro fatal ainda
               default:
                 setError("Erro ao reproduzir o canal.");
                 break;
@@ -118,20 +142,9 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
         setError("Seu navegador não suporta reprodução deste canal.");
         setIsLoading(false);
       }
-    } else {
-      // For other URLs, try as direct video
-      video.src = streamUrl;
-      video.addEventListener("loadedmetadata", () => {
-        setIsLoading(false);
-        video.play().catch((e) => {
-          console.log("Autoplay prevented:", e);
-        });
-      });
-      video.addEventListener("error", () => {
-        setError("Erro ao carregar o canal.");
-        setIsLoading(false);
-      });
-    }
+    };
+
+    setupHls();
 
     return () => {
       if (hlsRef.current) {
@@ -140,7 +153,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
       }
       video.src = "";
     };
-  }, [isOpen, channel.streamUrl]);
+  }, [isOpen, channel.streamUrl, retryCount]);
 
   // Notifica contexto quando modal abre/fecha
   useEffect(() => {
@@ -174,6 +187,12 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
         document.exitFullscreen();
       }
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+    setIsLoading(true);
   };
 
   if (!isOpen) return null;
@@ -282,13 +301,23 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
                   <p className="text-gray-400 text-sm mb-4">
                     Este canal pode estar temporariamente indisponível.
                   </p>
-                  <Button
-                    onClick={onClose}
-                    variant="outline"
-                    className="border-purple-500/50 hover:bg-purple-500/20"
-                  >
-                    Fechar
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleRetry}
+                      variant="default"
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Tentar Novamente
+                    </Button>
+                    <Button
+                      onClick={onClose}
+                      variant="outline"
+                      className="border-purple-500/50 hover:bg-purple-500/20"
+                    >
+                      Fechar
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
