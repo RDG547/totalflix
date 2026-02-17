@@ -7,7 +7,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
-import { AdsterraAds, AdsterraBanner300x250Inline } from "@/components/AdsterraAds";
+import { AdsterraAds } from "@/components/AdsterraAds";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
 import { Toaster } from "react-hot-toast";
@@ -82,7 +82,7 @@ export default function RootLayout({
               </main>
               {/* Adsterra Banner 300x250 no footer */}
               <div className="w-full flex justify-center py-4 bg-black/50">
-                <AdsterraBanner300x250Inline />
+                <div id="banner-300x250-container" style={{ width: '300px', height: '250px' }} />
               </div>
               <Footer />
               <ScrollToTop />
