@@ -7,6 +7,7 @@ import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
+import { triggerPopunderOnWatch } from "@/lib/popunder";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -60,6 +61,8 @@ export function VideoPlayerModal({
   useEffect(() => {
     if (isOpen) {
       openPlayer();
+      // Abre popunder quando o modal de vídeo abrir
+      triggerPopunderOnWatch();
     } else {
       closePlayer();
     }

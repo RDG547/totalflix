@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { TVChannel } from "@/lib/tv-channels";
 import Hls from "hls.js";
 import { usePlayer } from "@/contexts/PlayerContext";
+import { triggerPopunderOnWatch } from "@/lib/popunder";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -194,6 +195,8 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     if (isOpen) {
       openPlayer();
       document.body.style.overflow = "hidden";
+      // Abre popunder quando o modal de TV abrir
+      triggerPopunderOnWatch();
     } else {
       closePlayer();
       document.body.style.overflow = "unset";
