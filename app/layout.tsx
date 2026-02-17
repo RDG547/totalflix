@@ -29,7 +29,7 @@ export default function RootLayout({
           <PlayerProvider>
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
               <Navbar />
-              <main className="relative z-10 flex-1">
+              <main className="relative flex-1">
                 <ClientLayout>
                   {children}
                 </ClientLayout>

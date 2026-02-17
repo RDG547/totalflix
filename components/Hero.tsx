@@ -326,7 +326,7 @@ export function Hero() {
   const hasLongDescription = currentMovie.overview && currentMovie.overview.length > 150;
 
   return (
-    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group isolate">
+    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
       {/* Background Images */}
       {featuredMovies.map((featured, index) => (
         <div

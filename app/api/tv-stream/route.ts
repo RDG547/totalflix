@@ -1,6 +1,38 @@
 import { NextResponse } from 'next/server';
 
 const MINHATV_BASE_URL = 'https://da5f663b4690-minhatv.baby-beamup.club';
+const MAX_RETRIES = 2;
+const TIMEOUT_MS = 12000; // 12 segundos
+
+async function fetchWithRetry(channelId: string, retries = 0): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+        const response = await fetch(
+            `${MINHATV_BASE_URL}/stream/tv/${encodeURIComponent(channelId)}.json`,
+            {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                }
+            }
+        );
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        
+        // Se for timeout e ainda tem retries, tenta novamente
+        if (error instanceof Error && error.name === 'AbortError' && retries < MAX_RETRIES) {
+            console.log(`Retry ${retries + 1} for channel ${channelId}`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Espera 500ms antes de retry
+            return fetchWithRetry(channelId, retries + 1);
+        }
+        
+        throw error;
+    }
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -14,21 +46,7 @@ export async function GET(request: Request) {
     }
 
     try {
-        // AbortController com timeout de 8 segundos
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const response = await fetch(
-            `${MINHATV_BASE_URL}/stream/tv/${encodeURIComponent(channelId)}.json`,
-            {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json',
-                }
-            }
-        );
-
-        clearTimeout(timeoutId);
+        const response = await fetchWithRetry(channelId);
 
         if (!response.ok) {
             return NextResponse.json(
@@ -39,16 +57,16 @@ export async function GET(request: Request) {
 
         const data = await response.json();
         
-        // Cache por 30 segundos para evitar requests repetidos
+        // Cache por 60 segundos para evitar requests repetidos
         return NextResponse.json(data, {
             headers: {
-                'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
             },
         });
 
     } catch (error: unknown) {
         if (error instanceof Error && error.name === 'AbortError') {
-            console.error(`Timeout fetching TV stream for ${channelId}`);
+            console.error(`Timeout fetching TV stream for ${channelId} after ${MAX_RETRIES} retries`);
             return NextResponse.json(
                 { error: 'Request timeout', streams: [] },
                 { status: 504 }
