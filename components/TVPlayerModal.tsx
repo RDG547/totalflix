@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Maximize2, Radio } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { X, Maximize2, Radio, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TVChannel } from "@/lib/tv-channels";
+import Hls from "hls.js";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -13,6 +14,131 @@ interface TVPlayerModalProps {
 
 export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+
+  // Cleanup HLS instance on unmount
+  useEffect(() => {
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, []);
+
+  // Initialize player when channel changes
+  useEffect(() => {
+    if (!isOpen || !channel.streamUrl) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const streamUrl = channel.streamUrl;
+
+    // Check if it's a YouTube URL
+    if (streamUrl.includes("youtube.com") || streamUrl.includes("youtu.be")) {
+      // For YouTube, we use iframe
+      setIsLoading(false);
+      return;
+    }
+
+    // For M3U8 streams
+    if (streamUrl.includes(".m3u8") || streamUrl.includes("live")) {
+      if (Hls.isSupported()) {
+        // Destroy previous HLS instance
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+        }
+
+        const hls = new Hls({
+          enableWorker: true,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+        });
+
+        hlsRef.current = hls;
+
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+          console.log("HLS media attached");
+        });
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log("HLS manifest parsed");
+          setIsLoading(false);
+          video.play().catch((e) => {
+            console.log("Autoplay prevented:", e);
+          });
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error("HLS error:", data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                setError("Erro de rede. Verifique sua conexão.");
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                setError("Erro no stream do canal.");
+                break;
+              default:
+                setError("Erro ao reproduzir o canal.");
+                break;
+            }
+            setIsLoading(false);
+          }
+        });
+
+        hls.loadSource(streamUrl);
+        hls.attachMedia(video);
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        // Native HLS support (Safari)
+        video.src = streamUrl;
+        video.addEventListener("loadedmetadata", () => {
+          setIsLoading(false);
+          video.play().catch((e) => {
+            console.log("Autoplay prevented:", e);
+          });
+        });
+        video.addEventListener("error", () => {
+          setError("Erro ao carregar o canal.");
+          setIsLoading(false);
+        });
+      } else {
+        setError("Seu navegador não suporta reprodução deste canal.");
+        setIsLoading(false);
+      }
+    } else {
+      // For other URLs, try as direct video
+      video.src = streamUrl;
+      video.addEventListener("loadedmetadata", () => {
+        setIsLoading(false);
+        video.play().catch((e) => {
+          console.log("Autoplay prevented:", e);
+        });
+      });
+      video.addEventListener("error", () => {
+        setError("Erro ao carregar o canal.");
+        setIsLoading(false);
+      });
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      video.src = "";
+    };
+  }, [isOpen, channel.streamUrl]);
 
   useEffect(() => {
     if (isOpen) {
@@ -25,16 +151,16 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
       setIsFullscreen(!!document.fullscreenElement);
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
 
     return () => {
       document.body.style.overflow = "unset";
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, [isOpen]);
 
   const handleFullscreen = () => {
-    const playerContainer = document.getElementById("tv-player-container");
+    const playerContainer = containerRef.current;
     if (playerContainer) {
       if (!document.fullscreenElement) {
         playerContainer.requestFullscreen();
@@ -45,6 +171,10 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
   };
 
   if (!isOpen) return null;
+
+  const isYouTube =
+    channel.streamUrl.includes("youtube.com") ||
+    channel.streamUrl.includes("youtu.be");
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -63,7 +193,9 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
               <span className="w-2 h-2 bg-white rounded-full"></span>
               AO VIVO
             </div>
-            <h2 className="text-xl font-bold text-white truncate">{channel.name}</h2>
+            <h2 className="text-xl font-bold text-white truncate">
+              {channel.name}
+            </h2>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -96,17 +228,67 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
         </div>
 
         {/* TV Player Container */}
-        <div id="tv-player-container" className="relative aspect-video bg-black">
-          <iframe
-            key={channel.streamUrl}
-            src={`${channel.streamUrl}${channel.streamUrl.includes('?') ? '&' : '?'}autoplay=1&mute=1`}
-            className="w-full h-full"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          />
+        <div
+          id="tv-player-container"
+          ref={containerRef}
+          className="relative aspect-video bg-black"
+        >
+          {isYouTube ? (
+            // YouTube iframe player
+            <iframe
+              src={`${channel.streamUrl}${channel.streamUrl.includes("?") ? "&" : "?"}autoplay=1&mute=1`}
+              className="w-full h-full"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            />
+          ) : (
+            // HLS Video player
+            <>
+              <video
+                ref={videoRef}
+                className="w-full h-full"
+                autoPlay
+                playsInline
+                controls
+                muted
+                onClick={(e) => {
+                  if (e.currentTarget.paused) {
+                    e.currentTarget.play();
+                  } else {
+                    e.currentTarget.pause();
+                  }
+                }}
+              />
+
+              {/* Loading overlay */}
+              {isLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+                  <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-4" />
+                  <p className="text-gray-400">Carregando canal...</p>
+                </div>
+              )}
+
+              {/* Error overlay */}
+              {error && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90">
+                  <div className="text-red-500 text-4xl mb-4">⚠️</div>
+                  <p className="text-white text-lg mb-2">{error}</p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Este canal pode estar temporariamente indisponível.
+                  </p>
+                  <Button
+                    onClick={onClose}
+                    variant="outline"
+                    className="border-purple-500/50 hover:bg-purple-500/20"
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
