@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
@@ -9,6 +9,7 @@ import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
+import { PWARegister } from "@/components/PWARegister";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -17,6 +18,28 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "TotalFlix - Filmes e Séries Online",
   description: "Assista aos melhores filmes e séries online gratuitamente",
+  manifest: "/manifest.json",
+  icons: {
+    apple: "/icon-192x192.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "TotalFlix",
+  },
+  applicationName: "TotalFlix",
+  authors: [{ name: "TotalFlix" }],
+  creator: "TotalFlix",
+  publisher: "TotalFlix",
+  keywords: ["filmes", "séries", "tv", "online", "grátis", "streaming"],
+};
+
+export const viewport: Viewport = {
+  themeColor: "#8b5cf6",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
@@ -26,9 +49,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="TotalFlix" />
+        <meta name="application-name" content="TotalFlix" />
+        <meta name="msapplication-TileColor" content="#8b5cf6" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <meta name="theme-color" content="#8b5cf6" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
+      </head>
       <body className={inter.className}>
         <AdsterraAds />
         <AntiAdBlock />
+        <PWARegister />
         <AuthProvider>
           <PlayerProvider>
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">

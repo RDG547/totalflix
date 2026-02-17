@@ -4,55 +4,105 @@ import { useEffect, useState } from "react";
 
 export function AntiAdBlock() {
   const [showWarning, setShowWarning] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Delay para verificar após a página carregar
+    // Delay maior para deixar os scripts de anúncio carregarem
     const timer = setTimeout(() => {
-      detectAdBlock();
-    }, 2000);
+      checkAdBlock();
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, []);
 
-  const detectAdBlock = () => {
-    // Método 1: Verificar se elementos de anúncio comuns estão bloqueados
-    const testAd = document.createElement("div");
-    testAd.className = "adsbox";
-    testAd.style.position = "absolute";
-    testAd.style.left = "-9999px";
-    document.body.appendChild(testAd);
+  const checkAdBlock = async () => {
+    setIsChecking(true);
+    
+    // Verificar múltiplas vezes com delay
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    const check = async () => {
+      attempts++;
+      
+      // Método 1: Verificar se elementos de anúncio comuns estão bloqueados
+      const testAd = document.createElement("div");
+      testAd.className = "adsbox ad-placement ad-banner";
+      testAd.style.cssText = "position: absolute; left: -9999px; width: 1px; height: 1px;";
+      document.body.appendChild(testAd);
 
-    setTimeout(() => {
-      const isBlocked = testAd.offsetHeight === 0 || testAd.offsetParent === null;
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const isElementBlocked = testAd.offsetHeight === 0 || 
+                               testAd.offsetParent === null || 
+                               window.getComputedStyle(testAd).display === 'none';
+      
       document.body.removeChild(testAd);
 
-      if (isBlocked) {
-        setShowWarning(true);
-      }
-    }, 100);
+      // Método 2: Verificar se scripts de anúncio foram carregados (mais confiável)
+      const adScripts = document.querySelectorAll('script[src*="effectivegatecpm.com"]');
+      const hasAdScripts = adScripts.length > 0;
 
-    // Método 2: Verificar se scripts de anúncio foram carregados
-    const adScripts = document.querySelectorAll('script[src*="effectivegatecpm.com"]');
-    if (adScripts.length === 0) {
-      // Verificar novamente após mais tempo
-      setTimeout(() => {
-        const scripts = document.querySelectorAll('script[src*="effectivegatecpm.com"]');
-        if (scripts.length === 0) {
-          setShowWarning(true);
+      // Método 3: Tentar carregar um script de teste
+      let scriptBlocked = false;
+      try {
+        const testScript = document.createElement('script');
+        testScript.type = 'text/javascript';
+        testScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+        testScript.async = true;
+        
+        const scriptPromise = new Promise((resolve, reject) => {
+          testScript.onload = () => resolve(true);
+          testScript.onerror = () => resolve(false);
+          setTimeout(() => resolve(false), 2000);
+        });
+        
+        document.head.appendChild(testScript);
+        const scriptLoaded = await scriptPromise;
+        scriptBlocked = !scriptLoaded;
+        
+        // Remove o script de teste
+        if (testScript.parentNode) {
+          testScript.parentNode.removeChild(testScript);
         }
-      }, 5000);
-    }
+      } catch (e) {
+        scriptBlocked = true;
+      }
+
+      console.log('AdBlock check:', { 
+        attempt: attempts, 
+        isElementBlocked, 
+        hasAdScripts, 
+        scriptBlocked 
+      });
+
+      // Só mostra aviso se:
+      // 1. Elementos estão bloqueados E
+      // 2. Scripts de anúncio não foram carregados E
+      // 3. Scripts de teste foram bloqueados
+      if (isElementBlocked && !hasAdScripts && scriptBlocked) {
+        setShowWarning(true);
+        setIsChecking(false);
+      } else if (attempts < maxAttempts && (!hasAdScripts || scriptBlocked)) {
+        // Tenta novamente após mais tempo
+        setTimeout(check, 3000);
+      } else {
+        setIsChecking(false);
+      }
+    };
+
+    check();
   };
 
   const handleClose = () => {
     setShowWarning(false);
-    // Reexibir após 5 minutos
-    setTimeout(() => {
-      detectAdBlock();
-    }, 300000);
   };
 
-  if (!showWarning) return null;
+  const handleReload = () => {
+    window.location.reload();
+  };
+
+  if (!showWarning || isChecking) return null;
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/95 p-4">
@@ -60,20 +110,26 @@ export function AntiAdBlock() {
         <div className="text-5xl mb-4">🛡️</div>
         <h2 className="text-2xl font-bold text-white mb-4">AdBlock Detectado!</h2>
         <p className="text-gray-300 mb-6 leading-relaxed">
-          Detectamos que você está usando um bloqueador de anúncios. 
-          O TotalFlix é gratuito graças aos anúncios. 
-          Por favor, desative seu AdBlock para continuar usando o site.
+          Detectamos que você está usando um bloqueador de anúncios ou alguma 
+          extensão está bloqueando os anúncios.
+        </p>
+        <p className="text-gray-400 text-sm mb-6">
+          O TotalFlix é gratuito graças aos anúncios. Por favor, desative seu 
+          AdBlock e recarregue a página para continuar usando o site.
         </p>
         <div className="space-y-3">
           <button
-            onClick={handleClose}
+            onClick={handleReload}
             className="w-full py-3 px-6 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 text-white font-bold rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
           >
-            Já desativei o AdBlock
+            Recarregar Página
           </button>
-          <p className="text-sm text-gray-500">
-            Se você não está usando AdBlock, ignore esta mensagem.
-          </p>
+          <button
+            onClick={handleClose}
+            className="w-full py-3 px-6 border border-purple-500/50 hover:bg-purple-500/20 text-gray-300 font-semibold rounded-xl transition-all duration-300"
+          >
+            Continuar Mesmo Assim
+          </button>
         </div>
       </div>
     </div>
