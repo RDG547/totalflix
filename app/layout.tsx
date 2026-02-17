@@ -63,6 +63,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
+        {/* HilltopAds Verification */}
+        <meta name="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" content="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" />
+        {/* JuicyAds Verification */}
+        <meta name="juicyads-site-verification" content="37acd2f7cebf47784cc6890c393e3281" />
       </head>
       <body className={inter.className}>
         <AdsterraAds />
