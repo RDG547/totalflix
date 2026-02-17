@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { tmdb } from "@/lib/tmdb";
+import { useState, useEffect, useCallback } from "react";
+import { tmdb, type Movie } from "@/lib/tmdb";
 import { MovieCard } from "@/components/MovieCard";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { Movie } from "@/lib/tmdb";
+
+interface MovieWithDetails extends Movie {
+  runtime?: number;
+}
 
 export default function MoviesPage() {
-  const [movies, setMovies] = useState<Movie[]>([]);
+  const [movies, setMovies] = useState<MovieWithDetails[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -17,10 +20,10 @@ export default function MoviesPage() {
     loadMovies(1);
   }, []);
 
-  const loadMovies = async (pageNum: number) => {
+  const loadMovies = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
-      const results: Movie[] = [];
+      const results: MovieWithDetails[] = [];
 
       // Carregar 3 páginas de uma vez (20 por página = ~60 itens, arredondamos para 50)
       for (let i = 0; i < 3; i++) {
@@ -28,7 +31,22 @@ export default function MoviesPage() {
         const data = await tmdb.getPopular("movie", actualPage);
 
         if (data && Array.isArray(data)) {
-          results.push(...data);
+          // Buscar detalhes para cada filme (incluindo runtime)
+          const moviesWithDetails = await Promise.all(
+            data.map(async (movie: Movie) => {
+              try {
+                const details = await tmdb.getDetails("movie", movie.id);
+                return {
+                  ...movie,
+                  runtime: details.runtime,
+                };
+              } catch (error) {
+                // Se falhar, retorna o filme sem runtime
+                return movie;
+              }
+            })
+          );
+          results.push(...moviesWithDetails);
         }
 
         if (!data || data.length < 20) {
@@ -56,7 +74,7 @@ export default function MoviesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleLoadMore = () => {
     loadMovies(page + 1);
@@ -72,7 +90,7 @@ export default function MoviesPage() {
 
         <section>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {movies.map((movie: Movie) => (
+            {movies.map((movie: MovieWithDetails) => (
               <MovieCard key={`${movie.id}-${movie.title}`} movie={movie} />
             ))}
           </div>

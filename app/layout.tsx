@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
+import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -27,10 +28,15 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={inter.className}>
         <AdsterraAds />
+        <AntiAdBlock />
         <AuthProvider>
           <PlayerProvider>
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
               <Navbar />
+              {/* Adsterra Banner Container */}
+              <div className="w-full flex justify-center py-2 bg-black/50">
+                <div id="container-28fe29024925ba318c588b98f9674bb9" className="w-full max-w-[728px] min-h-[90px] flex items-center justify-center" />
+              </div>
               <main className="relative flex-1">
                 <ClientLayout>
                   {children}
