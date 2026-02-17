@@ -110,7 +110,7 @@ html, body {
   background-size: 1000px 100%;
 }
 
-/* YouTube Player - Fill container */
+/* YouTube Player - Fill container and hide UI elements */
 #youtube-player-container,
 #youtube-player-container iframe,
 [id^="youtube-player-"],
@@ -121,6 +121,25 @@ html, body {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+}
+
+/* Hide YouTube player UI elements */
+.ytp-chrome-top,
+.ytp-title,
+.ytp-title-channel,
+.ytp-title-text,
+.ytp-share-button,
+.ytp-watch-later-button,
+.ytp-youtube-button,
+.ytp-cards-button,
+.ytp-ce-element,
+.ytp-pause-overlay,
+.ytp-watermark,
+.ytp-show-cards-title,
+.ytp-title-link {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 /* Animations */

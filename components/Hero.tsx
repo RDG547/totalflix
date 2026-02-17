@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { tmdb, getBackdropUrl, type Movie, type MovieDetails } from "@/lib/tmdb";
 import { Button } from "@/components/ui/button";
-import { Info, ChevronLeft, ChevronRight, Volume2, VolumeX, ChevronDown, ChevronUp } from "lucide-react";
+import { Info, ChevronLeft, ChevronRight, Volume2, VolumeX, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import Link from "next/link";
 import { WatchButton } from "@/components/WatchButton";
 
@@ -155,6 +155,17 @@ export function Hero() {
     }
   }, [isMuted]);
 
+  // Formatar duração
+  const formatRuntime = (minutes?: number) => {
+    if (!minutes) return null;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+    return `${mins}m`;
+  };
+
   // Inicializa o player do YouTube
   const initPlayer = useCallback((videoId: string) => {
     if (!window.YT || !containerRef.current) return;
@@ -183,6 +194,9 @@ export function Hero() {
         disablekb: 1,
         fs: 0,
         playsinline: 1,
+        cc_load_policy: 0,
+        autohide: 1,
+        wmode: 'transparent',
         origin: typeof window !== 'undefined' ? window.location.origin : '',
       },
       events: {
@@ -301,11 +315,11 @@ export function Hero() {
         </div>
       ))}
 
-      {/* Mute/Unmute Button */}
+      {/* Mute/Unmute Button - Bottom right */}
       {showTrailer && currentFeatured.trailerKey && (
         <button
           onClick={toggleMute}
-          className="absolute top-24 right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
+          className="absolute bottom-28 right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
           aria-label={isMuted ? "Ativar som" : "Desativar som"}
         >
           {isMuted ? (
@@ -353,6 +367,12 @@ export function Hero() {
             <span className="text-gray-300">
               {currentMovie.release_date?.split("-")[0] || currentMovie.first_air_date?.split("-")[0]}
             </span>
+            {currentDetails?.runtime && (
+              <div className="flex items-center space-x-1 text-gray-300">
+                <Clock className="w-4 h-4" />
+                <span>{formatRuntime(currentDetails.runtime)}</span>
+              </div>
+            )}
           </div>
 
           {/* Description with expand/collapse */}
@@ -371,11 +391,11 @@ export function Hero() {
               >
                 {isDescriptionExpanded ? (
                   <>
-                    Ver menos <ChevronUp className="w-4 h-4" />
+                    Ler menos <ChevronUp className="w-4 h-4" />
                   </>
                 ) : (
                   <>
-                    Ver mais <ChevronDown className="w-4 h-4" />
+                    Ler mais <ChevronDown className="w-4 h-4" />
                   </>
                 )}
               </button>
