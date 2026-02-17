@@ -1,36 +1,22 @@
-// Função para abrir popunder quando o usuário for assistir conteúdo
+// Função para abrir popunder/smartlink quando o usuário for assistir conteúdo
 export function openPopunder() {
-  // URL do popunder do Adsterra
-  const popunderUrl = "https://pl28735403.effectivegatecpm.com/1c/a3/d9/1ca3d9b4f1380b8dd3cbf80b26c73bf9.js";
+  // URLs dos anúncios Adsterra
+  const popunderUrl = "https://fixesconsessionconsession.com/1c/a3/d9/1ca3d9b4f1380b8dd3cbf80b26c73bf9.js";
+  const smartlinkUrl = "https://fixesconsessionconsession.com/ueqjseci?key=63c9cbec9e24dda8c816a9461f648386";
   
-  // Tenta abrir o popunder de várias formas
+  // Tenta abrir o smartlink em nova aba
   try {
-    // Método 1: Criar link e clicar (mais confiável)
-    const link = document.createElement('a');
-    link.href = "https://www.google.com"; // URL falsa para permitir o popup
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    
-    // Simula click
-    const clickEvent = new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      view: window
-    });
-    
-    // Tenta abrir popup
-    const popup = window.open('about:blank', '_blank');
+    const popup = window.open(smartlinkUrl, '_blank');
     
     if (popup) {
-      // Se abriu, redireciona para o popunder
-      popup.location.href = "https://pl28735403.effectivegatecpm.com/";
+      // Se abriu, tenta dar foco de volta à janela principal
       popup.blur();
       window.focus();
     }
     
-    // Método 2: Recarregar o script do popunder
-    const existingScript = document.querySelector('script[src*="pl28735403"]');
-    if (existingScript) {
+    // Também tenta recarregar o script do popunder
+    const existingScript = document.querySelector('script[src*="fixesconsessionconsession.com/1c/a3/d9"]');
+    if (!existingScript) {
       const newScript = document.createElement('script');
       newScript.src = popunderUrl;
       newScript.async = true;
@@ -38,7 +24,7 @@ export function openPopunder() {
     }
     
   } catch (error) {
-    console.log('Popunder blocked or failed:', error);
+    console.log('Popunder/Smartlink blocked or failed:', error);
   }
 }
 
@@ -49,5 +35,18 @@ export function triggerPopunderOnWatch() {
   // Delay para não interromper a ação do usuário
   setTimeout(() => {
     openPopunder();
-  }, 500);
+  }, 300);
+}
+
+// Função para abrir apenas o smartlink (para outros casos)
+export function openSmartlinkOnly() {
+  if (typeof window === 'undefined') return;
+  
+  const smartlinkUrl = "https://fixesconsessionconsession.com/ueqjseci?key=63c9cbec9e24dda8c816a9461f648386";
+  
+  try {
+    window.open(smartlinkUrl, '_blank');
+  } catch (error) {
+    console.log('Smartlink blocked:', error);
+  }
 }
