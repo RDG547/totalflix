@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { getUserProfile, updateUserProfile, clearHistory, uploadProfilePhoto, UserProfile } from "@/lib/userProfile";
@@ -48,6 +48,70 @@ export default function ProfilePage() {
     bio: "",
   });
 
+  // Carregar perfil
+  const loadProfile = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const userProfile = await getUserProfile(user.uid);
+
+      if (userProfile) {
+        setProfile(userProfile);
+        setEditForm({
+          displayName: userProfile.displayName || "",
+          bio: userProfile.bio || "",
+        });
+
+        // Carregar favoritos
+        if (userProfile.favorites.length > 0) {
+          const favPromises = userProfile.favorites.map(async (id) => {
+            // Tentar buscar como filme primeiro
+            try {
+              const movieData = await tmdb.getDetails('movie', id);
+              return { ...movieData, media_type: 'movie' };
+            } catch {
+              // Se falhar, tentar como série
+              try {
+                const tvData = await tmdb.getDetails('tv', id);
+                return { ...tvData, media_type: 'tv' };
+              } catch {
+                return null;
+              }
+            }
+          });
+          const favResults = await Promise.all(favPromises);
+          setFavorites(favResults.filter(Boolean) as Movie[]);
+        }
+        
+        // Carregar histórico
+        if (userProfile.history.length > 0) {
+          const histPromises = userProfile.history.map(item =>
+            tmdb.getDetails(item.type, item.id).catch(() => null)
+          );
+          const histResults = await Promise.all(histPromises);
+          setHistoryMovies(histResults.filter(Boolean) as Movie[]);
+        }
+
+        // Carregar conquistas
+        let userAchievements = await getUserAchievements(user.uid);
+        if (!userAchievements) {
+          // Inicializar conquistas se não existir
+          await initializeAchievements(user.uid);
+          userAchievements = await getUserAchievements(user.uid);
+        }
+        if (userAchievements) {
+          setAchievements(userAchievements);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
+      toast.error("Erro ao carregar perfil");
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user) {
       router.push("/");
@@ -90,68 +154,7 @@ export default function ProfilePage() {
       window.removeEventListener('favoriteAdded', handleFavoriteAdded);
       window.removeEventListener('achievementUnlocked', handleAchievementUnlocked);
     };
-  }, [user, router]);
-
-  const loadProfile = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      const userProfile = await getUserProfile(user.uid);
-
-      if (userProfile) {
-        setProfile(userProfile);
-        setEditForm({
-          displayName: userProfile.displayName || "",
-          bio: userProfile.bio || "",
-        });
-
-        // Carregar favoritos
-        if (userProfile.favorites.length > 0) {
-          const favPromises = userProfile.favorites.map(async (id) => {
-            // Tentar buscar como filme primeiro
-            try {
-              const movieData = await tmdb.getDetails('movie', id);
-              return { ...movieData, media_type: 'movie' };
-            } catch {
-              // Se falhar, tentar como série
-              try {
-                const tvData = await tmdb.getDetails('tv', id);
-                return { ...tvData, media_type: 'tv' };
-              } catch {
-                return null;
-              }
-            }
-          });
-          const favResults = await Promise.all(favPromises);
-          setFavorites(favResults.filter(Boolean) as Movie[]);
-        }        // Carregar histórico
-        if (userProfile.history.length > 0) {
-          const histPromises = userProfile.history.map(item =>
-            tmdb.getDetails(item.type, item.id).catch(() => null)
-          );
-          const histResults = await Promise.all(histPromises);
-          setHistoryMovies(histResults.filter(Boolean) as Movie[]);
-        }
-
-        // Carregar conquistas
-        let userAchievements = await getUserAchievements(user.uid);
-        if (!userAchievements) {
-          // Inicializar conquistas se não existir
-          await initializeAchievements(user.uid);
-          userAchievements = await getUserAchievements(user.uid);
-        }
-        if (userAchievements) {
-          setAchievements(userAchievements);
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao carregar perfil:", error);
-      toast.error("Erro ao carregar perfil");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, router, loadProfile]);
 
   const handleSaveProfile = async () => {
     if (!user) return;

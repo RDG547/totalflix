@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MovieCard } from "@/components/MovieCard";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -35,6 +35,43 @@ export function GenrePagination({
   const [loadingSeries, setLoadingSeries] = useState(false);
   const observerRef = useRef<HTMLDivElement>(null);
 
+  // Definir funções antes do useEffect
+  const loadMoreMovies = useCallback(async () => {
+    if (moviePage >= totalMoviePages || loadingMovies) return;
+
+    setLoadingMovies(true);
+    try {
+      const response = await fetch(
+        `/api/genre?type=movie&genreId=${genreId}&page=${moviePage + 1}`
+      );
+      const data = await response.json();
+      setMovies(prev => [...prev, ...data.results]);
+      setMoviePage(prev => prev + 1);
+    } catch (error) {
+      console.error("Error loading more movies:", error);
+    } finally {
+      setLoadingMovies(false);
+    }
+  }, [genreId, moviePage, totalMoviePages, loadingMovies]);
+
+  const loadMoreSeries = useCallback(async () => {
+    if (seriesPage >= totalSeriesPages || loadingSeries) return;
+
+    setLoadingSeries(true);
+    try {
+      const response = await fetch(
+        `/api/genre?type=tv&genreId=${genreId}&page=${seriesPage + 1}`
+      );
+      const data = await response.json();
+      setSeries(prev => [...prev, ...data.results]);
+      setSeriesPage(prev => prev + 1);
+    } catch (error) {
+      console.error("Error loading more series:", error);
+    } finally {
+      setLoadingSeries(false);
+    }
+  }, [genreId, seriesPage, totalSeriesPages, loadingSeries]);
+
   // Scroll infinito para categoria "both" (Todos)
   useEffect(() => {
     if (type !== "both") return;
@@ -57,43 +94,7 @@ export function GenrePagination({
     }
 
     return () => observer.disconnect();
-  }, [type, moviePage, seriesPage, loadingMovies, loadingSeries]);
-
-  const loadMoreMovies = async () => {
-    if (moviePage >= totalMoviePages || loadingMovies) return;
-
-    setLoadingMovies(true);
-    try {
-      const response = await fetch(
-        `/api/genre?type=movie&genreId=${genreId}&page=${moviePage + 1}`
-      );
-      const data = await response.json();
-      setMovies([...movies, ...data.results]);
-      setMoviePage(moviePage + 1);
-    } catch (error) {
-      console.error("Error loading more movies:", error);
-    } finally {
-      setLoadingMovies(false);
-    }
-  };
-
-  const loadMoreSeries = async () => {
-    if (seriesPage >= totalSeriesPages || loadingSeries) return;
-
-    setLoadingSeries(true);
-    try {
-      const response = await fetch(
-        `/api/genre?type=tv&genreId=${genreId}&page=${seriesPage + 1}`
-      );
-      const data = await response.json();
-      setSeries([...series, ...data.results]);
-      setSeriesPage(seriesPage + 1);
-    } catch (error) {
-      console.error("Error loading more series:", error);
-    } finally {
-      setLoadingSeries(false);
-    }
-  };
+  }, [type, moviePage, seriesPage, loadingMovies, loadingSeries, totalMoviePages, totalSeriesPages, loadMoreMovies, loadMoreSeries]);
 
   const goToPage = async (pageType: 'movie' | 'tv', newPage: number) => {
     if (pageType === 'movie') {
