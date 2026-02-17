@@ -45,6 +45,14 @@ const nextConfig = {
         })
       );
     }
+
+    // Ignore critical dependency warnings from webtorrent
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      { module: /node_modules\/fs-native-extensions/ },
+      { module: /node_modules\/require-addon/ },
+    ];
+
     return config;
   },
 }

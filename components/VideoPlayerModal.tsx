@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Maximize2, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
 import { ShortenerGate } from "./ShortenerGate";
@@ -65,13 +64,31 @@ export function VideoPlayerModal({
     setGatePassed(true);
   }, []);
 
+  // Reset gate when player or episode changes
+  const handlePlayerChange = (player: VideoPlayer) => {
+    setSelectedPlayer(player);
+    setGatePassed(false);
+    localStorage.removeItem(contentKey);
+  };
+
+  const handleSeasonChange = (season: number) => {
+    setSelectedSeason(season);
+    setGatePassed(false);
+    localStorage.removeItem(contentKey);
+  };
+
+  const handleEpisodeChange = (episode: number) => {
+    setSelectedEpisode(episode);
+    setGatePassed(false);
+    localStorage.removeItem(contentKey);
+  };
+
   // Atualiza season/episode quando props mudarem
   useEffect(() => {
     setSelectedSeason(initialSeason);
     setSelectedEpisode(initialEpisode);
   }, [initialSeason, initialEpisode]);
 
-  // ... inside component ...
   useScrollLock(isOpen);
 
   useEffect(() => {
@@ -146,7 +163,7 @@ export function VideoPlayerModal({
             {PLAYER_OPTIONS.map((player) => (
               <button
                 key={player.id}
-                onClick={() => setSelectedPlayer(player.id)}
+                onClick={() => handlePlayerChange(player.id)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${selectedPlayer === player.id
                   ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                   : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
@@ -165,7 +182,7 @@ export function VideoPlayerModal({
                 <label className="text-sm text-gray-400 font-medium">Temporada:</label>
                 <select
                   value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(Number(e.target.value))}
+                  onChange={(e) => handleSeasonChange(Number(e.target.value))}
                   className="bg-black/60 border border-purple-500/30 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:outline-none transition-all active:scale-95 cursor-pointer"
                 >
                   {Array.from({ length: numberOfSeasons }, (_, i) => i + 1).map((season) => (
@@ -180,7 +197,7 @@ export function VideoPlayerModal({
                 <label className="text-sm text-gray-400 font-medium">Episódio:</label>
                 <select
                   value={selectedEpisode}
-                  onChange={(e) => setSelectedEpisode(Number(e.target.value))}
+                  onChange={(e) => handleEpisodeChange(Number(e.target.value))}
                   className="bg-black/60 border border-purple-500/30 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:outline-none transition-all active:scale-95 cursor-pointer"
                 >
                   {Array.from({ length: episodeCount }, (_, i) => i + 1).map((episode) => (

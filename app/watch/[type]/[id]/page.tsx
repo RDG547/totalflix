@@ -42,6 +42,27 @@ export default function WatchPage({ params }: PageProps) {
     setGatePassed(true);
   }, []);
 
+  // Reset gate when player or episode changes
+  const handlePlayerChange = (player: PlayerType) => {
+    setCurrentPlayer(player);
+    setPlayerError(false);
+    setGatePassed(false);
+    localStorage.removeItem(contentKey);
+  };
+
+  const handleSeasonChange = (season: number) => {
+    setSelectedSeason(season);
+    setSelectedEpisode(1);
+    setGatePassed(false);
+    localStorage.removeItem(contentKey);
+  };
+
+  const handleEpisodeChange = (episode: number) => {
+    setSelectedEpisode(episode);
+    setGatePassed(false);
+    localStorage.removeItem(contentKey);
+  };
+
   useEffect(() => {
     const fetchDetails = async () => {
       try {
@@ -81,11 +102,6 @@ export default function WatchPage({ params }: PageProps) {
     type === "tv" ? selectedSeason : undefined,
     type === "tv" ? selectedEpisode : undefined
   );
-
-  const handlePlayerChange = (player: PlayerType) => {
-    setCurrentPlayer(player);
-    setPlayerError(false);
-  };
 
   const players: { id: PlayerType; name: string }[] = [
     { id: 'vidsrc', name: 'VidSrc' },
@@ -207,10 +223,7 @@ export default function WatchPage({ params }: PageProps) {
                 <label className="text-sm text-gray-400 mb-2 block">Temporada</label>
                 <select
                   value={selectedSeason}
-                  onChange={(e) => {
-                    setSelectedSeason(parseInt(e.target.value));
-                    setSelectedEpisode(1);
-                  }}
+                  onChange={(e) => handleSeasonChange(parseInt(e.target.value))}
                   className="w-full md:w-64 bg-black/50 border border-purple-500/30 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:outline-none"
                 >
                   {Array.from({ length: details.number_of_seasons || 1 }, (_, i) => i + 1).map(
@@ -230,7 +243,7 @@ export default function WatchPage({ params }: PageProps) {
                   {Array.from({ length: 20 }, (_, i) => i + 1).map((episode) => (
                     <button
                       key={episode}
-                      onClick={() => setSelectedEpisode(episode)}
+                      onClick={() => handleEpisodeChange(episode)}
                       className={`px-4 py-2 rounded-lg transition-all ${selectedEpisode === episode
                         ? "bg-purple-600 text-white glow-effect"
                         : "bg-black/50 text-gray-300 border border-purple-500/30 hover:border-purple-500 hover:bg-purple-900/20"

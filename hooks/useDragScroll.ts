@@ -1,110 +1,154 @@
-import { useRef, useState, useEffect, MouseEvent } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 export function useDragScroll() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
   const [hasMoved, setHasMoved] = useState(false);
-  const velocityRef = useRef(0);
-  const lastXRef = useRef(0);
-  const animationFrameRef = useRef<number>();
+  
+  // Use refs para valores que não precisam triggerar re-render
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const hasMovedRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
 
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!scrollRef.current) return;
+    
+    // Só permite drag com botão esquerdo
+    if (e.button !== 0) return;
+    
+    // Previne comportamento padrão de drag do browser
     e.preventDefault();
+    
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
     setIsDragging(true);
     setHasMoved(false);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-    lastXRef.current = e.pageX;
-    velocityRef.current = 0;
+    
+    startXRef.current = e.pageX - scrollRef.current.offsetLeft;
+    scrollLeftRef.current = scrollRef.current.scrollLeft;
+    
+    // Adiciona classe para cursor
     scrollRef.current.style.cursor = 'grabbing';
-    scrollRef.current.style.userSelect = 'none';
+  }, []);
 
-    // Cancelar animação de inércia anterior
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (isDragging && scrollRef.current && Math.abs(velocityRef.current) > 1) {
-      // Aplicar inércia ao soltar
-      applyMomentum();
-    }
+  const handleMouseUp = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    
+    isDraggingRef.current = false;
     setIsDragging(false);
+    
     if (scrollRef.current) {
       scrollRef.current.style.cursor = 'grab';
-      scrollRef.current.style.userSelect = 'auto';
     }
-  };
+    
+    // Delay para resetar hasMoved (permite click após drag)
+    setTimeout(() => {
+      hasMovedRef.current = false;
+      setHasMoved(false);
+    }, 50);
+  }, []);
 
-  const handleMouseUp = () => {
-    if (isDragging && scrollRef.current && Math.abs(velocityRef.current) > 1) {
-      // Aplicar inércia ao soltar
-      applyMomentum();
-    }
+  const handleMouseLeave = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    
+    isDraggingRef.current = false;
     setIsDragging(false);
+    
     if (scrollRef.current) {
       scrollRef.current.style.cursor = 'grab';
-      scrollRef.current.style.userSelect = 'auto';
     }
-  };
+    
+    setTimeout(() => {
+      hasMovedRef.current = false;
+      setHasMoved(false);
+    }, 50);
+  }, []);
 
-  const applyMomentum = () => {
-    if (!scrollRef.current) return;
-
-    const friction = 0.95;
-    const minVelocity = 0.5;
-
-    const animate = () => {
-      if (!scrollRef.current || Math.abs(velocityRef.current) < minVelocity) {
-        return;
-      }
-
-      scrollRef.current.scrollLeft -= velocityRef.current;
-      velocityRef.current *= friction;
-
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-  };
-
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!isDragging || !scrollRef.current) return;
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !scrollRef.current) return;
+    
     e.preventDefault();
+    
     const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2.5; // Aumentado de 2 para 2.5 para mais velocidade
-
-    // Calcular velocidade para inércia
-    const currentX = e.pageX;
-    velocityRef.current = (currentX - lastXRef.current) * 0.5;
-    lastXRef.current = currentX;
-
-    // Detecta se houve movimento significativo
-    if (Math.abs(walk) > 5) {
+    const walk = (x - startXRef.current) * 1.5; // Multiplicador de velocidade
+    
+    // Detecta movimento significativo
+    if (Math.abs(walk) > 3) {
+      hasMovedRef.current = true;
       setHasMoved(true);
     }
+    
+    // Aplica scroll diretamente (mais performático que setState)
+    scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+  }, []);
 
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
+  // Touch events para mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) return;
+    
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    setIsDragging(true);
+    setHasMoved(false);
+    
+    startXRef.current = e.touches[0].pageX - scrollRef.current.offsetLeft;
+    scrollLeftRef.current = scrollRef.current.scrollLeft;
+  }, []);
 
-  // Previne cliques em links quando está arrastando
-  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (hasMoved) {
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !scrollRef.current) return;
+    
+    const x = e.touches[0].pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startXRef.current) * 1.5;
+    
+    if (Math.abs(walk) > 3) {
+      hasMovedRef.current = true;
+      setHasMoved(true);
+    }
+    
+    scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    
+    setTimeout(() => {
+      hasMovedRef.current = false;
+      setHasMoved(false);
+    }, 50);
+  }, []);
+
+  // Previne clicks em links quando arrastou
+  const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (hasMovedRef.current || hasMoved) {
       e.preventDefault();
       e.stopPropagation();
     }
-  };
+  }, [hasMoved]);
 
   return {
     scrollRef,
+    isDragging,
+    hasMoved,
     handleMouseDown,
     handleMouseLeave,
     handleMouseUp,
     handleMouseMove,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     handleClick,
   };
 }

@@ -143,3 +143,45 @@ html, body {
 .zoom-in-95 {
   animation-name: zoom-in-95;
 }
+
+/* YouTube Player - Full cover */
+#youtube-player-container iframe,
+[id^="youtube-player-"] iframe {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100vw !important;
+  height: 56.25vw !important;
+  min-height: 100vh !important;
+  min-width: 177.77vh !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Prevent drag on scrollable containers */
+.scrollbar-hide a,
+.scrollbar-hide img,
+.scrollbar-hide [draggable="false"] {
+  -webkit-user-drag: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  pointer-events: auto;
+}
+
+/* Utility class to prevent drag */
+.no-drag {
+  -webkit-user-drag: none !important;
+  -moz-user-select: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  pointer-events: none;
+}
+
+/* Re-enable pointer events for the card container */
+.group .no-drag {
+  pointer-events: auto;
+}
+
+/* During drag, prevent all pointer events on children */
+.scrollbar-hide:active * {
+  pointer-events: none;
+}
