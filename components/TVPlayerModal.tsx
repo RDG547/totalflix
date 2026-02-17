@@ -5,6 +5,7 @@ import { X, Maximize2, Radio, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TVChannel } from "@/lib/tv-channels";
 import Hls from "hls.js";
+import { usePlayer } from "@/contexts/PlayerContext";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const { openPlayer, closePlayer } = usePlayer();
 
   // Cleanup HLS instance on unmount
   useEffect(() => {
@@ -140,10 +142,13 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     };
   }, [isOpen, channel.streamUrl]);
 
+  // Notifica contexto quando modal abre/fecha
   useEffect(() => {
     if (isOpen) {
+      openPlayer();
       document.body.style.overflow = "hidden";
     } else {
+      closePlayer();
       document.body.style.overflow = "unset";
     }
 
@@ -156,8 +161,9 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     return () => {
       document.body.style.overflow = "unset";
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      closePlayer();
     };
-  }, [isOpen]);
+  }, [isOpen, openPlayer, closePlayer]);
 
   const handleFullscreen = () => {
     const playerContainer = containerRef.current;
@@ -177,7 +183,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     channel.streamUrl.includes("youtu.be");
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"

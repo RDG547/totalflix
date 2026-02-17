@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Info, ChevronLeft, ChevronRight, Volume2, VolumeX, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import Link from "next/link";
 import { WatchButton } from "@/components/WatchButton";
+import { usePlayer } from "@/contexts/PlayerContext";
 
 interface FeaturedMovie {
   movie: Movie;
@@ -63,11 +64,13 @@ export function Hero() {
   const [isYTAPILoaded, setIsYTAPILoaded] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isPlayerActive, setIsPlayerActive] = useState(false);
   
   // Refs
   const playerRef = useRef<YTPlayer | null>(null);
   const trailerStartTimerRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { isPlayerOpen } = usePlayer();
 
   // Carrega a API do YouTube
   useEffect(() => {
@@ -238,13 +241,30 @@ export function Hero() {
     });
   }, [goToNext]);
 
+  // Pausa trailer quando player está aberto
+  useEffect(() => {
+    if (isPlayerOpen) {
+      // Pausa o trailer
+      if (playerRef.current) {
+        playerRef.current.pauseVideo();
+      }
+      setIsPlayerActive(false);
+    } else {
+      // Retoma o trailer se estava tocando
+      if (showTrailer && playerRef.current) {
+        playerRef.current.playVideo();
+      }
+      setIsPlayerActive(true);
+    }
+  }, [isPlayerOpen, showTrailer]);
+
   // Gerencia o trailer
   useEffect(() => {
     destroyPlayer();
     setIsMuted(false);
     
     const currentFeatured = featuredMovies[currentIndex];
-    if (!currentFeatured?.trailerKey || isLoading || !isYTAPILoaded) {
+    if (!currentFeatured?.trailerKey || isLoading || !isYTAPILoaded || isPlayerOpen) {
       setShowTrailer(false);
       return;
     }
@@ -254,14 +274,16 @@ export function Hero() {
 
     // Timer para iniciar o trailer após 5 segundos
     trailerStartTimerRef.current = setTimeout(() => {
-      setShowTrailer(true);
-      initPlayer(currentFeatured.trailerKey!);
+      if (!isPlayerOpen) {
+        setShowTrailer(true);
+        initPlayer(currentFeatured.trailerKey!);
+      }
     }, TRAILER_START_DELAY);
 
     return () => {
       destroyPlayer();
     };
-  }, [currentIndex, featuredMovies, isLoading, isYTAPILoaded, initPlayer, destroyPlayer]);
+  }, [currentIndex, featuredMovies, isLoading, isYTAPILoaded, initPlayer, destroyPlayer, isPlayerOpen]);
 
   const goToPrevious = () => {
     destroyPlayer();
@@ -314,7 +336,7 @@ export function Hero() {
           </div>
 
           {/* Video Background Container */}
-          {index === currentIndex && featured.trailerKey && (
+          {index === currentIndex && featured.trailerKey && !isPlayerOpen && (
             <div 
               className={`absolute inset-0 w-full h-full pointer-events-none overflow-hidden transition-opacity duration-1000 ${
                 showTrailer ? 'opacity-100' : 'opacity-0'

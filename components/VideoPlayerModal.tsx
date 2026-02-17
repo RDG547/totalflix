@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
+import { usePlayer } from "@/contexts/PlayerContext";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -47,12 +48,26 @@ export function VideoPlayerModal({
   const [episodeCount, setEpisodeCount] = useState(10);
   const [selectedPlayer, setSelectedPlayer] = useState<VideoPlayer>('megaembed');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { openPlayer, closePlayer } = usePlayer();
 
   // Atualiza season/episode quando props mudarem
   useEffect(() => {
     setSelectedSeason(initialSeason);
     setSelectedEpisode(initialEpisode);
   }, [initialSeason, initialEpisode]);
+
+  // Notifica contexto quando modal abre/fecha
+  useEffect(() => {
+    if (isOpen) {
+      openPlayer();
+    } else {
+      closePlayer();
+    }
+    
+    return () => {
+      closePlayer();
+    };
+  }, [isOpen, openPlayer, closePlayer]);
 
   // ... inside component ...
   useScrollLock(isOpen);
@@ -86,7 +101,7 @@ export function VideoPlayerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"

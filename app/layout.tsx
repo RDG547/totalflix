@@ -5,6 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
@@ -25,16 +26,18 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={inter.className}>
         <AuthProvider>
-          <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
-            <Navbar />
-            <main className="relative z-10 flex-1">
-              <ClientLayout>
-                {children}
-              </ClientLayout>
-            </main>
-            <Footer />
-            <ScrollToTop />
-          </div>
+          <PlayerProvider>
+            <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
+              <Navbar />
+              <main className="relative z-10 flex-1">
+                <ClientLayout>
+                  {children}
+                </ClientLayout>
+              </main>
+              <Footer />
+              <ScrollToTop />
+            </div>
+          </PlayerProvider>
           <Toaster
             position="bottom-center"
             toastOptions={{
