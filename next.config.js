@@ -85,6 +85,14 @@ const nextConfig = {
         })
       );
     }
+
+    // Suppress "Critical dependency" warnings from WebTorrent native modules
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      { module: /node_modules[\\/]fs-native-extensions/ },
+      { module: /node_modules[\\/]require-addon/ },
+    ];
+
     return config;
   },
 }

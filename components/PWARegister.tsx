@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export function PWARegister() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [scrollTopVisible, setScrollTopVisible] = useState(false);
 
   useEffect(() => {
     // Registra o Service Worker
@@ -33,6 +34,11 @@ export function PWARegister() {
       console.log("App instalado");
     };
 
+    // Listen for ScrollToTop visibility changes
+    const handleScrollTopVisibility = (e: Event) => {
+      setScrollTopVisible((e as CustomEvent).detail.visible);
+    };
+
     // Verifica se está rodando em standalone (instalado)
     if (typeof window !== "undefined") {
       const isStandalone = window.matchMedia(
@@ -42,6 +48,7 @@ export function PWARegister() {
 
       window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.addEventListener("appinstalled", handleAppInstalled);
+      window.addEventListener("scrolltop-visibility", handleScrollTopVisibility);
     }
 
     return () => {
@@ -51,6 +58,7 @@ export function PWARegister() {
           handleBeforeInstallPrompt
         );
         window.removeEventListener("appinstalled", handleAppInstalled);
+        window.removeEventListener("scrolltop-visibility", handleScrollTopVisibility);
       }
     };
   }, []);
@@ -74,7 +82,10 @@ export function PWARegister() {
   if (!deferredPrompt || isInstalled) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 z-50">
+    <div
+      className="fixed right-8 z-50 transition-all duration-300"
+      style={{ bottom: scrollTopVisible ? '7rem' : '2rem' }}
+    >
       <button
         onClick={handleInstall}
         className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-purple-500/50 transition-all duration-300 hover:scale-105 flex items-center gap-2"

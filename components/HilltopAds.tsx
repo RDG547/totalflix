@@ -15,11 +15,3 @@ export function HilltopAds() {
     </>
   );
 }
-
-// Função para abrir o popunder manualmente (se necessário)
-export function openHilltopAds() {
-  if (typeof window !== 'undefined') {
-    const url = "https://agedhead.com/bq3vVw0.Po3kpYvCbcmfVgJVZVDH0C2/OgDaAd5KOFTWYJx-LITWYC4yMCDxkT5_Nnj/UF";
-    window.open(url, '_blank');
-  }
-}

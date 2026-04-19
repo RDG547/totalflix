@@ -18,6 +18,10 @@ export function CategorySection({ category, title, genreId }: CategorySectionPro
   const [isLoading, setIsLoading] = useState(true);
   const { scrollRef, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove, handleClick } = useDragScroll();
 
+  // Icon and color based on category
+  const sectionIcon = category === "movie" ? "🎬" : "📺";
+  const gradientClass = category === "movie" ? "text-gradient-blue" : "text-gradient-red";
+
   useEffect(() => {
     const fetchMovies = async () => {
       try {
@@ -66,7 +70,7 @@ export function CategorySection({ category, title, genreId }: CategorySectionPro
   if (isLoading) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold text-white mb-6">{title}</h2>
+        <h2 className={`text-3xl font-bold ${gradientClass} mb-6`}>{sectionIcon} {title}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="aspect-[2/3] skeleton rounded-lg" />
@@ -79,7 +83,7 @@ export function CategorySection({ category, title, genreId }: CategorySectionPro
   return (
     <section className="py-8 px-4 container mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">{title}</h2>
+        <h2 className={`text-3xl font-bold ${gradientClass}`}>{sectionIcon} {title}</h2>
         <div className="flex space-x-2">
           <Button
             variant="outline"

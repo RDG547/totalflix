@@ -7,17 +7,17 @@ import { useEffect } from "react";
 export function AdsterraNativeBanner() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const loadBanner = () => {
       const container = document.getElementById('container-28fe29024925ba318c588b98f9674bb9');
       if (container) {
         container.innerHTML = '';
-        
+
         const script = document.createElement('script');
         script.async = true;
         script.setAttribute('data-cfasync', 'false');
         script.src = 'https://fixesconsessionconsession.com/28fe29024925ba318c588b98f9674bb9/invoke.js';
-        
+
         container.appendChild(script);
       }
     };
@@ -27,10 +27,9 @@ export function AdsterraNativeBanner() {
   }, []);
 
   return (
-    <div 
-      id="container-28fe29024925ba318c588b98f9674bb9" 
+    <div
+      id="container-28fe29024925ba318c588b98f9674bb9"
       className="w-full flex justify-center items-center"
-      style={{ minHeight: '250px' }}
     />
   );
 }
@@ -39,7 +38,7 @@ export function AdsterraNativeBanner() {
 export function AdsterraBanner300x250() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const loadBanner = () => {
       (window as any).atOptions = {
         'key': '0cd45963b149420881addc1d209ed7a8',
@@ -63,10 +62,9 @@ export function AdsterraBanner300x250() {
   }, []);
 
   return (
-    <div 
-      id="banner-300x250-container" 
+    <div
+      id="banner-300x250-container"
       className="flex justify-center items-center"
-      style={{ width: '300px', height: '250px' }}
     />
   );
 }
@@ -75,7 +73,7 @@ export function AdsterraBanner300x250() {
 export function AdsterraSocialBar() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const loadSocialBar = () => {
       const script = document.createElement('script');
       script.src = 'https://fixesconsessionconsession.com/15/da/a7/15daa72a489fd7df869f93d46c20df79.js';
@@ -90,23 +88,15 @@ export function AdsterraSocialBar() {
   return null;
 }
 
-// Componente para o Smartlink (redirecionamento)
-export function openSmartlink() {
-  if (typeof window !== 'undefined') {
-    const smartlinkUrl = 'https://fixesconsessionconsession.com/ueqjseci?key=63c9cbec9e24dda8c816a9461f648386';
-    window.open(smartlinkUrl, '_blank');
-  }
-}
-
 // Componente principal que carrega todos os scripts
 export function AdsterraAds() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const meta = document.createElement('meta');
     meta.httpEquiv = 'Content-Security-Policy';
     meta.content = "default-src 'self' *; script-src 'self' 'unsafe-inline' 'unsafe-eval' *; style-src 'self' 'unsafe-inline' *; img-src 'self' data: blob: *; media-src 'self' *; connect-src 'self' *; frame-src 'self' *;";
-    
+
     if (!document.querySelector('meta[http-equiv="Content-Security-Policy"]')) {
       document.head.appendChild(meta);
     }
@@ -118,7 +108,7 @@ export function AdsterraAds() {
         src="https://fixesconsessionconsession.com/1c/a3/d9/1ca3d9b4f1380b8dd3cbf80b26c73bf9.js"
         strategy="afterInteractive"
       />
-      
+
       <Script
         src="https://fixesconsessionconsession.com/28fe29024925ba318c588b98f9674bb9/invoke.js"
         strategy="lazyOnload"
@@ -131,7 +121,7 @@ export function AdsterraAds() {
         strategy="lazyOnload"
         async
       />
-      
+
       <Script
         src="https://fixesconsessionconsession.com/15/da/a7/15daa72a489fd7df869f93d46c20df79.js"
         strategy="lazyOnload"

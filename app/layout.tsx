@@ -14,6 +14,7 @@ import { ClickadillaAPILoader, ClickadillaBannerAPI } from "@/components/Clickad
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
 import { GlobalPopunder } from "@/components/GlobalPopunder";
+import { AdSlot } from "@/components/AdSlot";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -86,22 +87,24 @@ export default function RootLayout({
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
               <Navbar />
               {/* Adsterra Native Banner */}
-              <div className="w-full flex justify-center py-2 bg-black/50">
-                <div id="container-28fe29024925ba318c588b98f9674bb9" className="w-full max-w-[728px] min-h-[250px] flex items-center justify-center" />
-              </div>
+              <AdSlot
+                id="container-28fe29024925ba318c588b98f9674bb9"
+                className="w-full max-w-[728px] flex items-center justify-center"
+                wrapperClassName="w-full flex justify-center bg-black/50"
+              />
               <main className="relative flex-1">
                 <ClientLayout>
                   {children}
                 </ClientLayout>
               </main>
               {/* Clickadilla Banner via API */}
-              <div className="w-full flex justify-center py-4 bg-black/50">
-                <ClickadillaBannerAPI className="w-full max-w-[728px]" />
-              </div>
+              <ClickadillaBannerAPI className="w-full max-w-[728px]" />
               {/* Adsterra Banner 300x250 no footer */}
-              <div className="w-full flex justify-center py-4 bg-black/50">
-                <div id="banner-300x250-container" style={{ width: '300px', height: '250px' }} />
-              </div>
+              <AdSlot
+                id="banner-300x250-container"
+                className="flex justify-center items-center"
+                wrapperClassName="w-full flex justify-center bg-black/50"
+              />
               <Footer />
               <ScrollToTop />
             </div>

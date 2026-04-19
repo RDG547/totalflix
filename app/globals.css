@@ -48,6 +48,14 @@
     @apply bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 bg-clip-text text-transparent;
   }
 
+  .text-gradient-blue {
+    @apply bg-gradient-to-r from-blue-400 via-blue-500 to-blue-700 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-red {
+    @apply bg-gradient-to-r from-red-400 via-red-500 to-red-700 bg-clip-text text-transparent;
+  }
+
   .glass-effect {
     @apply bg-black/40 backdrop-blur-xl border border-white/10;
   }

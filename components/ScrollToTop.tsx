@@ -8,11 +8,10 @@ export function ScrollToTop() {
 
   useEffect(() => {
     const toggleVisibility = () => {
-      if (window.scrollY > 300) {
-        setIsVisible(true);
-      } else {
-        setIsVisible(false);
-      }
+      const visible = window.scrollY > 300;
+      setIsVisible(visible);
+      // Dispatch custom event so PWARegister can adjust position
+      window.dispatchEvent(new CustomEvent('scrolltop-visibility', { detail: { visible } }));
     };
 
     window.addEventListener("scroll", toggleVisibility);

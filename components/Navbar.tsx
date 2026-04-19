@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut } from "lucide-react";
+import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -403,6 +403,7 @@ export function Navbar() {
                       variant="ghost"
                       className="text-gray-300 hover:text-white hover:bg-purple-500/20 transition-all"
                     >
+                      <LogIn className="w-4 h-4 mr-1" />
                       Entrar
                     </Button>
                   </Link>
@@ -410,6 +411,7 @@ export function Navbar() {
                     <Button
                       className="glow-effect transition-all active:scale-95"
                     >
+                      <UserPlus className="w-4 h-4 mr-1" />
                       Cadastrar
                     </Button>
                   </Link>
@@ -564,6 +566,7 @@ export function Navbar() {
                       variant="ghost"
                       className="w-full text-gray-300 hover:text-white hover:bg-purple-500/20"
                     >
+                      <LogIn className="w-4 h-4 mr-1" />
                       Entrar
                     </Button>
                   </Link>
@@ -571,6 +574,7 @@ export function Navbar() {
                     <Button
                       className="w-full glow-effect"
                     >
+                      <UserPlus className="w-4 h-4 mr-1" />
                       Cadastrar
                     </Button>
                   </Link>

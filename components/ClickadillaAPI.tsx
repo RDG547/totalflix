@@ -28,14 +28,14 @@ export function ClickadillaAPILoader() {
     const loadSpots = async () => {
       try {
         const response = await fetch('/api/clickadilla/active-spots');
-        
+
         if (!response.ok) {
           throw new Error(`Failed to load spots: ${response.status}`);
         }
 
         const data = await response.json();
         setSpots(data);
-        
+
         // Injeta os scripts dos spots carregados
         injectScripts(data);
       } catch (err) {
@@ -54,42 +54,37 @@ export function ClickadillaAPILoader() {
   const injectScripts = (data: ActiveSpots) => {
     if (typeof window === 'undefined') return;
 
+    const safeInjectScript = (id: string, code: string, target: HTMLElement) => {
+      try {
+        if (document.getElementById(id)) return;
+        const script = document.createElement('script');
+        script.id = id;
+        script.innerHTML = `try{${code}}catch(e){}`;
+        script.async = true;
+        target.appendChild(script);
+      } catch (e) {
+        // Silently ignore ad script injection errors
+      }
+    };
+
     // Popunder
     if (data.popunder && data.popunder.length > 0) {
       data.popunder.forEach((spot) => {
-        if (spot.code && !document.getElementById(`clickadilla-popunder-${spot.id}`)) {
-          const script = document.createElement('script');
-          script.id = `clickadilla-popunder-${spot.id}`;
-          script.innerHTML = spot.code;
-          script.async = true;
-          document.body.appendChild(script);
-        }
+        if (spot.code) safeInjectScript(`clickadilla-popunder-${spot.id}`, spot.code, document.body);
       });
     }
 
     // Inpage
     if (data.inpage && data.inpage.length > 0) {
       data.inpage.forEach((spot) => {
-        if (spot.code && !document.getElementById(`clickadilla-inpage-${spot.id}`)) {
-          const script = document.createElement('script');
-          script.id = `clickadilla-inpage-${spot.id}`;
-          script.innerHTML = spot.code;
-          script.async = true;
-          document.body.appendChild(script);
-        }
+        if (spot.code) safeInjectScript(`clickadilla-inpage-${spot.id}`, spot.code, document.body);
       });
     }
 
     // Webpush
     if (data.webpush && data.webpush.length > 0) {
       data.webpush.forEach((spot) => {
-        if (spot.code && !document.getElementById(`clickadilla-webpush-${spot.id}`)) {
-          const script = document.createElement('script');
-          script.id = `clickadilla-webpush-${spot.id}`;
-          script.innerHTML = spot.code;
-          script.async = true;
-          document.head.appendChild(script);
-        }
+        if (spot.code) safeInjectScript(`clickadilla-webpush-${spot.id}`, spot.code, document.head);
       });
     }
 
@@ -99,7 +94,7 @@ export function ClickadillaAPILoader() {
         if (spot.code) {
           const container = document.getElementById(`clickadilla-banner-${spot.id}`);
           if (container && !container.innerHTML) {
-            container.innerHTML = spot.code;
+            try { container.innerHTML = spot.code; } catch (e) {}
           }
         }
       });
@@ -109,7 +104,7 @@ export function ClickadillaAPILoader() {
   const loadFallbackScripts = () => {
     // Fallback para o método tradicional se a API falhar
     console.log('Using fallback Clickadilla loader');
-    
+
     // Service Worker
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
@@ -131,9 +126,9 @@ export function ClickadillaBannerAPI({ spotId, className = "" }: { spotId?: stri
       try {
         const response = await fetch('/api/clickadilla/active-spots');
         const data: ActiveSpots = await response.json();
-        
+
         let bannerSpot: Spot | undefined;
-        
+
         if (spotId) {
           bannerSpot = data.banner.find((s) => s.id === spotId);
         } else {
@@ -152,52 +147,15 @@ export function ClickadillaBannerAPI({ spotId, className = "" }: { spotId?: stri
   }, [spotId]);
 
   if (!bannerHtml) {
-    return <div className={`${className} min-h-[250px]`} />;
+    return null;
   }
 
   return (
-    <div 
-      className={className}
-      dangerouslySetInnerHTML={{ __html: bannerHtml }}
-    />
+    <div className="w-full flex justify-center bg-black/50">
+      <div
+        className={className}
+        dangerouslySetInnerHTML={{ __html: bannerHtml }}
+      />
+    </div>
   );
-}
-
-// Hook para verificar status dos anúncios
-export function useClickadillaStatus() {
-  const [status, setStatus] = useState<{
-    loaded: boolean;
-    formats: Record<string, number>;
-    error: string | null;
-  }>({
-    loaded: false,
-    formats: {},
-    error: null,
-  });
-
-  useEffect(() => {
-    fetch('/api/clickadilla/active-spots')
-      .then((res) => res.json())
-      .then((data: ActiveSpots) => {
-        setStatus({
-          loaded: true,
-          formats: {
-            inpage: data.inpage?.length || 0,
-            webpush: data.webpush?.length || 0,
-            popunder: data.popunder?.length || 0,
-            banner: data.banner?.length || 0,
-          },
-          error: null,
-        });
-      })
-      .catch((err) => {
-        setStatus({
-          loaded: false,
-          formats: {},
-          error: err.message,
-        });
-      });
-  }, []);
-
-  return status;
 }
