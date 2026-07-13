@@ -9,7 +9,7 @@ import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
 import { HilltopAds } from "@/components/HilltopAds";
-import { Clickadilla, ClickadillaBanner } from "@/components/Clickadilla";
+import { Clickadilla } from "@/components/Clickadilla";
 import { ClickadillaAPILoader, ClickadillaBannerAPI } from "@/components/ClickadillaAPI";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
@@ -71,8 +71,6 @@ export default function RootLayout({
         <meta name="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" content="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" />
         {/* HilltopAds Referrer Tag para +20% receita */}
         <meta name="referrer" content="no-referrer-when-downgrade" />
-        {/* JuicyAds Verification */}
-        <meta name="juicyads-site-verification" content="37acd2f7cebf47784cc6890c393e3281" />
       </head>
       <body className={inter.className}>
         <AdsterraAds />
