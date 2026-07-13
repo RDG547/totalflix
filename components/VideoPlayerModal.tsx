@@ -33,17 +33,17 @@ const PLAYER_OPTIONS = [
   { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
 ];
 
-const VIDSRC_OPTIONS: Array<{ id: VideoPlayer; name: string }> = [
-  { id: 'vidsrcsbs', name: 'VidSrc SBS' },
-  { id: 'vidsrcmeRu', name: 'VidSrcMe RU' },
-  { id: 'vidsrcmeSu', name: 'VidSrcMe SU' },
-  { id: 'vidsrcMeRu', name: 'VidSrc-Me RU' },
-  { id: 'vidsrcMeSu', name: 'VidSrc-Me SU' },
-  { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU' },
-  { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU' },
-  { id: 'vsrcSu', name: 'VSrc SU' },
-  { id: 'vidsrcTo', name: 'VidSrc.to' },
-  { id: 'vidapi', name: 'VidAPI' },
+const VIDSRC_OPTIONS: Array<{ id: VideoPlayer; name: string; icon: string }> = [
+  { id: 'vidsrcsbs', name: 'VidSrc SBS', icon: '🟦' },
+  { id: 'vidsrcmeRu', name: 'VidSrcMe RU', icon: '🇷🇺' },
+  { id: 'vidsrcmeSu', name: 'VidSrcMe SU', icon: '🇺🇳' },
+  { id: 'vidsrcMeRu', name: 'VidSrc-Me RU', icon: '➖' },
+  { id: 'vidsrcMeSu', name: 'VidSrc-Me SU', icon: '🧩' },
+  { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU', icon: '🟥' },
+  { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU', icon: '🟪' },
+  { id: 'vsrcSu', name: 'VSrc SU', icon: '🟢' },
+  { id: 'vidsrcTo', name: 'VidSrc.to', icon: '▶️' },
+  { id: 'vidapi', name: 'VidAPI', icon: '🎥' },
 ];
 
 import { useScrollLock } from "@/hooks/useScrollLock";
@@ -69,6 +69,27 @@ export function VideoPlayerModal({
   const { openPlayer, closePlayer } = usePlayer();
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const modalRoot = document.querySelector('[data-player-modal-root]');
+    const siblings = Array.from(document.body.children).filter((element) => element !== modalRoot);
+    const previousAria = siblings.map((element) => element.getAttribute('aria-hidden'));
+
+    siblings.forEach((element) => {
+      (element as HTMLElement).inert = true;
+      element.setAttribute('aria-hidden', 'true');
+    });
+
+    return () => {
+      siblings.forEach((element, index) => {
+        (element as HTMLElement).inert = false;
+        const ariaValue = previousAria[index];
+        if (ariaValue === null) element.removeAttribute('aria-hidden');
+        else element.setAttribute('aria-hidden', ariaValue);
+      });
+    };
+  }, [isOpen]);
 
   // Atualiza season/episode quando props mudarem
   useEffect(() => {
@@ -124,7 +145,7 @@ export function VideoPlayerModal({
   if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+    <div data-player-modal-root className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
@@ -132,7 +153,7 @@ export function VideoPlayerModal({
       />
 
       {/* Modal */}
-      <div className="relative flex h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div onPointerDown={(event) => event.stopPropagation()} className="relative flex h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/50 to-transparent">
           <h2 className="text-xl font-bold text-white truncate pr-4">{title}</h2>
@@ -159,13 +180,13 @@ export function VideoPlayerModal({
         </div>
 
         {/* Player Selection & Controls */}
-        <div className="max-h-[34dvh] shrink-0 overflow-y-auto bg-black/50 p-3 sm:p-4 border-b border-purple-500/20">
+        <div className="relative z-20 max-h-[34dvh] shrink-0 overflow-visible bg-black/50 p-3 sm:p-4 border-b border-purple-500/20">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           {/* Player Selection */}
           <div className="flex items-center gap-2 flex-wrap">
             <MonitorPlay className="w-4 h-4 text-purple-400" />
             <span className="text-sm text-gray-400 font-medium">Player:</span>
-            {PLAYER_OPTIONS.map((player) => (
+            {PLAYER_OPTIONS.filter((player) => player.id !== 'webtorrent').map((player) => (
               <button
                 key={player.id}
                 onClick={() => setSelectedPlayer(player.id)}
@@ -192,7 +213,7 @@ export function VideoPlayerModal({
                 <ChevronDown className={`h-4 w-4 transition-transform ${isVidSrcMenuOpen ? 'rotate-180' : ''}`} />
               </button>
               {isVidSrcMenuOpen && (
-                <div className="absolute left-0 top-full z-30 mt-2 max-h-[210px] min-w-52 overflow-y-auto rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl">
+                <div className="absolute left-0 top-full z-[100] mt-2 max-h-[210px] min-w-52 overflow-y-auto rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl shadow-black">
                   {VIDSRC_OPTIONS.map((player) => (
                     <button
                       key={player.id}
@@ -206,12 +227,24 @@ export function VideoPlayerModal({
                         : 'text-gray-300 hover:bg-purple-500/20 hover:text-white'
                         }`}
                     >
-                      {player.name}
+                      <span className="mr-2">{player.icon}</span>{player.name}
                     </button>
                   ))}
                 </div>
               )}
             </div>
+            {PLAYER_OPTIONS.filter((player) => player.id === 'webtorrent').map((player) => (
+              <button
+                key={player.id}
+                onClick={() => setSelectedPlayer(player.id)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${selectedPlayer === player.id
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                  : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
+                  }`}
+              >
+                <span className="mr-1">{player.icon}</span>{player.name}
+              </button>
+            ))}
           </div>
 
           {/* Season/Episode Selector for TV Shows */}
@@ -252,7 +285,7 @@ export function VideoPlayerModal({
         </div>
 
         {/* Video Player Container */}
-        <div id="player-container" className="relative min-h-0 flex-1 bg-black">
+        <div id="player-container" className="relative z-0 min-h-0 flex-1 bg-black">
           {selectedPlayer === 'webtorrent' ? (
             <TorrentPlayer
               poster={posterPath ? getImageUrl(posterPath) : undefined}
