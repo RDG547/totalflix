@@ -32,7 +32,7 @@ export async function GET(request: Request) {
                 'Connection': 'keep-alive',
                 'Cache-Control': 'no-cache',
             },
-            referer: 'https://minhatv.com/',
+            referer: '',
         },
         // Tentativa 2: Headers de VLC
         {

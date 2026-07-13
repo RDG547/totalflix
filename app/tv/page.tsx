@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { TV_CATEGORIES, type TVChannel } from "@/lib/tv-channels";
-import { getMinhaTVChannels, type MinhaTVMeta } from "@/lib/minhatv";
+import { getTVProviderChannels, type TVProviderMeta } from "@/lib/tv-providers";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, Radio, Loader2 } from "lucide-react";
@@ -81,7 +81,7 @@ export default function TVPage() {
   const [selectedLetter, setSelectedLetter] = useState("all");
   const [selectedChannel, setSelectedChannel] = useState<TVChannel | null>(null);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
-  const [minhaTVChannels, setMinhaTVChannels] = useState<MinhaTVMeta[]>([]);
+  const [providerChannels, setProviderChannels] = useState<TVProviderMeta[]>([]);
   const [isLoadingChannels, setIsLoadingChannels] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -90,9 +90,9 @@ export default function TVPage() {
     const fetchChannels = async () => {
       setIsLoadingChannels(true);
       try {
-        const channels = await getMinhaTVChannels();
+        const channels = await getTVProviderChannels();
         if (channels.length > 0) {
-          setMinhaTVChannels(channels);
+          setProviderChannels(channels);
         }
       } catch (error) {
         console.error('Erro ao carregar canais:', error);
@@ -106,7 +106,7 @@ export default function TVPage() {
   // Filtrar e ordenar canais usando useMemo para performance
   const filteredChannels = useMemo(() => {
     // Filtrar
-    let result = minhaTVChannels.filter(channel => {
+    let result = providerChannels.filter(channel => {
       const channelName = channel.name || '';
       const normalizedName = normalizeText(channelName);
       const normalizedSearch = normalizeText(searchQuery);
@@ -157,7 +157,7 @@ export default function TVPage() {
     });
 
     return result;
-  }, [minhaTVChannels, searchQuery, selectedCategory, selectedLetter]);
+  }, [providerChannels, searchQuery, selectedCategory, selectedLetter]);
 
   // Handler para selecionar categoria
   const handleCategorySelect = (categoryId: string) => {
@@ -177,7 +177,7 @@ export default function TVPage() {
   };
 
   // Handler para assistir canal
-  const handleWatchChannel = (channel: MinhaTVMeta) => {
+  const handleWatchChannel = (channel: TVProviderMeta) => {
     if (!channel.streamUrl) {
       toast.error("Este canal não está disponível no momento.");
       return;

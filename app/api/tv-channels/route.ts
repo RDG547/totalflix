@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 const EMBED_CHANNELS_URL = 'https://1.embedcanaisdetv.com/';
 const REI_DOS_EMBEDS_URL = 'https://reidosembeds.com/api/channels';
-const MINHA_TV_URL = 'https://da5f663b4690-minhatv.baby-beamup.club';
 
 interface PublicChannel {
   id: string;
@@ -89,33 +88,10 @@ async function fetchReiDosEmbedsChannels(): Promise<PublicChannel[]> {
     }));
 }
 
-async function fetchMinhaTVChannels(): Promise<PublicChannel[]> {
-  const response = await fetch(`${MINHA_TV_URL}/catalog/tv/minhatv_channels.json`, {
-    next: { revalidate: 300 },
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error(`MinhaTV returned ${response.status}`);
-
-  const payload = await response.json() as {
-    metas?: Array<{ id: string; name: string; poster?: string; genres?: string[] }>;
-  };
-
-  return (payload.metas || []).map((channel) => ({
-    id: `minhatv-${channel.id}`,
-    name: channel.name,
-    type: 'tv' as const,
-    poster: channel.poster,
-    streamUrl: `minhatv:${channel.id}`,
-    genres: channel.genres,
-    provider: 'MinhaTV',
-  }));
-}
-
 export async function GET() {
   const results = await Promise.allSettled([
     fetchEmbedChannels(),
     fetchReiDosEmbedsChannels(),
-    fetchMinhaTVChannels(),
   ]);
   const channels = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
 

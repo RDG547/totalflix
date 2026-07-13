@@ -134,7 +134,7 @@ export const getBackdropUrl = (path: string, size: 'w780' | 'w1280' | 'original'
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
-export type VideoPlayer = 'megaembed' | 'megaembedapi' | 'vidsrcsbs' | 'vidsrcmeRu' | 'vidsrcmeSu' | 'vidsrcMeRu' | 'vidsrcMeSu' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vsrcSu' | 'vidsrcTo' | 'vidapi' | '2embed' | 'superembed' | 'smashystream' | 'embedmovies' | 'warezcdn' | 'primevicio' | 'webtorrent';
+export type VideoPlayer = 'megaembed' | 'vidsrcsbs' | 'vidsrcmeRu' | 'vidsrcmeSu' | 'vidsrcMeRu' | 'vidsrcMeSu' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vsrcSu' | 'vidsrcTo' | 'vidapi' | '2embed' | 'superembed' | 'smashystream' | 'embedmovies' | 'warezcdn' | 'primevicio' | 'webtorrent';
 
 /**
  * Gera URL do player com parâmetros de idioma PT-BR
@@ -154,11 +154,6 @@ export const getPlayerUrl = (
     } else {
       return `${baseUrl}/embed/${tmdbId}/${season || 1}/${episode || 1}`;
     }
-  } else if (player === 'megaembedapi') {
-    const baseUrl = 'https://megaembedapi.site/embed';
-    return mediaType === 'movie'
-      ? `${baseUrl}/movie?tmdb=${tmdbId}`
-      : `${baseUrl}/series?tmdb=${tmdbId}&sea=${season || 1}&epi=${episode || 1}`;
   } else if (player === 'vidsrcsbs') {
     const baseUrl = 'https://vidsrc.sbs/embed';
     if (mediaType === 'movie') {

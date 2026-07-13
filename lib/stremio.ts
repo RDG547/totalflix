@@ -1,8 +1,23 @@
 import axios from 'axios';
 
-// Stremio addon base URLs
-const TORRENTIO_BASE_URL = 'https://torrentio.strem.fun';
-const BRAZUCA_BASE_URL = 'https://94c8cb9f702d-brazuca-torrents.baby-beamup.club';
+export const STREMIO_ADDONS = [
+    {
+        id: 'torrentio',
+        name: 'Torrentio',
+        description: 'Internacional',
+        icon: '🌎',
+        baseUrl: 'https://torrentio.strem.fun',
+    },
+    {
+        id: 'brazuca',
+        name: 'Brazuca',
+        description: 'Conteúdo PT-BR',
+        icon: '🇧🇷',
+        baseUrl: 'https://94c8cb9f702d-brazuca-torrents.baby-beamup.club',
+    },
+] as const;
+
+export type StremioAddonId = (typeof STREMIO_ADDONS)[number]['id'];
 
 // Public trackers for better peer connectivity
 // Public trackers (WSS required for WebTorrent in browser)
@@ -26,7 +41,7 @@ export interface StreamSource {
     size?: string;
     seeds?: number;
     type: 'torrent' | 'http';
-    addon: 'torrentio' | 'brazuca';
+    addon: StremioAddonId;
     isDubbed?: boolean; // Track if content is dubbed
 }
 
@@ -86,7 +101,7 @@ function parseStreamInfo(title: string): { quality: string; size?: string; seeds
  * Fetch streams from a specific addon
  */
 export async function getStreamsFromAddon(
-    addon: 'torrentio' | 'brazuca',
+    addon: StremioAddonId,
     tmdbId: number,
     mediaType: 'movie' | 'tv',
     season?: number,
@@ -100,7 +115,9 @@ export async function getStreamsFromAddon(
             return [];
         }
 
-        const baseUrl = addon === 'torrentio' ? TORRENTIO_BASE_URL : BRAZUCA_BASE_URL;
+        const addonConfig = STREMIO_ADDONS.find((item) => item.id === addon);
+        if (!addonConfig) return [];
+        const baseUrl = addonConfig.baseUrl;
         let url: string;
 
         if (mediaType === 'movie') {
@@ -133,7 +150,7 @@ export async function getStreamsFromAddon(
             }
 
             return {
-                name: addon === 'torrentio' ? 'Torrentio' : 'Brazuca',
+                name: addonConfig.name,
                 title: stream.title,
                 magnetLink: magnetLink?.startsWith('magnet:') ? magnetLink : undefined,
                 url: stream.url,

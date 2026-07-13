@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ExternalLink, X, Maximize2, MonitorPlay } from "lucide-react";
+import { ChevronDown, X, Maximize2, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
@@ -26,7 +26,6 @@ const PLAYER_OPTIONS = [
   { id: 'megaembed' as VideoPlayer, name: 'Mega Embed', icon: '🎬' },
   { id: 'embedmovies' as VideoPlayer, name: 'EmbedMovies', icon: '🔗' },
   { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🌐' },
-  { id: 'megaembedapi' as VideoPlayer, name: 'MegaEmbed API', icon: '🛰️' },
   { id: '2embed' as VideoPlayer, name: '2Embed', icon: '🎞️' },
   { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
   { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },
@@ -66,9 +65,26 @@ export function VideoPlayerModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
+  const vidSrcMenuRef = useRef<HTMLDivElement>(null);
   const { openPlayer, closePlayer } = usePlayer();
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!isVidSrcMenuOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!vidSrcMenuRef.current?.contains(event.target as Node)) setIsVidSrcMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsVidSrcMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isVidSrcMenuOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -199,7 +215,7 @@ export function VideoPlayerModal({
                 {player.name}
               </button>
             ))}
-            <div className="relative">
+            <div ref={vidSrcMenuRef} className="relative">
               <button
                 type="button"
                 onClick={() => setIsVidSrcMenuOpen((open) => !open)}
@@ -294,24 +310,6 @@ export function VideoPlayerModal({
               season={selectedSeason}
               episode={selectedEpisode}
             />
-          ) : selectedPlayer === 'megaembedapi' ? (
-            <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-              <ExternalLink className="h-12 w-12 text-purple-400" />
-              <div>
-                <h3 className="text-xl font-semibold text-white">MegaEmbed API</h3>
-                <p className="mt-2 max-w-lg text-sm text-gray-400">
-                  Este provedor bloqueia incorporação externa. Abra o player em uma nova aba para assistir.
-                </p>
-              </div>
-              <a
-                href={embedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white hover:bg-purple-700"
-              >
-                <ExternalLink className="h-4 w-4" /> Abrir MegaEmbed API
-              </a>
-            </div>
           ) : (
             <iframe
               id="video-player"

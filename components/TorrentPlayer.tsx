@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getStreamsFromAddon, sortStreamsByQuality, groupStreamsByQuality, type StreamSource } from "@/lib/stremio";
+import { STREMIO_ADDONS, getStreamsFromAddon, sortStreamsByQuality, groupStreamsByQuality, type StreamSource, type StremioAddonId } from "@/lib/stremio";
 
 interface TorrentPlayerProps {
     tmdbId?: number;
@@ -30,7 +30,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
     // Stream detection
     const [streams, setStreams] = useState<StreamSource[]>([]);
     const [isLoadingStreams, setIsLoadingStreams] = useState(false);
-    const [selectedAddon, setSelectedAddon] = useState<'torrentio' | 'brazuca' | null>(null);
+    const [selectedAddon, setSelectedAddon] = useState<StremioAddonId | null>(null);
     const [showManualInput, setShowManualInput] = useState(false);
     const [magnetLink, setMagnetLink] = useState("");
 
@@ -82,7 +82,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         };
     }, []);
 
-    const fetchStreams = useCallback(async (addon: 'torrentio' | 'brazuca') => {
+    const fetchStreams = useCallback(async (addon: StremioAddonId) => {
         if (!tmdbId || !mediaType) return;
 
         setIsLoadingStreams(true);
@@ -341,23 +341,18 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                     {!selectedAddon && tmdbId && !isLoadingStreams ? (
                         <div className="w-full max-w-xl space-y-4">
                             <p className="text-gray-400 text-center">Selecione a fonte de torrents:</p>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => setSelectedAddon('torrentio')}
-                                    className="p-6 bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-2 border-blue-500/50 rounded-lg hover:border-blue-400 hover:from-blue-600/30 hover:to-blue-800/30 transition-all"
-                                >
-                                    <div className="text-4xl mb-2">🌎</div>
-                                    <div className="text-white font-bold">Torrentio</div>
-                                    <div className="text-xs text-gray-400 mt-1">Internacional</div>
-                                </button>
-                                <button
-                                    onClick={() => setSelectedAddon('brazuca')}
-                                    className="p-6 bg-gradient-to-br from-green-600/20 to-green-800/20 border-2 border-green-500/50 rounded-lg hover:border-green-400 hover:from-green-600/30 hover:to-green-800/30 transition-all"
-                                >
-                                    <div className="text-4xl mb-2">🇧🇷</div>
-                                    <div className="text-white font-bold">Brazuca</div>
-                                    <div className="text-xs text-gray-400 mt-1">Conteúdo PT-BR</div>
-                                </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {STREMIO_ADDONS.map((addon) => (
+                                    <button
+                                        key={addon.id}
+                                        onClick={() => setSelectedAddon(addon.id)}
+                                        className="p-6 bg-gradient-to-br from-purple-600/20 to-purple-900/20 border-2 border-purple-500/50 rounded-lg hover:border-purple-400 hover:from-purple-600/30 hover:to-purple-900/30 transition-all"
+                                    >
+                                        <div className="text-4xl mb-2">{addon.icon}</div>
+                                        <div className="text-white font-bold">{addon.name}</div>
+                                        <div className="text-xs text-gray-400 mt-1">{addon.description}</div>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     ) : null}
@@ -375,7 +370,8 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                                     {streams.length} stream{streams.length > 1 ? 's' : ''} encontrado{streams.length > 1 ? 's' : ''}
                                 </p>
                                 <p className="text-purple-400 text-xs mt-1">
-                                    Fonte: {selectedAddon === 'torrentio' ? '🌎 Torrentio' : '🇧🇷 Brazuca'}
+                                    Fonte: {STREMIO_ADDONS.find((addon) => addon.id === selectedAddon)?.icon}{' '}
+                                    {STREMIO_ADDONS.find((addon) => addon.id === selectedAddon)?.name}
                                 </p>
                                 <button
                                     onClick={() => { setSelectedAddon(null); setStreams([]); }}
