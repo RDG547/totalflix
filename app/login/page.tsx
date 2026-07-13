@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, Chrome, ArrowLeft } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogIn, UserPlus } from "lucide-react";
+import { GoogleIcon } from "@/components/GoogleIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -96,7 +97,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold transition-all active:scale-95"
             >
-              <Chrome className="w-5 h-5 mr-2" />
+              <GoogleIcon className="w-5 h-5 mr-2" />
               Continuar com Google
             </Button>
 
@@ -153,6 +154,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full glow-effect transition-all active:scale-95"
               >
+                <LogIn className="w-4 h-4 mr-2" />
                 {loading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
@@ -163,6 +165,7 @@ export default function LoginPage() {
                 href="/register"
                 className="text-purple-400 hover:text-purple-300 font-semibold transition-colors"
               >
+                <UserPlus className="inline w-4 h-4 mr-1" />
                 Criar conta
               </Link>
             </div>

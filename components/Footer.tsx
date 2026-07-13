@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Film, Github, Twitter, Instagram, Mail, Shield, HelpCircle, Info } from "lucide-react";
+import { Film, Github, Twitter, Instagram, Mail, Shield, HelpCircle, Info, Home, Clapperboard, Tv, Radio, Users, CircleHelp, FileText } from "lucide-react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -33,25 +33,25 @@ export function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link href="/" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <Home className="w-4 h-4 text-purple-400" />
                   Início
                 </Link>
               </li>
               <li>
                 <Link href="/movies" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <Clapperboard className="w-4 h-4 text-purple-400" />
                   Filmes
                 </Link>
               </li>
               <li>
                 <Link href="/series" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <Tv className="w-4 h-4 text-purple-400" />
                   Séries
                 </Link>
               </li>
               <li>
                 <Link href="/tv" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <Radio className="w-4 h-4 text-purple-400" />
                   TV ao Vivo
                 </Link>
               </li>
@@ -67,25 +67,25 @@ export function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link href="/about" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <Users className="w-4 h-4 text-purple-400" />
                   Sobre Nós
                 </Link>
               </li>
               <li>
                 <Link href="/faq" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <CircleHelp className="w-4 h-4 text-purple-400" />
                   Perguntas Frequentes
                 </Link>
               </li>
               <li>
                 <Link href="/privacy" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <Shield className="w-4 h-4 text-purple-400" />
                   Política de Privacidade
                 </Link>
               </li>
               <li>
                 <Link href="/terms" className="text-gray-400 hover:text-purple-400 transition-colors text-sm flex items-center gap-2 group">
-                  <span className="w-1 h-1 bg-purple-500 rounded-full group-hover:w-2 transition-all"></span>
+                  <FileText className="w-4 h-4 text-purple-400" />
                   Termos de Uso
                 </Link>
               </li>

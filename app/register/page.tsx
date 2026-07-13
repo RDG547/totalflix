@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, User as UserIcon, Chrome, ArrowLeft } from "lucide-react";
+import { Mail, Lock, User as UserIcon, ArrowLeft, UserPlus, LogIn } from "lucide-react";
+import { GoogleIcon } from "@/components/GoogleIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import Link from "next/link";
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,10 +29,16 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password !== confirmPassword) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await signUp(email, password);
+      await signUp(email, password, name);
       router.push("/");
     } catch (err: any) {
       setError(err.message || "Ocorreu um erro. Tente novamente.");
@@ -97,7 +105,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold transition-all active:scale-95"
             >
-              <Chrome className="w-5 h-5 mr-2" />
+              <GoogleIcon className="w-5 h-5 mr-2" />
               Continuar com Google
             </Button>
 
@@ -159,6 +167,23 @@ export default function RegisterPage() {
                 <p className="text-xs text-gray-500">Mínimo de 6 caracteres</p>
               </div>
 
+              <div className="space-y-2">
+                <label htmlFor="confirm-password" className="text-sm text-gray-300 font-medium">Confirmar senha</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="pl-10 bg-black/50 border-purple-500/30 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
               {error && (
                 <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
                   <p className="text-sm text-red-400">{error}</p>
@@ -170,6 +195,7 @@ export default function RegisterPage() {
                 disabled={loading}
                 className="w-full glow-effect transition-all active:scale-95"
               >
+                <UserPlus className="w-4 h-4 mr-2" />
                 {loading ? "Criando conta..." : "Criar Conta"}
               </Button>
             </form>
@@ -180,6 +206,7 @@ export default function RegisterPage() {
                 href="/login"
                 className="text-purple-400 hover:text-purple-300 font-semibold transition-colors"
               >
+                <LogIn className="inline w-4 h-4 mr-1" />
                 Entrar
               </Link>
             </div>

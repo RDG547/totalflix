@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus } from "lucide-react";
+import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Tags, Sword, Compass, Sparkles, Laugh, Fingerprint, FileText, Drama, Users, Wand2, Landmark, Ghost, Music, Heart, Rocket, Zap, Shield, Mountain, Baby, Newspaper, Mic, MessageCircle } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -17,6 +18,20 @@ interface Genre {
   name: string;
 }
 
+const genreIcons: Record<number, LucideIcon> = {
+  28: Sword, 12: Compass, 16: Sparkles, 35: Laugh, 80: Fingerprint,
+  99: FileText, 18: Drama, 10751: Users, 14: Wand2, 36: Landmark,
+  27: Ghost, 10402: Music, 9648: Search, 10749: Heart, 878: Rocket,
+  10770: Tv, 53: Zap, 10752: Shield, 37: Mountain, 10759: Sword,
+  10762: Baby, 10763: Newspaper, 10764: Mic, 10765: Rocket,
+  10766: Drama, 10767: MessageCircle, 10768: Landmark,
+};
+
+function GenreIcon({ genreId }: { genreId: number }) {
+  const Icon = genreIcons[genreId] || Tags;
+  return <Icon className="w-4 h-4 shrink-0 text-purple-400" />;
+}
+
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,12 +44,26 @@ export function Navbar() {
   const [showTvDropdown, setShowTvDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [genreCounts, setGenreCounts] = useState<Record<number, number>>({});
+  const [canInstallApp, setCanInstallApp] = useState(false);
   const router = useRouter();
   const searchRef = useRef<HTMLDivElement>(null);
   const movieDropdownRef = useRef<HTMLDivElement>(null);
   const tvDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    const handleInstallAvailability = (event: Event) => {
+      setCanInstallApp((event as CustomEvent<boolean>).detail);
+    };
+    window.addEventListener("pwa-install-available", handleInstallAvailability);
+    return () => window.removeEventListener("pwa-install-available", handleInstallAvailability);
+  }, []);
+
+  const handleInstallApp = () => {
+    window.dispatchEvent(new Event("pwa-install-request"));
+    setIsMenuOpen(false);
+  };
 
   const toggleMovieDropdown = () => {
     setShowMovieDropdown(!showMovieDropdown);
@@ -172,7 +201,8 @@ export function Navbar() {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-6">
-            <Link href="/" className="text-gray-300 hover:text-purple-400 transition-colors">
+            <Link href="/" className="text-gray-300 hover:text-purple-400 transition-colors flex items-center gap-1.5">
+              <Home className="w-4 h-4" />
               Início
             </Link>
 
@@ -185,6 +215,7 @@ export function Navbar() {
                 onClick={toggleMovieDropdown}
                 className="text-gray-300 hover:text-purple-400 transition-colors flex items-center gap-1"
               >
+                <Clapperboard className="w-4 h-4" />
                 Filmes
                 <ChevronDown className={`w-4 h-4 transition-transform ${showMovieDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -193,10 +224,10 @@ export function Navbar() {
                 <div className="absolute top-full mt-2 w-56 bg-black/95 backdrop-blur-xl border border-purple-500/30 rounded-lg overflow-hidden shadow-2xl max-h-96 overflow-y-auto">
                   <Link
                     href="/movies"
-                    className="block px-4 py-2 text-white hover:bg-purple-500/20 transition-colors border-b border-purple-500/30 font-medium"
+                    className="flex items-center gap-2 px-4 py-2 text-white hover:bg-purple-500/20 transition-colors border-b border-purple-500/30 font-medium"
                     onClick={() => setShowMovieDropdown(false)}
                   >
-                    Todos os Filmes
+                    <Clapperboard className="w-4 h-4 text-purple-400" /> Todos os Filmes
                   </Link>
                   {movieGenres.map((genre) => (
                     <Link
@@ -205,7 +236,7 @@ export function Navbar() {
                       className="flex items-center justify-between px-4 py-2 text-gray-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                       onClick={() => setShowMovieDropdown(false)}
                     >
-                      <span>{genre.name}</span>
+                      <span className="flex items-center gap-2"><GenreIcon genreId={genre.id} />{genre.name}</span>
                       <span className="text-xs text-gray-500 ml-4">
                         {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
                       </span>
@@ -224,6 +255,7 @@ export function Navbar() {
                 onClick={toggleTvDropdown}
                 className="text-gray-300 hover:text-purple-400 transition-colors flex items-center gap-1"
               >
+                <Tv className="w-4 h-4" />
                 Séries
                 <ChevronDown className={`w-4 h-4 transition-transform ${showTvDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -232,17 +264,17 @@ export function Navbar() {
                 <div className="absolute top-full mt-2 w-56 bg-black/95 backdrop-blur-xl border border-purple-500/30 rounded-lg overflow-hidden shadow-2xl max-h-96 overflow-y-auto">
                   <Link
                     href="/series"
-                    className="block px-4 py-2 text-white hover:bg-purple-500/20 transition-colors border-b border-purple-500/30 font-medium"
+                    className="flex items-center gap-2 px-4 py-2 text-white hover:bg-purple-500/20 transition-colors border-b border-purple-500/30 font-medium"
                     onClick={() => setShowTvDropdown(false)}
                   >
-                    Todas as Séries
+                    <Tv className="w-4 h-4 text-purple-400" /> Todas as Séries
                   </Link>
                   <Link
                     href="/genre/10759?type=tv"
                     className="flex items-center justify-between px-4 py-2 text-gray-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                     onClick={() => setShowTvDropdown(false)}
                   >
-                    <span>Ação & Aventura</span>
+                    <span className="flex items-center gap-2"><GenreIcon genreId={10759} />Ação &amp; Aventura</span>
                     <span className="text-xs text-gray-500 ml-4">
                       {genreCounts[10759] ? genreCounts[10759].toLocaleString('pt-BR') : '...'}
                     </span>
@@ -256,7 +288,7 @@ export function Navbar() {
                         className="flex items-center justify-between px-4 py-2 text-gray-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                         onClick={() => setShowTvDropdown(false)}
                       >
-                        <span>{genre.name}</span>
+                        <span className="flex items-center gap-2"><GenreIcon genreId={genre.id} />{genre.name}</span>
                         <span className="text-xs text-gray-500 ml-4">
                           {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
                         </span>
@@ -339,6 +371,19 @@ export function Navbar() {
 
           {/* User Menu */}
           <div className="hidden md:flex items-center gap-2">
+            {canInstallApp && (
+              <Button
+                type="button"
+                onClick={handleInstallApp}
+                variant="ghost"
+                className="text-purple-300 hover:text-white hover:bg-purple-500/20"
+                aria-label="Instalar aplicativo"
+                title="Instalar aplicativo"
+              >
+                <Download className="w-4 h-4 xl:mr-2" />
+                <span className="hidden xl:inline">Instalar</span>
+              </Button>
+            )}
             {user && <NotificationsDropdown />}
 
             <div className="relative" ref={userDropdownRef}>
@@ -445,10 +490,10 @@ export function Navbar() {
               </form>
               <Link
                 href="/"
-                className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
+                className="flex items-center gap-2 text-gray-300 hover:text-purple-400 transition-colors py-2"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Início
+                <Home className="w-4 h-4 text-purple-400" /> Início
               </Link>
 
               {/* Mobile Movies Dropdown */}
@@ -457,17 +502,17 @@ export function Navbar() {
                   onClick={toggleMovieDropdown}
                   className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
                 >
-                  <span>Filmes</span>
+                  <span className="flex items-center gap-2"><Clapperboard className="w-4 h-4 text-purple-400" />Filmes</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${showMovieDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showMovieDropdown && (
                   <div className="pl-4 space-y-2 animate-slide-in">
                     <Link
                       href="/movies"
-                      className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
+                      className="flex items-center gap-2 text-white hover:text-purple-400 transition-colors py-2 font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      Todos os Filmes
+                      <Clapperboard className="w-4 h-4 text-purple-400" /> Todos os Filmes
                     </Link>
                     {movieGenres.map((genre) => (
                       <Link
@@ -476,7 +521,7 @@ export function Navbar() {
                         className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        <span>{genre.name}</span>
+                        <span className="flex items-center gap-2"><GenreIcon genreId={genre.id} />{genre.name}</span>
                         <span className="text-xs text-gray-500">
                           {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
                         </span>
@@ -492,24 +537,24 @@ export function Navbar() {
                   onClick={toggleTvDropdown}
                   className="w-full flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
                 >
-                  <span>Séries</span>
+                  <span className="flex items-center gap-2"><Tv className="w-4 h-4 text-purple-400" />Séries</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${showTvDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showTvDropdown && (
                   <div className="pl-4 space-y-2 animate-slide-in">
                     <Link
                       href="/series"
-                      className="block text-white hover:text-purple-400 transition-colors py-2 font-medium"
+                      className="flex items-center gap-2 text-white hover:text-purple-400 transition-colors py-2 font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      Todas as Séries
+                      <Tv className="w-4 h-4 text-purple-400" /> Todas as Séries
                     </Link>
                     <Link
                       href="/genre/10759?type=tv"
                       className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <span>Ação & Aventura</span>
+                      <span className="flex items-center gap-2"><GenreIcon genreId={10759} />Ação &amp; Aventura</span>
                       <span className="text-xs text-gray-500">
                         {genreCounts[10759] ? genreCounts[10759].toLocaleString('pt-BR') : '...'}
                       </span>
@@ -523,7 +568,7 @@ export function Navbar() {
                           className="flex items-center justify-between text-gray-300 hover:text-purple-400 transition-colors py-2"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span>{genre.name}</span>
+                          <span className="flex items-center gap-2"><GenreIcon genreId={genre.id} />{genre.name}</span>
                           <span className="text-xs text-gray-500">
                             {genreCounts[genre.id] ? genreCounts[genre.id].toLocaleString('pt-BR') : '...'}
                           </span>
@@ -542,14 +587,25 @@ export function Navbar() {
                 TV ao Vivo
               </Link>
 
+              {canInstallApp && (
+                <button
+                  type="button"
+                  onClick={handleInstallApp}
+                  className="flex w-full items-center gap-2 rounded-lg bg-purple-600/20 px-3 py-3 font-semibold text-purple-300 transition-colors hover:bg-purple-600/30 hover:text-white"
+                >
+                  <Download className="w-4 h-4" />
+                  Instalar aplicativo
+                </button>
+              )}
+
               {user ? (
                 <>
                   <Link
                     href="/profile"
-                    className="block text-gray-300 hover:text-purple-400 transition-colors py-2"
+                    className="flex items-center gap-2 text-gray-300 hover:text-purple-400 transition-colors py-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Meu Perfil
+                    <User className="w-4 h-4 text-purple-400" /> Meu Perfil
                   </Link>
                   <button
                     onClick={handleLogout}

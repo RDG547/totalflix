@@ -106,7 +106,11 @@ export function ClickadillaAPILoader() {
     console.log('Using fallback Clickadilla loader');
 
     // Service Worker
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      typeof window !== 'undefined' &&
+      'serviceWorker' in navigator
+    ) {
       navigator.serviceWorker
         .register("/clickadilla-sw.js")
         .catch((error) => console.error("Clickadilla SW error:", error));

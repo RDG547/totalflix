@@ -217,3 +217,14 @@ html, body {
 .zoom-in-95 {
   animation-name: zoom-in-95;
 }
+/* Mantém trailers 16:9 cobrindo o hero sem deformar em telas verticais. */
+.hero-youtube iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vw;
+  height: 56.25vw;
+  min-width: 177.78vh;
+  min-height: 100%;
+  transform: translate(-50%, -50%);
+}

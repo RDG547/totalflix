@@ -326,7 +326,7 @@ export function Hero() {
   const hasLongDescription = currentMovie.overview && currentMovie.overview.length > 150;
 
   return (
-    <div className="relative h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
+    <div className="relative h-[calc(100svh-4rem)] min-h-[620px] max-h-[820px] md:h-[70vh] md:min-h-[560px] lg:h-[80vh] w-full overflow-hidden mt-16 group">
       {/* Background Images */}
       {featuredMovies.map((featured, index) => (
         <div
@@ -359,7 +359,7 @@ export function Hero() {
               {/* Container do YouTube Player - Preenche 100% */}
               <div 
                 ref={index === currentIndex ? containerRef : null}
-                className="absolute inset-0 w-full h-full overflow-hidden"
+                className="hero-youtube absolute inset-0 w-full h-full overflow-hidden"
                 style={{ 
                   minWidth: '100%',
                   minHeight: '100%',
@@ -379,7 +379,7 @@ export function Hero() {
       {showTrailer && currentFeatured.trailerKey && (
         <button
           onClick={toggleMute}
-          className="absolute bottom-28 right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
+          className="absolute top-4 right-4 md:top-auto md:bottom-28 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
           aria-label={isMuted ? "Ativar som" : "Desativar som"}
         >
           {isMuted ? (
@@ -411,7 +411,7 @@ export function Hero() {
       )}
 
       {/* Content */}
-      <div className="relative h-full container mx-auto px-4 flex items-center">
+      <div className="relative z-[6] h-full container mx-auto px-4 flex items-end md:items-center pb-20 md:pb-0 pt-20">
         <div className="max-w-2xl space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold text-white drop-shadow-2xl line-clamp-2">
             {title}
@@ -481,7 +481,7 @@ export function Hero() {
 
       {/* Dots Indicator */}
       {featuredMovies.length > 1 && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[5] flex space-x-2">
+        <div className="absolute bottom-6 md:bottom-24 left-1/2 -translate-x-1/2 z-[7] flex space-x-2">
           {featuredMovies.map((_, index) => (
             <button
               key={index}

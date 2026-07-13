@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { X, Mail, Lock, User as UserIcon, Chrome } from "lucide-react";
+import { X, Mail, Lock, User as UserIcon, LogIn, UserPlus } from "lucide-react";
+import { GoogleIcon } from "@/components/GoogleIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -19,6 +20,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,17 +29,24 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!isLogin && password !== confirmPassword) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
         await signIn(email, password);
       } else {
-        await signUp(email, password);
+        await signUp(email, password, name);
       }
       onClose();
       setEmail("");
       setPassword("");
+      setConfirmPassword("");
       setName("");
     } catch (err: any) {
       setError(err.message || "Ocorreu um erro. Tente novamente.");
@@ -95,7 +104,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
             disabled={loading}
             className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold transition-all active:scale-95"
           >
-            <Chrome className="w-5 h-5 mr-2" />
+            <GoogleIcon className="w-5 h-5 mr-2" />
             Continuar com Google
           </Button>
 
@@ -158,6 +167,24 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               </div>
             </div>
 
+            {!isLogin && (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300 font-medium">Confirmar senha</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required={!isLogin}
+                    minLength={6}
+                    className="pl-10 bg-black/50 border-purple-500/30 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
                 <p className="text-sm text-red-400">{error}</p>
@@ -169,11 +196,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               disabled={loading}
               className="w-full glow-effect transition-all active:scale-95"
             >
-              {loading
-                ? "Carregando..."
-                : isLogin
-                  ? "Entrar"
-                  : "Criar Conta"}
+              {isLogin ? <LogIn className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+              {loading ? "Carregando..." : isLogin ? "Entrar" : "Criar Conta"}
             </Button>
           </form>
 

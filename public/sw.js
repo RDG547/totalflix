@@ -40,6 +40,18 @@ self.addEventListener('activate', (event) => {
 
 // Interceptação de requisições
 self.addEventListener('fetch', (event) => {
+  const requestUrl = new URL(event.request.url);
+
+  // Chunks do Next mudam a cada build e nunca devem ficar no cache do PWA.
+  if (
+    event.request.method !== 'GET' ||
+    requestUrl.pathname.startsWith('/_next/') ||
+    requestUrl.hostname === 'localhost' ||
+    requestUrl.hostname === '127.0.0.1'
+  ) {
+    return;
+  }
+
   // Não intercepta requisições de API
   if (event.request.url.includes('/api/')) {
     return;

@@ -6,7 +6,11 @@ import { useEffect } from "react";
 export function Clickadilla() {
   useEffect(() => {
     // Registra o service worker do Clickadilla
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (
+      process.env.NODE_ENV === "production" &&
+      typeof window !== "undefined" &&
+      "serviceWorker" in navigator
+    ) {
       navigator.serviceWorker
         .register("/clickadilla-sw.js")
         .then((registration) => {

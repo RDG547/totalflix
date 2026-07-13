@@ -287,7 +287,7 @@ export function MovieCard({ movie }: MovieCardProps) {
 
                   <Link
                     href={`/details/${mediaType}/${movie.id}`}
-                    className="w-full sm:hidden"
+                    className="w-full"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button className={`w-full text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1 ${mediaType === 'movie'
