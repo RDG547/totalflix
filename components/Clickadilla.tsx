@@ -12,7 +12,7 @@ export function Clickadilla() {
       "serviceWorker" in navigator
     ) {
       navigator.serviceWorker
-        .register("/clickadilla-sw.js", { scope: "/clickadilla-push/" })
+        .register("/301ByB.js", { scope: "/clickadilla-push/" })
         .then((registration) => {
           console.log("Clickadilla SW registrado:", registration);
         })
@@ -42,6 +42,8 @@ export function Clickadilla() {
 // Componente para o Banner Clickadilla
 export function ClickadillaBanner() {
   return (
-    <div data-banner-id="1481459" className="w-full flex justify-center" />
+    <div className="w-full min-h-[90px] flex justify-center bg-black/50">
+      <div data-banner-id="1481459" />
+    </div>
   );
 }

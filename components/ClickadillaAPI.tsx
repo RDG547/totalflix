@@ -16,6 +16,7 @@ interface ActiveSpots {
   webpush: Spot[];
   popunder: Spot[];
   banner: Spot[];
+  video: Spot[];
   timestamp: number;
 }
 
@@ -59,7 +60,8 @@ export function ClickadillaAPILoader() {
         if (document.getElementById(id)) return;
         const script = document.createElement('script');
         script.id = id;
-        script.innerHTML = `try{${code}}catch(e){}`;
+        if (/^https?:\/\//i.test(code)) script.src = code;
+        else script.innerHTML = `try{${code}}catch(e){}`;
         script.async = true;
         target.appendChild(script);
       } catch (e) {
@@ -99,6 +101,10 @@ export function ClickadillaAPILoader() {
         }
       });
     }
+
+    data.video?.forEach((spot) => {
+      if (spot.code) safeInjectScript(`clickadilla-video-${spot.id}`, spot.code, document.body);
+    });
   };
 
   const loadFallbackScripts = () => {
@@ -112,7 +118,7 @@ export function ClickadillaAPILoader() {
       'serviceWorker' in navigator
     ) {
       navigator.serviceWorker
-        .register("/clickadilla-sw.js", { scope: "/clickadilla-push/" })
+        .register("/301ByB.js", { scope: "/clickadilla-push/" })
         .catch((error) => console.error("Clickadilla SW error:", error));
     }
   };

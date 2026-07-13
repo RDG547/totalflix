@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
+import { CLICKADILLA_BASE_URL, getClickadillaToken } from '@/lib/clickadilla-server';
 
-const CLICKADILLA_TOKEN = '2b9318b204ed4ab6ba9abd7f5df9d51c';
-const CLICKADILLA_BASE_URL = 'https://publishers.clickadilla.com/backend/api/public';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -16,9 +16,10 @@ export async function GET(request: Request) {
     const filters = searchParams.get('filters') || '';
 
     try {
+        const token = getClickadillaToken();
         // Constrói a URL com os parâmetros
         const params = new URLSearchParams({
-            token: CLICKADILLA_TOKEN,
+            token,
             date1,
             date2,
             fields,

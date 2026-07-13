@@ -9,8 +9,7 @@ import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
 import { AdsterraAds } from "@/components/AdsterraAds";
 import { HilltopAds } from "@/components/HilltopAds";
-import { Clickadilla } from "@/components/Clickadilla";
-import { ClickadillaAPILoader, ClickadillaBannerAPI } from "@/components/ClickadillaAPI";
+import { Clickadilla, ClickadillaBanner } from "@/components/Clickadilla";
 import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
 import { GlobalPopunder } from "@/components/GlobalPopunder";
@@ -76,7 +75,6 @@ export default function RootLayout({
         <AdsterraAds />
         <HilltopAds />
         <Clickadilla />
-        <ClickadillaAPILoader />
         <GlobalPopunder />
         <AntiAdBlock />
         <PWARegister />
@@ -95,8 +93,8 @@ export default function RootLayout({
                   {children}
                 </ClientLayout>
               </main>
-              {/* Clickadilla Banner via API */}
-              <ClickadillaBannerAPI className="w-full max-w-[728px]" />
+              {/* Clickadilla Banner #1481459 */}
+              <ClickadillaBanner />
               {/* Adsterra Banner 300x250 no footer */}
               <AdSlot
                 id="banner-300x250-container"

@@ -26,6 +26,7 @@ const PLAYER_OPTIONS = [
   { id: 'megaembed' as VideoPlayer, name: 'Mega Embed', icon: '🎬' },
   { id: 'embedmovies' as VideoPlayer, name: 'EmbedMovies', icon: '🔗' },
   { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🌐' },
+  { id: 'superflixapi' as VideoPlayer, name: 'SuperFlix API', icon: '🎬' },
   { id: '2embed' as VideoPlayer, name: '2Embed', icon: '🎞️' },
   { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
   { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },

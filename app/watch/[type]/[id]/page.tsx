@@ -13,7 +13,7 @@ interface PageProps {
   };
 }
 
-type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
+type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | 'superflixapi' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
 
 export default function WatchPage({ params }: PageProps) {
   const { type, id } = params;
@@ -74,6 +74,7 @@ export default function WatchPage({ params }: PageProps) {
     { id: 'megaembed', name: 'MegaEmbed' },
     { id: 'embedmovies', name: 'EmbedMovies' },
     { id: 'warezcdn', name: 'WarezCDN' },
+    { id: 'superflixapi', name: 'SuperFlix API' },
     { id: 'vidsrcsbs', name: 'VidSrc SBS' },
     { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU' },
     { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU' },
