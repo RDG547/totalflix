@@ -7,6 +7,7 @@ import type { TVChannel } from "@/lib/tv-channels";
 import Hls from "hls.js";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { triggerPopunderOnWatch } from "@/lib/popunder";
+import { getMinhaTVStream } from "@/lib/minhatv";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -30,11 +31,40 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     ? channel.sources
     : [{ id: channel.id, provider: 'Fonte principal', streamUrl: channel.streamUrl }];
   const selectedSource = sources[selectedSourceIndex] || sources[0];
-  const currentStreamUrl = selectedSource.streamUrl;
+  const [currentStreamUrl, setCurrentStreamUrl] = useState(selectedSource.streamUrl);
 
   useEffect(() => {
     setSelectedSourceIndex(0);
   }, [channel.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveSource = async () => {
+      setError(null);
+      if (!selectedSource.streamUrl.startsWith('minhatv:')) {
+        setCurrentStreamUrl(selectedSource.streamUrl);
+        return;
+      }
+
+      setIsLoading(true);
+      const channelId = selectedSource.streamUrl.slice('minhatv:'.length);
+      const streamUrl = await getMinhaTVStream(channelId);
+      if (cancelled) return;
+      if (streamUrl) setCurrentStreamUrl(streamUrl);
+      else {
+        setCurrentStreamUrl('');
+        if (sources.length > 1) {
+          setError('Fonte MinhaTV indisponível. Alternando para a próxima fonte...');
+          setSelectedSourceIndex((index) => index === 0 ? 1 : 0);
+        } else {
+          setError('A fonte MinhaTV está indisponível porque o servidor de origem não responde.');
+          setIsLoading(false);
+        }
+      }
+    };
+    void resolveSource();
+    return () => { cancelled = true; };
+  }, [selectedSource.streamUrl, selectedSourceIndex, sources.length]);
 
   // Cleanup HLS instance on unmount
   useEffect(() => {

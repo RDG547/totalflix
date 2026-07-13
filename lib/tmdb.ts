@@ -134,7 +134,7 @@ export const getBackdropUrl = (path: string, size: 'w780' | 'w1280' | 'original'
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
-export type VideoPlayer = 'megaembed' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'embedmovies' | 'warezcdn' | 'primevicio' | 'webtorrent';
+export type VideoPlayer = 'megaembed' | 'megaembedapi' | 'vidsrcsbs' | 'vidsrcmeRu' | 'vidsrcmeSu' | 'vidsrcMeRu' | 'vidsrcMeSu' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vsrcSu' | 'vidsrcTo' | 'vidapi' | '2embed' | 'superembed' | 'smashystream' | 'embedmovies' | 'warezcdn' | 'primevicio' | 'webtorrent';
 
 /**
  * Gera URL do player com parâmetros de idioma PT-BR
@@ -154,26 +154,48 @@ export const getPlayerUrl = (
     } else {
       return `${baseUrl}/embed/${tmdbId}/${season || 1}/${episode || 1}`;
     }
-  } else if (player === 'vidsrc') {
-    const baseUrl = 'https://vidsrc.xyz/embed';
+  } else if (player === 'megaembedapi') {
+    const baseUrl = 'https://megaembedapi.site/embed';
+    return mediaType === 'movie'
+      ? `${baseUrl}/movie?tmdb=${tmdbId}`
+      : `${baseUrl}/series?tmdb=${tmdbId}&sea=${season || 1}&epi=${episode || 1}`;
+  } else if (player === 'vidsrcsbs') {
+    const baseUrl = 'https://vidsrc.sbs/embed';
     if (mediaType === 'movie') {
       return `${baseUrl}/movie/${tmdbId}`;
     } else {
       return `${baseUrl}/tv/${tmdbId}/${season || 1}/${episode || 1}`;
     }
+  } else if (['vidsrcmeRu', 'vidsrcmeSu', 'vidsrcMeRu', 'vidsrcMeSu', 'vidsrcEmbedRu', 'vidsrcEmbedSu', 'vsrcSu'].includes(player)) {
+    const domains: Record<string, string> = {
+      vidsrcmeRu: 'https://vidsrcme.ru',
+      vidsrcmeSu: 'https://vidsrcme.su',
+      vidsrcMeRu: 'https://vidsrc-me.ru',
+      vidsrcMeSu: 'https://vidsrc-me.su',
+      vidsrcEmbedRu: 'https://vidsrc-embed.ru',
+      vidsrcEmbedSu: 'https://vidsrc-embed.su',
+      vsrcSu: 'https://vsrc.su',
+    };
+    const baseUrl = `${domains[player]}/embed`;
+    if (mediaType === 'movie') {
+      return `${baseUrl}/movie/${tmdbId}`;
+    } else {
+      return `${baseUrl}/tv/${tmdbId}/${season || 1}-${episode || 1}`;
+    }
+  } else if (player === 'vidsrcTo') {
+    return mediaType === 'movie'
+      ? `https://vidsrc.to/embed/movie/${tmdbId}`
+      : `https://vidsrc.to/embed/tv/${tmdbId}/${season || 1}/${episode || 1}`;
+  } else if (player === 'vidapi') {
+    return mediaType === 'movie'
+      ? `https://vidapi.qzz.io/movie/${tmdbId}`
+      : `https://vidapi.qzz.io/tv/${tmdbId}/${season || 1}/${episode || 1}`;
   } else if (player === '2embed') {
     const baseUrl = process.env.NEXT_PUBLIC_2EMBED_URL || 'https://www.2embed.cc/embed';
     if (mediaType === 'movie') {
       return `${baseUrl}/${tmdbId}`;
     } else {
       return `${baseUrl}/${tmdbId}&s=${season || 1}&e=${episode || 1}`;
-    }
-  } else if (player === 'moviesapi') {
-    const baseUrl = process.env.NEXT_PUBLIC_MOVIESAPI_URL || 'https://moviesapi.club';
-    if (mediaType === 'movie') {
-      return `${baseUrl}/movie/${tmdbId}`;
-    } else {
-      return `${baseUrl}/tv/${tmdbId}-${season || 1}-${episode || 1}`;
     }
   } else if (player === 'superembed') {
     const baseUrl = 'https://multiembed.mov';

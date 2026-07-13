@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Maximize2, MonitorPlay } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronDown, ExternalLink, X, Maximize2, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
@@ -23,14 +24,26 @@ interface VideoPlayerModalProps {
 
 const PLAYER_OPTIONS = [
   { id: 'megaembed' as VideoPlayer, name: 'Mega Embed', icon: '🎬' },
-  { id: 'vidsrc' as VideoPlayer, name: 'VidSrc', icon: '📺' },
+  { id: 'embedmovies' as VideoPlayer, name: 'EmbedMovies', icon: '🔗' },
+  { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🌐' },
+  { id: 'megaembedapi' as VideoPlayer, name: 'MegaEmbed API', icon: '🛰️' },
   { id: '2embed' as VideoPlayer, name: '2Embed', icon: '🎞️' },
-  { id: 'moviesapi' as VideoPlayer, name: 'MoviesAPI', icon: '🎪' },
   { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
   { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },
-  { id: 'embedmovies' as VideoPlayer, name: 'EmbedMovies', icon: '🎬' },
-  { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🌐' },
   { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
+];
+
+const VIDSRC_OPTIONS: Array<{ id: VideoPlayer; name: string }> = [
+  { id: 'vidsrcsbs', name: 'VidSrc SBS' },
+  { id: 'vidsrcmeRu', name: 'VidSrcMe RU' },
+  { id: 'vidsrcmeSu', name: 'VidSrcMe SU' },
+  { id: 'vidsrcMeRu', name: 'VidSrc-Me RU' },
+  { id: 'vidsrcMeSu', name: 'VidSrc-Me SU' },
+  { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU' },
+  { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU' },
+  { id: 'vsrcSu', name: 'VSrc SU' },
+  { id: 'vidsrcTo', name: 'VidSrc.to' },
+  { id: 'vidapi', name: 'VidAPI' },
 ];
 
 import { useScrollLock } from "@/hooks/useScrollLock";
@@ -51,7 +64,11 @@ export function VideoPlayerModal({
   const [episodeCount, setEpisodeCount] = useState(10);
   const [selectedPlayer, setSelectedPlayer] = useState<VideoPlayer>('megaembed');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
   const { openPlayer, closePlayer } = usePlayer();
+
+  useEffect(() => setMounted(true), []);
 
   // Atualiza season/episode quando props mudarem
   useEffect(() => {
@@ -102,11 +119,12 @@ export function VideoPlayerModal({
   };
 
   const embedUrl = getPlayerUrl(selectedPlayer, type, tmdbId, selectedSeason, selectedEpisode);
+  const selectedVidSrc = VIDSRC_OPTIONS.find((player) => player.id === selectedPlayer);
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
@@ -114,7 +132,7 @@ export function VideoPlayerModal({
       />
 
       {/* Modal */}
-      <div className="relative flex h-[calc(100dvh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className="relative flex h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/50 to-transparent">
           <h2 className="text-xl font-bold text-white truncate pr-4">{title}</h2>
@@ -141,7 +159,7 @@ export function VideoPlayerModal({
         </div>
 
         {/* Player Selection & Controls */}
-        <div className="max-h-[38dvh] shrink-0 overflow-y-auto bg-black/50 p-4 border-b border-purple-500/20">
+        <div className="max-h-[34dvh] shrink-0 overflow-y-auto bg-black/50 p-3 sm:p-4 border-b border-purple-500/20">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           {/* Player Selection */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -160,6 +178,40 @@ export function VideoPlayerModal({
                 {player.name}
               </button>
             ))}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsVidSrcMenuOpen((open) => !open)}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${selectedVidSrc
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                  : 'border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20'
+                  }`}
+              >
+                <span>📺</span>
+                {selectedVidSrc?.name || 'VidSrc'}
+                <ChevronDown className={`h-4 w-4 transition-transform ${isVidSrcMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isVidSrcMenuOpen && (
+                <div className="absolute left-0 top-full z-30 mt-2 max-h-[210px] min-w-52 overflow-y-auto rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl">
+                  {VIDSRC_OPTIONS.map((player) => (
+                    <button
+                      key={player.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlayer(player.id);
+                        setIsVidSrcMenuOpen(false);
+                      }}
+                      className={`block w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedPlayer === player.id
+                        ? 'bg-purple-600 text-white'
+                        : 'text-gray-300 hover:bg-purple-500/20 hover:text-white'
+                        }`}
+                    >
+                      {player.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Season/Episode Selector for TV Shows */}
@@ -209,6 +261,24 @@ export function VideoPlayerModal({
               season={selectedSeason}
               episode={selectedEpisode}
             />
+          ) : selectedPlayer === 'megaembedapi' ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+              <ExternalLink className="h-12 w-12 text-purple-400" />
+              <div>
+                <h3 className="text-xl font-semibold text-white">MegaEmbed API</h3>
+                <p className="mt-2 max-w-lg text-sm text-gray-400">
+                  Este provedor bloqueia incorporação externa. Abra o player em uma nova aba para assistir.
+                </p>
+              </div>
+              <a
+                href={embedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white hover:bg-purple-700"
+              >
+                <ExternalLink className="h-4 w-4" /> Abrir MegaEmbed API
+              </a>
+            </div>
           ) : (
             <iframe
               id="video-player"
@@ -221,6 +291,7 @@ export function VideoPlayerModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

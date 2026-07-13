@@ -13,7 +13,7 @@ interface PageProps {
   };
 }
 
-type PlayerType = 'vidsrc' | 'megaembed' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
+type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
 
 export default function WatchPage({ params }: PageProps) {
   const { type, id } = params;
@@ -22,7 +22,7 @@ export default function WatchPage({ params }: PageProps) {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('vidsrc');
+  const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('vidsrcsbs');
   const [playerError, setPlayerError] = useState(false);
 
   useEffect(() => {
@@ -71,12 +71,16 @@ export default function WatchPage({ params }: PageProps) {
   };
 
   const players: { id: PlayerType; name: string }[] = [
-    { id: 'vidsrc', name: 'VidSrc' },
     { id: 'megaembed', name: 'MegaEmbed' },
-    { id: '2embed', name: '2Embed' },
-    { id: 'superembed', name: 'SuperEmbed' },
     { id: 'embedmovies', name: 'EmbedMovies' },
     { id: 'warezcdn', name: 'WarezCDN' },
+    { id: 'vidsrcsbs', name: 'VidSrc SBS' },
+    { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU' },
+    { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU' },
+    { id: 'vidsrcTo', name: 'VidSrc.to' },
+    { id: 'vidapi', name: 'VidAPI' },
+    { id: '2embed', name: '2Embed' },
+    { id: 'superembed', name: 'SuperEmbed' },
     { id: 'primevicio', name: 'PrimeVicio' },
   ];
 

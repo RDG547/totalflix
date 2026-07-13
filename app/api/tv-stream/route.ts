@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { lookup } from 'node:dns/promises';
+
+export const runtime = 'nodejs';
 
 const MINHATV_BASE_URL = 'https://da5f663b4690-minhatv.baby-beamup.club';
 const MAX_RETRIES = 2;
@@ -56,6 +59,23 @@ export async function GET(request: Request) {
         }
 
         const data = await response.json();
+
+        const streamUrl = data.streams?.[0]?.url;
+        if (!streamUrl) {
+            return NextResponse.json(
+                { error: 'No stream available', streams: [] },
+                { status: 404 }
+            );
+        }
+
+        try {
+            await lookup(new URL(streamUrl).hostname);
+        } catch {
+            return NextResponse.json(
+                { error: 'Stream host is unavailable', streams: [] },
+                { status: 502 }
+            );
+        }
         
         // Cache por 60 segundos para evitar requests repetidos
         return NextResponse.json(data, {
