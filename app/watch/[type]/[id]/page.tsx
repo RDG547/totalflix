@@ -13,7 +13,7 @@ interface PageProps {
   };
 }
 
-type PlayerType = 'vidsrc' | 'megaembed' | '2embed' | 'superembed' | 'embedmovies' | 'primevicio';
+type PlayerType = 'vidsrc' | 'megaembed' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
 
 export default function WatchPage({ params }: PageProps) {
   const { type, id } = params;
@@ -76,6 +76,7 @@ export default function WatchPage({ params }: PageProps) {
     { id: '2embed', name: '2Embed' },
     { id: 'superembed', name: 'SuperEmbed' },
     { id: 'embedmovies', name: 'EmbedMovies' },
+    { id: 'warezcdn', name: 'WarezCDN' },
     { id: 'primevicio', name: 'PrimeVicio' },
   ];
 

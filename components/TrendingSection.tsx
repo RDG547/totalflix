@@ -91,11 +91,11 @@ export function TrendingSection() {
       <div
         ref={scrollRef}
         onMouseDown={handleMouseDown}
-        onMouseLeave={handleMouseLeave}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onMouseMove={handleMouseMove}
         onClick={handleClick}
-        className="flex space-x-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-proximity cursor-grab active:cursor-grabbing select-none scroll-smooth"
+        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-proximity cursor-grab active:cursor-grabbing select-none scroll-smooth"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {movies.map((movie) => (

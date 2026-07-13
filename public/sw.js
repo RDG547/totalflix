@@ -1,3 +1,5 @@
+importScripts('/webtorrent-worker.js');
+
 const CACHE_NAME = 'totalflix-v1';
 const urlsToCache = [
   '/',
@@ -45,6 +47,7 @@ self.addEventListener('fetch', (event) => {
   // Chunks do Next mudam a cada build e nunca devem ficar no cache do PWA.
   if (
     event.request.method !== 'GET' ||
+    requestUrl.pathname.startsWith('/webtorrent/') ||
     requestUrl.pathname.startsWith('/_next/') ||
     requestUrl.hostname === 'localhost' ||
     requestUrl.hostname === '127.0.0.1'

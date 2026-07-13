@@ -8,6 +8,11 @@ export interface TVChannel {
   category: string;
   country: string;
   language: string;
+  sources?: Array<{
+    id: string;
+    provider: string;
+    streamUrl: string;
+  }>;
 }
 
 // Lista de canais de TV populares do Brasil e internacionais

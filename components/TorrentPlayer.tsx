@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStreamsFromAddon, sortStreamsByQuality, groupStreamsByQuality, type StreamSource } from "@/lib/stremio";
@@ -16,6 +16,9 @@ interface TorrentPlayerProps {
 export default function TorrentPlayer({ tmdbId, mediaType, season, episode, poster }: TorrentPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const clientRef = useRef<any>(null);
+    const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [isClientReady, setIsClientReady] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -37,7 +40,10 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
             try {
                 const WebTorrent = (await import("webtorrent")).default;
                 if (!clientRef.current) {
-                    clientRef.current = new WebTorrent({
+                    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    await navigator.serviceWorker.ready;
+
+                    const client = new WebTorrent({
                         tracker: {
                             rtcConfig: {
                                 iceServers: [
@@ -47,6 +53,14 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                             }
                         }
                     });
+                    client.createServer({ controller: registration });
+                    client.on('error', (err: Error) => {
+                        console.error('WebTorrent client error:', err);
+                        setError(`Erro no WebTorrent: ${err.message}`);
+                        setIsLoading(false);
+                    });
+                    clientRef.current = client;
+                    setIsClientReady(true);
                     console.log('WebTorrent client initialized');
                 }
             } catch (err) {
@@ -58,21 +72,17 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         initClient();
 
         return () => {
+            if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+            if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current);
             if (clientRef.current) {
+                clientRef.current._server?.close?.();
                 clientRef.current.destroy();
                 clientRef.current = null;
             }
         };
     }, []);
 
-    // Auto-fetch streams when addon is selected
-    useEffect(() => {
-        if (tmdbId && mediaType && selectedAddon && !isPlaying) {
-            fetchStreams(selectedAddon);
-        }
-    }, [selectedAddon, tmdbId, mediaType, season, episode]);
-
-    const fetchStreams = async (addon: 'torrentio' | 'brazuca') => {
+    const fetchStreams = useCallback(async (addon: 'torrentio' | 'brazuca') => {
         if (!tmdbId || !mediaType) return;
 
         setIsLoadingStreams(true);
@@ -94,10 +104,21 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         } finally {
             setIsLoadingStreams(false);
         }
-    };
+    }, [episode, mediaType, season, tmdbId]);
+
+    // Auto-fetch streams when addon is selected
+    useEffect(() => {
+        if (tmdbId && mediaType && selectedAddon && !isPlaying) {
+            void fetchStreams(selectedAddon);
+        }
+    }, [fetchStreams, isPlaying, mediaType, selectedAddon, tmdbId]);
 
     const startTorrent = (magnet: string) => {
-        if (!magnet || !clientRef.current) return;
+        if (!magnet) return;
+        if (!clientRef.current || !isClientReady) {
+            setError("O player ainda está iniciando. Aguarde um instante e tente novamente.");
+            return;
+        }
 
         setIsLoading(true);
         setError(null);
@@ -114,32 +135,33 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
             });
         }
 
-        // Set connection timeout (30 seconds)
-        const connectionTimeout = setTimeout(() => {
-            console.error('❌ Connection timeout');
-            setError("Tempo limite excedido: Não foi possível conectar aos peers. Verifique se o torrent tem seeds ou se sua rede bloqueia P2P.");
+        if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+        if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current);
+
+        // Limite para receber os metadados do magnet.
+        const metadataTimeout = setTimeout(() => {
+            setError("O torrent não respondeu. Escolha uma opção com mais seeds ou tente outra fonte.");
             setIsLoading(false);
+            setIsPlaying(false);
             if (clientRef.current) {
-                const torrent = clientRef.current.get(magnet);
-                if (torrent) {
-                    try {
-                        // Use remove instead of destroy if possible, or check for destroy
-                        clientRef.current.remove(magnet);
-                    } catch (err) {
-                        console.error("Error removing torrent:", err);
-                    }
-                }
+                try { clientRef.current.remove(magnet); } catch (_) {}
             }
-        }, 30000);
+        }, 45000);
 
         try {
-            clientRef.current.add(magnet, (torrent: any) => {
-                clearTimeout(connectionTimeout);
+            clientRef.current.add(magnet, {
+                announce: [
+                    'wss://tracker.openwebtorrent.com',
+                    'wss://tracker.webtorrent.dev',
+                    'wss://tracker.btorrent.xyz',
+                ],
+            }, (torrent: any) => {
+                clearTimeout(metadataTimeout);
                 console.log('✅ Torrent added:', torrent.name);
                 console.log('📁 Files:', torrent.files.length);
 
                 // Find video file
-                const videoExtensions = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.m4v'];
+                const videoExtensions = ['.mp4', '.webm', '.m4v', '.mov', '.mkv'];
                 const videoFile = torrent.files
                     .filter((f: any) => videoExtensions.some(ext => f.name.toLowerCase().endsWith(ext)))
                     .reduce((largest: any, current: any) =>
@@ -149,26 +171,55 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                 if (!videoFile) {
                     setError("Nenhum arquivo de vídeo encontrado.");
                     setIsLoading(false);
+                    setIsPlaying(false);
                     return;
                 }
+
+                torrent.files.forEach((file: any) => {
+                    if (file !== videoFile) file.deselect();
+                });
+                videoFile.select(10);
 
                 console.log('🎬 Selected file:', videoFile.name);
                 console.log('📦 Size:', (videoFile.length / 1024 / 1024).toFixed(2), 'MB');
 
                 // Stream to video element
                 if (videoRef.current) {
-                    videoFile.streamTo(videoRef.current, {
-                        autoplay: true,
-                        controls: true,
-                        muted: false
+                    const video = videoRef.current;
+                    video.controls = true;
+                    video.muted = false;
+                    videoFile.streamTo(video);
+
+                    const handlePlaying = () => {
+                        if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current);
+                        setIsLoading(false);
+                    };
+                    const handleVideoError = () => {
+                        setError("O navegador não conseguiu reproduzir o formato deste arquivo. Prefira uma opção MP4/WebM.");
+                        setIsLoading(false);
+                        setIsPlaying(false);
+                    };
+                    video.addEventListener('playing', handlePlaying, { once: true });
+                    video.addEventListener('error', handleVideoError, { once: true });
+                    void video.play().catch(() => {
+                        // Autoplay com som pode ser bloqueado; os controles continuam disponíveis.
+                        setIsLoading(false);
                     });
 
-                    setIsLoading(false);
+                    playbackTimeoutRef.current = setTimeout(() => {
+                        if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+                            setError("Nenhum peer WebRTC enviou dados suficientes. Tente um torrent com mais seeds WebTorrent ou outra fonte.");
+                            setIsLoading(false);
+                            setIsPlaying(false);
+                            try { clientRef.current?.remove(torrent.infoHash); } catch (_) {}
+                        }
+                    }, 60000);
                 } else {
                     // Fail-safe if video ref isn't ready
                     console.error("Video ref missing");
                     setError("Erro interno: Elemento de vídeo não encontrado.");
                     setIsLoading(false);
+                    setIsPlaying(false);
                 }
 
                 // Update stats every second
@@ -180,7 +231,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                     setPeers(torrent.numPeers);
                 };
 
-                const statsInterval = setInterval(updateStats, 1000);
+                statsIntervalRef.current = setInterval(updateStats, 1000);
 
                 torrent.on('wire', () => {
                     console.log('🔗 Peer connected! Total:', torrent.numPeers);
@@ -192,25 +243,20 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
 
                 torrent.on('done', () => {
                     console.log('✅ Download complete!');
-                    clearInterval(statsInterval);
+                    if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
                 });
 
                 torrent.on('error', (err: any) => {
                     console.error('❌ Torrent error:', err);
                     setError(err.message);
-                    clearInterval(statsInterval);
+                    setIsLoading(false);
+                    setIsPlaying(false);
+                    if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
                 });
             });
 
-            clientRef.current.on('error', (err: any) => {
-                clearTimeout(connectionTimeout);
-                console.error('❌ Client error:', err);
-                setError(`Erro: ${err.message}`);
-                setIsLoading(false);
-            });
-
         } catch (e: any) {
-            clearTimeout(connectionTimeout);
+            clearTimeout(metadataTimeout);
             console.error("Exception adding torrent:", e);
             setError("Erro ao adicionar torrent: " + e.message);
             setIsLoading(false);
@@ -218,6 +264,8 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
     };
 
     const stopPlayback = () => {
+        if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+        if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current);
         if (clientRef.current && clientRef.current.torrents.length > 0) {
             clientRef.current.torrents.forEach((t: any) => t.destroy());
         }
@@ -226,6 +274,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         setDownloadSpeed(0);
         setUploadSpeed(0);
         setPeers(0);
+        setIsLoading(false);
     };
 
     return (

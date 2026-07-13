@@ -134,7 +134,7 @@ export const getBackdropUrl = (path: string, size: 'w780' | 'w1280' | 'original'
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
-export type VideoPlayer = 'megaembed' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'embedmovies' | 'primevicio' | 'webtorrent';
+export type VideoPlayer = 'megaembed' | 'vidsrc' | '2embed' | 'moviesapi' | 'superembed' | 'smashystream' | 'embedmovies' | 'warezcdn' | 'primevicio' | 'webtorrent';
 
 /**
  * Gera URL do player com parâmetros de idioma PT-BR
@@ -190,11 +190,18 @@ export const getPlayerUrl = (
       return `${baseUrl}/tv/${tmdbId}?s=${season || 1}&e=${episode || 1}`;
     }
   } else if (player === 'embedmovies') {
-    const baseUrl = 'https://embedmovies.org';
+    const baseUrl = 'https://myembed.biz';
     if (mediaType === 'movie') {
-      return `${baseUrl}/movie/${tmdbId}`;
+      return `${baseUrl}/filme/${tmdbId}`;
     } else {
-      return `${baseUrl}/tv/${tmdbId}/${season || 1}/${episode || 1}`;
+      return `${baseUrl}/serie/${tmdbId}/${season || 1}/${episode || 1}`;
+    }
+  } else if (player === 'warezcdn') {
+    const baseUrl = 'https://warezcdn.lat';
+    if (mediaType === 'movie') {
+      return `${baseUrl}/filme/${tmdbId}#noLink`;
+    } else {
+      return `${baseUrl}/serie/${tmdbId}/${season || 1}/${episode || 1}#noEpList`;
     }
   } else if (player === 'primevicio') {
     const baseUrl = 'https://primevicio.netlify.app';

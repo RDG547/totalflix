@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Check, Trash2, X } from "lucide-react";
 
 interface ConfirmDialogProps {
     isOpen: boolean;
@@ -81,14 +81,16 @@ export function ConfirmDialog({
                     <div className="flex gap-3 pt-4">
                         <button
                             onClick={onCancel}
-                            className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
+                            className="flex flex-1 items-center justify-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
                         >
+                            <X className="h-4 w-4" />
                             {cancelText}
                         </button>
                         <button
                             onClick={onConfirm}
-                            className={`flex-1 px-4 py-2 ${styles.button} rounded-lg transition-colors font-medium glow-effect`}
+                            className={`flex flex-1 items-center justify-center gap-2 px-4 py-2 ${styles.button} rounded-lg transition-colors font-medium glow-effect`}
                         >
+                            {variant === "danger" ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                             {confirmText}
                         </button>
                     </div>

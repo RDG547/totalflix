@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { TV_CATEGORIES, type TVChannel } from "@/lib/tv-channels";
-import { getMinhaTVChannels, getMinhaTVStream, type MinhaTVMeta } from "@/lib/minhatv";
+import { getMinhaTVChannels, type MinhaTVMeta } from "@/lib/minhatv";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, Radio, Loader2 } from "lucide-react";
@@ -177,62 +177,25 @@ export default function TVPage() {
   };
 
   // Handler para assistir canal
-  const handleWatchChannel = async (channel: MinhaTVMeta) => {
-    // Show loading toast
-    const toastId = toast.loading("Carregando canal, aguarde...", {
-      position: "top-center",
-      style: {
-        marginTop: "40vh",
-        backgroundColor: "#1a1a1a",
-        color: "#fff",
-        border: "1px solid rgba(139, 92, 246, 0.3)"
-      }
-    });
-
-    try {
-      const streamUrl = await getMinhaTVStream(channel.id);
-
-      // Dismiss loading toast
-      toast.dismiss(toastId);
-
-      if (!streamUrl) {
-        toast.error(
-          "Não foi possível carregar este canal. Pode ser uma instabilidade específica. Por favor, tente outro canal.",
-          {
-            duration: 6000,
-            position: "top-center",
-            style: {
-              marginTop: "40vh",
-              textAlign: "center",
-              backgroundColor: "#1a1a1a",
-              color: "#fff",
-              border: "1px solid rgba(239, 68, 68, 0.5)"
-            }
-          }
-        );
-        console.error('Stream URL não encontrada');
-        return;
-      }
+  const handleWatchChannel = (channel: MinhaTVMeta) => {
+    if (!channel.streamUrl) {
+      toast.error("Este canal não está disponível no momento.");
+      return;
+    }
 
       const tvChannel: TVChannel = {
         id: channel.id,
         name: channel.name,
         logo: channel.poster,
-        streamUrl: streamUrl,
+        streamUrl: channel.streamUrl,
         category: getCategoryFromChannelName(channel.name) || 'TV',
         country: 'BR',
-        language: 'pt'
+        language: 'pt',
+        sources: channel.sources,
       };
 
       setSelectedChannel(tvChannel);
       setIsPlayerOpen(true);
-    } catch (error) {
-      toast.dismiss(toastId);
-      toast.error("Erro ao tentar abrir o canal. Tente novamente.", {
-        position: "top-center"
-      });
-      console.error('Erro ao abrir canal:', error);
-    }
   };
 
   // Handler para limpar todos os filtros
@@ -410,6 +373,7 @@ export default function TVPage() {
                         alt={channel.name}
                         fill
                         className="object-contain filter brightness-90 group-hover:brightness-110 transition-all"
+                        unoptimized
                       />
                     </div>
                   ) : (

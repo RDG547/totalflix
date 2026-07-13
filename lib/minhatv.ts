@@ -7,7 +7,14 @@ export interface MinhaTVMeta {
     name: string;
     type: string;
     poster?: string;
+    streamUrl?: string;
     genres?: string[];
+    provider?: string;
+    sources?: Array<{
+        id: string;
+        provider: string;
+        streamUrl: string;
+    }>;
 }
 
 export interface MinhaTVCatalog {
@@ -24,7 +31,7 @@ export interface MinhaTVStream {
 }
 
 /**
- * Fetch TV channels from Minha TV addon - uses local API route to avoid CORS
+ * Fetch the channels currently published by the embed provider.
  */
 export async function getMinhaTVChannels(): Promise<MinhaTVMeta[]> {
     try {

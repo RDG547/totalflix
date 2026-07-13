@@ -1,0 +1,2 @@
+domain=total-flix.vercel.app
+token=xc2sahi31hymtfds6b4thnyb9swhh0gt

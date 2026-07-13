@@ -28,6 +28,8 @@ const PLAYER_OPTIONS = [
   { id: 'moviesapi' as VideoPlayer, name: 'MoviesAPI', icon: '🎪' },
   { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
   { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },
+  { id: 'embedmovies' as VideoPlayer, name: 'EmbedMovies', icon: '🎬' },
+  { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🌐' },
   { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
 ];
 
@@ -112,7 +114,7 @@ export function VideoPlayerModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-6xl bg-black/95 rounded-xl overflow-hidden shadow-2xl border border-purple-500/30 animate-in zoom-in-95 duration-200">
+      <div className="relative flex h-[calc(100dvh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/50 to-transparent">
           <h2 className="text-xl font-bold text-white truncate pr-4">{title}</h2>
@@ -139,7 +141,8 @@ export function VideoPlayerModal({
         </div>
 
         {/* Player Selection & Controls */}
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 p-4 bg-black/50 border-b border-purple-500/20">
+        <div className="max-h-[38dvh] shrink-0 overflow-y-auto bg-black/50 p-4 border-b border-purple-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           {/* Player Selection */}
           <div className="flex items-center gap-2 flex-wrap">
             <MonitorPlay className="w-4 h-4 text-purple-400" />
@@ -193,10 +196,11 @@ export function VideoPlayerModal({
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* Video Player Container */}
-        <div id="player-container" className="relative aspect-video bg-black">
+        <div id="player-container" className="relative min-h-0 flex-1 bg-black">
           {selectedPlayer === 'webtorrent' ? (
             <TorrentPlayer
               poster={posterPath ? getImageUrl(posterPath) : undefined}

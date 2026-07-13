@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Film, Github, Twitter, Instagram, Mail, Shield, HelpCircle, Info, Home, Clapperboard, Tv, Radio, Users, CircleHelp, FileText } from "lucide-react";
+import { Film, Twitter, Instagram, Mail, Shield, HelpCircle, Info, Home, Clapperboard, Tv, Radio, Users, CircleHelp, FileText } from "lucide-react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -115,13 +115,6 @@ export function Footer() {
                 aria-label="Instagram"
               >
                 <Instagram className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
-              </a>
-              <a
-                href="#"
-                className="bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 p-3 rounded-lg transition-all hover:scale-110 group"
-                aria-label="Github"
-              >
-                <Github className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
               </a>
             </div>
             <a

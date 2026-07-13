@@ -21,10 +21,20 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [useNativePlayer, setUseNativePlayer] = useState(false);
+  const [selectedSourceIndex, setSelectedSourceIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const { openPlayer, closePlayer } = usePlayer();
+  const sources = channel.sources?.length
+    ? channel.sources
+    : [{ id: channel.id, provider: 'Fonte principal', streamUrl: channel.streamUrl }];
+  const selectedSource = sources[selectedSourceIndex] || sources[0];
+  const currentStreamUrl = selectedSource.streamUrl;
+
+  useEffect(() => {
+    setSelectedSourceIndex(0);
+  }, [channel.id]);
 
   // Cleanup HLS instance on unmount
   useEffect(() => {
@@ -37,7 +47,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
   }, []);
 
   const loadStream = useCallback(async () => {
-    if (!isOpen || !channel.streamUrl) return;
+    if (!isOpen || !currentStreamUrl) return;
 
     setIsLoading(true);
     setError(null);
@@ -46,10 +56,11 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     const video = videoRef.current;
     if (!video) return;
 
-    const originalUrl = channel.streamUrl;
+    const originalUrl = currentStreamUrl;
+    const isEmbedUrl = originalUrl.includes('embedcanaisdetv.') || originalUrl.includes('/e/index.php') || originalUrl.includes('rde.lat/');
 
-    // Check if it's a YouTube URL
-    if (originalUrl.includes("youtube.com") || originalUrl.includes("youtu.be")) {
+    // Iframes externos são renderizados diretamente no JSX.
+    if (isEmbedUrl || originalUrl.includes("youtube.com") || originalUrl.includes("youtu.be")) {
       setUseNativePlayer(false);
       setIsLoading(false);
       return;
@@ -183,7 +194,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
       }
       video.src = "";
     };
-  }, [isOpen, channel.streamUrl, useNativePlayer]);
+  }, [currentStreamUrl, isOpen, useNativePlayer]);
 
   // Initialize player
   useEffect(() => {
@@ -240,8 +251,9 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
   if (!isOpen) return null;
 
   const isYouTube =
-    channel.streamUrl.includes("youtube.com") ||
-    channel.streamUrl.includes("youtu.be");
+    currentStreamUrl.includes("youtube.com") ||
+    currentStreamUrl.includes("youtu.be");
+  const isEmbed = currentStreamUrl.includes('embedcanaisdetv.') || currentStreamUrl.includes('/e/index.php') || currentStreamUrl.includes('rde.lat/');
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -292,6 +304,34 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
           <span className="text-sm text-gray-400">
             {channel.category} • {channel.country}
           </span>
+          {sources.length > 1 && (
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <span className="text-xs text-gray-500">Fonte:</span>
+              {sources.map((source, index) => {
+                const providerTotal = sources.filter((item) => item.provider === source.provider).length;
+                const providerPosition = sources
+                  .slice(0, index + 1)
+                  .filter((item) => item.provider === source.provider).length;
+                const sourceLabel = providerTotal > 1
+                  ? `${source.provider} ${providerPosition}`
+                  : source.provider;
+
+                return (
+                  <button
+                    key={source.id}
+                    type="button"
+                    onClick={() => setSelectedSourceIndex(index)}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${index === selectedSourceIndex
+                      ? 'border-purple-400 bg-purple-600 text-white'
+                      : 'border-purple-500/30 text-gray-300 hover:bg-purple-500/20'
+                      }`}
+                  >
+                    {sourceLabel}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* TV Player Container */}
@@ -300,10 +340,12 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
           ref={containerRef}
           className="relative aspect-video bg-black"
         >
-          {isYouTube ? (
-            // YouTube iframe player
+          {isYouTube || isEmbed ? (
             <iframe
-              src={`${channel.streamUrl}${channel.streamUrl.includes("?") ? "&" : "?"}autoplay=1&mute=1`}
+              key={currentStreamUrl}
+              src={isYouTube
+                ? `${currentStreamUrl}${currentStreamUrl.includes("?") ? "&" : "?"}autoplay=1&mute=1`
+                : currentStreamUrl}
               className="w-full h-full"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

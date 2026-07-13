@@ -26,6 +26,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
       },
+      {
+        protocol: 'https',
+        hostname: '1.embedcanaisdetv.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'd1muf25xaso8hp.cloudfront.net',
+      },
     ],
   },
   // Configurações para PWA

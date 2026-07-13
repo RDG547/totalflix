@@ -12,7 +12,7 @@ export function Clickadilla() {
       "serviceWorker" in navigator
     ) {
       navigator.serviceWorker
-        .register("/clickadilla-sw.js")
+        .register("/clickadilla-sw.js", { scope: "/clickadilla-push/" })
         .then((registration) => {
           console.log("Clickadilla SW registrado:", registration);
         })

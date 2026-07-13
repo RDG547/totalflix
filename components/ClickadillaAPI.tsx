@@ -112,7 +112,7 @@ export function ClickadillaAPILoader() {
       'serviceWorker' in navigator
     ) {
       navigator.serviceWorker
-        .register("/clickadilla-sw.js")
+        .register("/clickadilla-sw.js", { scope: "/clickadilla-push/" })
         .catch((error) => console.error("Clickadilla SW error:", error));
     }
   };

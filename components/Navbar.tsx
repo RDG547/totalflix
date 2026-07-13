@@ -506,7 +506,7 @@ export function Navbar() {
                   <ChevronDown className={`w-4 h-4 transition-transform ${showMovieDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showMovieDropdown && (
-                  <div className="pl-4 space-y-2 animate-slide-in">
+                  <div className="pl-4 space-y-2 overflow-hidden origin-top animate-in fade-in slide-in-from-top-2 duration-200">
                     <Link
                       href="/movies"
                       className="flex items-center gap-2 text-white hover:text-purple-400 transition-colors py-2 font-medium"
@@ -541,7 +541,7 @@ export function Navbar() {
                   <ChevronDown className={`w-4 h-4 transition-transform ${showTvDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showTvDropdown && (
-                  <div className="pl-4 space-y-2 animate-slide-in">
+                  <div className="pl-4 space-y-2 overflow-hidden origin-top animate-in fade-in slide-in-from-top-2 duration-200">
                     <Link
                       href="/series"
                       className="flex items-center gap-2 text-white hover:text-purple-400 transition-colors py-2 font-medium"
