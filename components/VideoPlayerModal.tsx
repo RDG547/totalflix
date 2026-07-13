@@ -230,7 +230,7 @@ export function VideoPlayerModal({
                 <ChevronDown className={`h-4 w-4 transition-transform ${isVidSrcMenuOpen ? 'rotate-180' : ''}`} />
               </button>
               {isVidSrcMenuOpen && (
-                <div className="absolute left-0 top-full z-[100] mt-2 max-h-[210px] min-w-52 overflow-y-auto rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl shadow-black">
+                <div className="absolute right-0 top-full z-[100] mt-2 max-h-[min(320px,45dvh)] min-w-52 overflow-y-auto overscroll-contain rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl shadow-black">
                   {VIDSRC_OPTIONS.map((player) => (
                     <button
                       key={player.id}

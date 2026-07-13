@@ -54,6 +54,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
+        {/* Precisa estar no HTML inicial para a verificação de instalação do Clickadilla. */}
+        <script
+          async
+          id="clickadilla-ad-manager"
+          src="https://js.wpadmngr.com/static/adManager.js"
+          data-admpid="427023"
+          data-cfasync="false"
+        />
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

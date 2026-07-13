@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Play, X } from "lucide-react";
+import { ChevronDown, Gauge, Languages, Loader2, Pause, Play, RotateCcw, RotateCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { STREMIO_ADDONS, getStreamsFromAddon, sortStreamsByQuality, groupStreamsByQuality, type StreamSource, type StremioAddonId } from "@/lib/stremio";
 
@@ -12,6 +12,24 @@ interface TorrentPlayerProps {
     episode?: number;
     poster?: string;
 }
+
+interface BrowserAudioTrack {
+    enabled: boolean;
+    id?: string;
+    label?: string;
+    language?: string;
+}
+
+const formatTime = (seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+    const total = Math.floor(seconds);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = total % 60;
+    return hours > 0
+        ? `${hours}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`
+        : `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+};
 
 export default function TorrentPlayer({ tmdbId, mediaType, season, episode, poster }: TorrentPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -26,6 +44,12 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
     const [downloadSpeed, setDownloadSpeed] = useState(0);
     const [uploadSpeed, setUploadSpeed] = useState(0);
     const [peers, setPeers] = useState(0);
+    const [isPaused, setIsPaused] = useState(true);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [audioTracks, setAudioTracks] = useState<BrowserAudioTrack[]>([]);
+    const [selectedAudioTrack, setSelectedAudioTrack] = useState(0);
+    const [isStatsExpanded, setIsStatsExpanded] = useState(false);
 
     // Stream detection
     const [streams, setStreams] = useState<StreamSource[]>([]);
@@ -193,6 +217,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                     const handlePlaying = () => {
                         if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current);
                         setIsLoading(false);
+                        setIsPaused(false);
                     };
                     const handleVideoError = () => {
                         setError("O navegador não conseguiu reproduzir o formato deste arquivo. Prefira uma opção MP4/WebM.");
@@ -275,22 +300,117 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
         setUploadSpeed(0);
         setPeers(0);
         setIsLoading(false);
+        setCurrentTime(0);
+        setDuration(0);
+        setAudioTracks([]);
+        setIsPaused(true);
+    };
+
+    const syncAudioTracks = () => {
+        const video = videoRef.current as (HTMLVideoElement & { audioTracks?: ArrayLike<BrowserAudioTrack> }) | null;
+        const tracks = video?.audioTracks ? Array.from(video.audioTracks) : [];
+        setAudioTracks(tracks);
+        const activeIndex = tracks.findIndex((track) => track.enabled);
+        setSelectedAudioTrack(activeIndex >= 0 ? activeIndex : 0);
+    };
+
+    const togglePlayback = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (video.paused) void video.play();
+        else video.pause();
+    };
+
+    const seekBy = (seconds: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+        const upperLimit = Number.isFinite(video.duration) ? video.duration : video.currentTime + Math.max(seconds, 0);
+        video.currentTime = Math.min(Math.max(video.currentTime + seconds, 0), upperLimit);
+    };
+
+    const selectAudioTrack = (index: number) => {
+        const video = videoRef.current as (HTMLVideoElement & { audioTracks?: ArrayLike<BrowserAudioTrack> }) | null;
+        if (!video?.audioTracks) return;
+        Array.from(video.audioTracks).forEach((track, trackIndex) => {
+            track.enabled = trackIndex === index;
+        });
+        setSelectedAudioTrack(index);
     };
 
     return (
         <div className="relative w-full h-full flex flex-col bg-black">
             {/* Video Player */}
             {isPlaying ? (
-                <div className="relative flex-1 flex flex-col">
+                <div className="relative min-h-0 flex-1 flex flex-col">
                     <video
                         ref={videoRef}
-                        className="w-full h-full bg-black"
-                        controls
+                        className="min-h-0 w-full flex-1 bg-black object-contain"
                         playsInline
+                        onClick={togglePlayback}
+                        onPlay={() => setIsPaused(false)}
+                        onPause={() => setIsPaused(true)}
+                        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+                        onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+                        onLoadedMetadata={(event) => {
+                            setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);
+                            syncAudioTracks();
+                        }}
                     />
 
+                    <div className="shrink-0 border-t border-white/10 bg-black/95 px-3 py-2 text-white sm:px-4">
+                        <input
+                            type="range"
+                            min={0}
+                            max={duration || 0}
+                            step="0.1"
+                            value={Math.min(currentTime, duration || 0)}
+                            disabled={!duration}
+                            onChange={(event) => {
+                                const nextTime = Number(event.target.value);
+                                if (videoRef.current) videoRef.current.currentTime = nextTime;
+                                setCurrentTime(nextTime);
+                            }}
+                            aria-label="Posição do vídeo"
+                            className="h-1.5 w-full cursor-pointer accent-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <div className="mt-1.5 flex items-center gap-1 sm:gap-2">
+                            <button type="button" onClick={togglePlayback} className="rounded-md p-2 hover:bg-white/10" aria-label={isPaused ? "Reproduzir" : "Pausar"}>
+                                {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                            </button>
+                            <button type="button" onClick={() => seekBy(-10)} className="rounded-md p-2 hover:bg-white/10" aria-label="Retroceder 10 segundos" title="Retroceder 10s">
+                                <RotateCcw className="h-5 w-5" />
+                            </button>
+                            <button type="button" onClick={() => seekBy(10)} className="rounded-md p-2 hover:bg-white/10" aria-label="Avançar 10 segundos" title="Avançar 10s">
+                                <RotateCw className="h-5 w-5" />
+                            </button>
+                            <span className="ml-1 whitespace-nowrap font-mono text-xs text-gray-300 sm:text-sm">
+                                {formatTime(currentTime)} / {formatTime(duration)}
+                            </span>
+                            {audioTracks.length > 1 && (
+                                <label className="relative ml-auto flex items-center gap-1 rounded-md bg-white/10 px-2 py-1.5 text-xs">
+                                    <Languages className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Áudio</span>
+                                    <select value={selectedAudioTrack} onChange={(event) => selectAudioTrack(Number(event.target.value))} className="max-w-28 appearance-none bg-transparent pr-4 outline-none sm:max-w-40" aria-label="Faixa de áudio">
+                                        {audioTracks.map((track, index) => (
+                                            <option key={track.id || index} value={index} className="bg-black">
+                                                {track.label || track.language || `Faixa ${index + 1}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="pointer-events-none absolute right-1 h-3 w-3" />
+                                </label>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Stats Overlay */}
-                    <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm text-white p-4 rounded-lg text-sm space-y-2 z-10">
+                    <div className="absolute right-2 top-2 z-10 overflow-hidden rounded-lg bg-black/80 text-white shadow-lg backdrop-blur-sm sm:right-4 sm:top-4">
+                        <button type="button" onClick={() => setIsStatsExpanded((expanded) => !expanded)} className="flex w-full items-center gap-2 px-2.5 py-2 text-xs hover:bg-white/10" aria-expanded={isStatsExpanded}>
+                            <Gauge className="h-4 w-4 text-purple-400" />
+                            <span>{(downloadSpeed / 1024 / 1024).toFixed(2)} MB/s</span>
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isStatsExpanded ? "rotate-180" : ""}`} />
+                        </button>
+                        {isStatsExpanded && <div className="space-y-1.5 border-t border-white/10 px-3 py-2 text-xs">
                         <div className="flex items-center justify-between gap-4">
                             <span className="text-gray-400">Velocidade</span>
                             <span className="font-mono">{(downloadSpeed / 1024 / 1024).toFixed(2)} MB/s</span>
@@ -307,6 +427,7 @@ export default function TorrentPlayer({ tmdbId, mediaType, season, episode, post
                             <span className="text-gray-400">Peers</span>
                             <span className="font-mono text-green-400">{peers}</span>
                         </div>
+                        </div>}
                     </div>
 
                     {/* Stop Button */}
