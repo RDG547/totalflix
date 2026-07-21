@@ -70,6 +70,49 @@ export function isUnlockReferrerValid(): boolean {
   }
 }
 
+export function revokeContentUnlock(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(UNLOCK_STORAGE_PREFIX + key);
+    notifyGateRevoked(key);
+  } catch {
+    // ignora
+  }
+}
+
+export function clearAllContentUnlocks(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const storageKey = window.localStorage.key(i);
+      if (storageKey && storageKey.startsWith(UNLOCK_STORAGE_PREFIX)) {
+        keysToRemove.push(storageKey);
+      }
+    }
+    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    // ignora
+  }
+}
+
+// Verifica se a página atual sofreu um F5 / Reload no navegador.
+// Se sim, revoga todas as liberações ativas (navegação SPA interna não aciona reload).
+if (typeof window !== "undefined") {
+  try {
+    const navEntries = performance.getEntriesByType("navigation");
+    const isReload =
+      (navEntries.length > 0 && (navEntries[0] as PerformanceNavigationTiming).type === "reload") ||
+      (performance as any).navigation?.type === 1;
+
+    if (isReload) {
+      clearAllContentUnlocks();
+    }
+  } catch {
+    // ignora
+  }
+}
+
 export function notifyGateUnlocked(key: string): void {
   if (typeof window === "undefined") return;
   try {
@@ -80,6 +123,19 @@ export function notifyGateUnlocked(key: string): void {
     }
   } catch {
     // BroadcastChannel não suportado ou erro — fallback via localStorage é mantido
+  }
+}
+
+export function notifyGateRevoked(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const bc = new BroadcastChannel("totalflix_gate");
+      bc.postMessage({ type: "GATE_REVOKED", key });
+      bc.close();
+    }
+  } catch {
+    // ignora
   }
 }
 

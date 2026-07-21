@@ -9,7 +9,7 @@ import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
-import { buildMovieGateKey, buildSeriesGateKey, type GateContentInfo } from "@/lib/linkGate";
+import { buildMovieGateKey, buildSeriesGateKey, revokeContentUnlock, type GateContentInfo } from "@/lib/linkGate";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -69,6 +69,11 @@ export function VideoPlayerModal({
   const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
   const vidSrcMenuRef = useRef<HTMLDivElement>(null);
   const { openPlayer, closePlayer } = usePlayer();
+
+  const handleModalClose = () => {
+    revokeContentUnlock(gateKey);
+    onClose();
+  };
 
   useEffect(() => setMounted(true), []);
 
@@ -183,7 +188,7 @@ export function VideoPlayerModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleModalClose}
       />
 
       {/* Modal */}
@@ -204,7 +209,7 @@ export function VideoPlayerModal({
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={handleModalClose}
               className="hover:bg-purple-500/20 transition-all active:scale-95"
               title="Fechar"
             >

@@ -41,7 +41,7 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
 
     setUnlocked(nextUnlocked);
 
-    // Escuta evento de desbloqueio emitido por outra aba (encurtador concluído)
+    // Escuta evento de desbloqueio ou revogação emitido por outra aba ou pelo fechamento do modal
     let channel: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
       try {
@@ -49,14 +49,16 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
         channel.onmessage = (event) => {
           if (event.data?.type === "GATE_UNLOCKED" && event.data?.key === contentKey) {
             setUnlocked(true);
+          } else if (event.data?.type === "GATE_REVOKED" && event.data?.key === contentKey) {
+            setUnlocked(false);
           }
         };
       } catch {}
     }
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key?.includes(contentKey) && isContentUnlocked(contentKey)) {
-        setUnlocked(true);
+      if (e.key?.includes(contentKey)) {
+        setUnlocked(isContentUnlocked(contentKey));
       }
     };
     window.addEventListener("storage", handleStorage);

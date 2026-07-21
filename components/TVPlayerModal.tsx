@@ -7,7 +7,7 @@ import type { TVChannel } from "@/lib/tv-channels";
 import Hls from "hls.js";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
-import { buildChannelGateKey, type GateContentInfo } from "@/lib/linkGate";
+import { buildChannelGateKey, revokeContentUnlock, type GateContentInfo } from "@/lib/linkGate";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -32,6 +32,11 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     : [{ id: channel.id, provider: 'Fonte principal', streamUrl: channel.streamUrl }];
   const selectedSource = sources[selectedSourceIndex] || sources[0];
   const currentStreamUrl = selectedSource.streamUrl;
+
+  const handleModalClose = () => {
+    revokeContentUnlock(buildChannelGateKey(channel.id));
+    onClose();
+  };
 
   useEffect(() => {
     setSelectedSourceIndex(0);
@@ -262,7 +267,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleModalClose}
       />
 
       {/* Modal */}
@@ -291,7 +296,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={handleModalClose}
               className="hover:bg-purple-500/20 transition-all active:scale-95"
               title="Fechar"
             >

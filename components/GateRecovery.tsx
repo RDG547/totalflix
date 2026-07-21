@@ -8,6 +8,7 @@ import {
   getGateUnlockParam,
   isUnlockReferrerValid,
   notifyGateUnlocked,
+  revokeContentUnlock,
   stripGateUnlockParam,
   unlockContent,
   type GateContentInfo,
@@ -73,11 +74,18 @@ export function GateRecovery() {
 
   if (!recovered) return null;
 
+  const handleCloseRecovered = () => {
+    if (recovered) {
+      revokeContentUnlock(recovered.key);
+    }
+    setRecovered(null);
+  };
+
   if (recovered.kind === "tvchannel") {
     return (
       <TVPlayerModal
         isOpen
-        onClose={() => setRecovered(null)}
+        onClose={handleCloseRecovered}
         channel={recovered.channel}
       />
     );
@@ -86,7 +94,7 @@ export function GateRecovery() {
   return (
     <VideoPlayerModal
       isOpen
-      onClose={() => setRecovered(null)}
+      onClose={handleCloseRecovered}
       type={recovered.type}
       tmdbId={recovered.tmdbId}
       title={recovered.title}
