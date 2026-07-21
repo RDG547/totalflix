@@ -67,8 +67,9 @@ export function VideoPlayerModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
-  const vidSrcMenuRef = useRef<HTMLDivElement>(null);
-  const { openPlayer, closePlayer } = usePlayer();
+  const gateKey = type === "movie"
+    ? buildMovieGateKey(tmdbId)
+    : buildSeriesGateKey(tmdbId, selectedSeason, selectedEpisode);
 
   const handleModalClose = () => {
     revokeContentUnlock(gateKey);
@@ -163,9 +164,6 @@ export function VideoPlayerModal({
   const embedUrl = getPlayerUrl(selectedPlayer, type, tmdbId, selectedSeason, selectedEpisode);
   const selectedVidSrc = VIDSRC_OPTIONS.find((player) => player.id === selectedPlayer);
 
-  const gateKey = type === "movie"
-    ? buildMovieGateKey(tmdbId)
-    : buildSeriesGateKey(tmdbId, selectedSeason, selectedEpisode);
   const gateLabel = type === "movie"
     ? "este filme"
     : `o episódio ${selectedEpisode} da temporada ${selectedSeason}`;

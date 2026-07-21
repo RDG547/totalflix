@@ -49,19 +49,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Chunks do Next mudam a cada build e nunca devem ficar no cache do PWA.
+  // Chunks do Next, Vercel scripts/insights, APIs e WebTorrent não devem ser cacheados pelo Service Worker
   if (
     event.request.method !== 'GET' ||
     requestUrl.pathname.startsWith('/webtorrent/') ||
     requestUrl.pathname.startsWith('/_next/') ||
+    requestUrl.pathname.startsWith('/_vercel/') ||
+    requestUrl.pathname.startsWith('/api/') ||
     requestUrl.hostname === 'localhost' ||
     requestUrl.hostname === '127.0.0.1'
   ) {
-    return;
-  }
-
-  // Não intercepta requisições de API
-  if (event.request.url.includes('/api/')) {
     return;
   }
 
@@ -98,11 +95,14 @@ self.addEventListener('fetch', (event) => {
 
             return networkResponse;
           })
-          .catch(() => {
-            // Se falhar na rede e for uma navegação, retorna a página offline
+          .catch(async () => {
+            // Se falhar na rede e for uma navegação, retorna a página offline do cache
             if (event.request.mode === 'navigate') {
-              return caches.match('/');
+              const offlinePage = await caches.match('/');
+              if (offlinePage) return offlinePage;
             }
+            // Retorna resposta de erro HTTP limpa se não houver cache
+            return new Response('', { status: 408, statusText: 'Request Timeout' });
           });
       })
   );

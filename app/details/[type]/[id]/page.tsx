@@ -77,21 +77,21 @@ export default async function DetailsPage({ params }: PageProps) {
       <HistoryTracker contentId={details.id} type={type} />
 
       {/* Hero Section */}
-      <div className="relative h-[60vh] w-full">
+      <div className="relative min-h-[500px] sm:min-h-[520px] md:h-[60vh] md:min-h-[460px] w-full pt-6 pb-8 md:py-12">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
             backgroundImage: `url(${getBackdropUrl(details.backdrop_path)})`,
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
         </div>
 
-        <div className="relative h-full container mx-auto px-4 flex items-end pb-12">
-          <div className="flex flex-col md:flex-row gap-8 items-end">
+        <div className="relative h-full container mx-auto px-4 flex items-end">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-end w-full text-center md:text-left">
             {/* Poster */}
-            <div className="relative w-48 h-72 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl glow-effect">
+            <div className="relative w-36 h-52 sm:w-44 sm:h-64 md:w-48 md:h-72 shrink-0 rounded-lg overflow-hidden shadow-2xl glow-effect mx-auto md:mx-0">
               <Image
                 src={getImageUrl(details.poster_path)}
                 alt={title}
@@ -101,19 +101,19 @@ export default async function DetailsPage({ params }: PageProps) {
             </div>
 
             {/* Info */}
-            <div className="space-y-4 pb-4">
-              <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-2xl">
+            <div className="space-y-3 sm:space-y-4 pb-2 md:pb-4 w-full">
+              <h1 className="text-2xl sm:text-4xl md:text-6xl font-bold text-white drop-shadow-2xl">
                 {title}
               </h1>
 
               {details.tagline && (
-                <p className="text-xl text-purple-300 italic">
+                <p className="text-base sm:text-xl text-purple-300 italic">
                   &quot;{details.tagline}&quot;
                 </p>
               )}
 
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 sm:gap-4 text-xs sm:text-sm">
+                <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
                   <Star className="w-4 h-4 text-yellow-400 fill-current" />
                   <span className="text-white font-semibold">
                     {details.vote_average?.toFixed(1)}
@@ -121,31 +121,31 @@ export default async function DetailsPage({ params }: PageProps) {
                 </div>
 
                 {year && (
-                  <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
                     <Calendar className="w-4 h-4 text-purple-400" />
                     <span className="text-white">{year}</span>
                   </div>
                 )}
 
                 {runtime && (
-                  <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
                     <Clock className="w-4 h-4 text-purple-400" />
                     <span className="text-white">{runtime} min</span>
                   </div>
                 )}
 
                 {seasons && (
-                  <div className="bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <div className="bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
                     <span className="text-white">{seasons} Temporadas</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                 {details.genres?.map((genre) => (
                   <span
                     key={genre.id}
-                    className="px-3 py-1 bg-purple-600/30 border border-purple-500/50 rounded-full text-sm text-purple-200"
+                    className="px-3 py-1 bg-purple-600/30 border border-purple-500/50 rounded-full text-xs sm:text-sm text-purple-200"
                   >
                     {genre.name}
                   </span>
@@ -153,7 +153,7 @@ export default async function DetailsPage({ params }: PageProps) {
               </div>
 
               {/* Botões de Ação */}
-              <div className="pt-2 flex flex-wrap gap-3">
+              <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <WatchButton
                   type={type}
                   tmdbId={details.id}
