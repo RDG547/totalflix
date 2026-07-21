@@ -28,10 +28,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const defaultContext: PlayerContextType = {
+  isPlayerOpen: false,
+  openPlayer: () => {},
+  closePlayer: () => {},
+};
+
 export function usePlayer() {
   const context = useContext(PlayerContext);
-  if (context === undefined) {
-    throw new Error("usePlayer must be used within a PlayerProvider");
-  }
-  return context;
+  return context || defaultContext;
 }
