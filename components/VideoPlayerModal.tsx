@@ -67,6 +67,9 @@ export function VideoPlayerModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
+  const vidSrcMenuRef = useRef<HTMLDivElement>(null);
+  const { openPlayer, closePlayer } = usePlayer();
+
   const gateKey = type === "movie"
     ? buildMovieGateKey(tmdbId)
     : buildSeriesGateKey(tmdbId, selectedSeason, selectedEpisode);
