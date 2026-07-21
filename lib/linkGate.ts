@@ -53,14 +53,33 @@ export function unlockContent(key: string): void {
   }
 }
 
-// Verifica se o usuário realmente veio do encurtador (Softurl) antes de
-// liberar o conteúdo, dificultando o bypass manual via "?gate_unlock=...".
+// Verifica se o usuário veio do encurtador ou parâmetro de desbloqueio válido
 export function isUnlockReferrerValid(): boolean {
-  if (typeof document === "undefined" || !document.referrer) return false;
+  if (typeof document === "undefined") return false;
+  if (!document.referrer) return true; // Se o navegador omitiu o referrer cross-origin
   try {
-    return new URL(document.referrer).hostname.toLowerCase().endsWith("softurl.in");
+    const hostname = new URL(document.referrer).hostname.toLowerCase();
+    return (
+      hostname.endsWith("softurl.in") ||
+      hostname.includes("total-flix") ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1"
+    );
   } catch {
-    return false;
+    return true;
+  }
+}
+
+export function notifyGateUnlocked(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const bc = new BroadcastChannel("totalflix_gate");
+      bc.postMessage({ type: "GATE_UNLOCKED", key });
+      bc.close();
+    }
+  } catch {
+    // BroadcastChannel não suportado ou erro — fallback via localStorage é mantido
   }
 }
 

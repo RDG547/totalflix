@@ -326,7 +326,7 @@ export function Hero() {
   const hasLongDescription = currentMovie.overview && currentMovie.overview.length > 150;
 
   return (
-    <div className="relative h-[calc(100svh-4rem)] min-h-[620px] max-h-[820px] md:h-[70vh] md:min-h-[560px] lg:h-[80vh] w-full overflow-hidden mt-16 group">
+    <div className="relative h-[calc(100svh-4rem)] min-h-[500px] sm:min-h-[560px] max-h-[820px] md:h-[75vh] lg:h-[80vh] w-full overflow-hidden mt-16 group">
       {/* Background Images */}
       {featuredMovies.map((featured, index) => (
         <div
@@ -379,7 +379,7 @@ export function Hero() {
       {showTrailer && currentFeatured.trailerKey && (
         <button
           onClick={toggleMute}
-          className="absolute top-4 right-4 md:top-auto md:bottom-28 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
+          className="absolute top-4 right-4 md:top-auto md:bottom-28 z-30 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
           aria-label={isMuted ? "Ativar som" : "Desativar som"}
         >
           {isMuted ? (
@@ -395,14 +395,14 @@ export function Hero() {
         <>
           <button
             onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
             aria-label="Filme anterior"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
             aria-label="Próximo filme"
           >
             <ChevronRight className="w-6 h-6" />
@@ -411,8 +411,8 @@ export function Hero() {
       )}
 
       {/* Content */}
-      <div className="relative z-[6] h-full container mx-auto px-4 flex items-end md:items-center pb-20 md:pb-0 pt-20">
-        <div className="max-w-2xl space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in">
+      <div className="relative z-20 h-full container mx-auto px-4 flex items-end md:items-center pb-16 sm:pb-20 md:pb-12 pt-16 sm:pt-20">
+        <div className="max-w-2xl space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in w-full">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold text-white drop-shadow-2xl line-clamp-2">
             {title}
           </h1>
@@ -436,7 +436,7 @@ export function Hero() {
           </div>
 
           {/* Description with expand/collapse */}
-          <div className="max-w-xl">
+          <div className="max-w-xl relative z-20">
             <p 
               className={`text-gray-200 text-sm sm:text-base md:text-lg transition-all duration-300 ${
                 isDescriptionExpanded ? '' : 'line-clamp-2 sm:line-clamp-3'
@@ -446,8 +446,9 @@ export function Hero() {
             </p>
             {hasLongDescription && (
               <button
+                type="button"
                 onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                className="mt-2 flex items-center gap-1 text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
+                className="mt-2 flex items-center gap-1 text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors cursor-pointer"
               >
                 {isDescriptionExpanded ? (
                   <>
@@ -462,15 +463,16 @@ export function Hero() {
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+          <div className="relative z-30 flex flex-col sm:flex-row gap-3 sm:gap-4 pt-1 sm:pt-2">
             <WatchButton
               type={mediaType as "movie" | "tv"}
               tmdbId={currentMovie.id}
               title={title}
               numberOfSeasons={currentDetails?.number_of_seasons}
+              posterPath={currentMovie.poster_path}
             />
-            <Link href={`/details/${mediaType}/${currentMovie.id}`}>
-              <Button size="lg" variant="outline" className="glass-effect border-purple-500/50 w-full sm:w-auto">
+            <Link href={`/details/${mediaType}/${currentMovie.id}`} className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="glass-effect border-purple-500/50 w-full sm:w-auto hover:bg-purple-500/20 active:scale-95 transition-all">
                 <Info className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Mais Informações
               </Button>
@@ -481,15 +483,16 @@ export function Hero() {
 
       {/* Dots Indicator */}
       {featuredMovies.length > 1 && (
-        <div className="absolute bottom-6 md:bottom-24 left-1/2 -translate-x-1/2 z-[7] flex space-x-2">
+        <div className="absolute bottom-4 sm:bottom-6 md:bottom-12 left-1/2 -translate-x-1/2 z-30 flex space-x-2 pointer-events-none">
           {featuredMovies.map((_, index) => (
             <button
               key={index}
+              type="button"
               onClick={() => goToIndex(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
+              className={`pointer-events-auto h-2 rounded-full transition-all cursor-pointer ${
                 index === currentIndex 
                   ? 'bg-white w-8' 
-                  : 'bg-white/50 hover:bg-white/70'
+                  : 'bg-white/50 hover:bg-white/70 w-2'
               }`}
               aria-label={`Ir para filme ${index + 1}`}
             />
@@ -498,7 +501,7 @@ export function Hero() {
       )}
 
       {/* Bottom Fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-32 bg-gradient-to-t from-black to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-24 bg-gradient-to-t from-black to-transparent pointer-events-none" />
     </div>
   );
 }

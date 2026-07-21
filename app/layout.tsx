@@ -64,9 +64,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <PWARegister />
-        <GateRecovery />
         <AuthProvider>
           <PlayerProvider>
+            <GateRecovery />
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
               <Navbar />
               <main className="relative flex-1">

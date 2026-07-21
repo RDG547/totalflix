@@ -6,14 +6,15 @@ import { TVPlayerModal } from "@/components/TVPlayerModal";
 import {
   consumePendingGateContent,
   getGateUnlockParam,
+  isUnlockReferrerValid,
+  notifyGateUnlocked,
+  stripGateUnlockParam,
+  unlockContent,
   type GateContentInfo,
 } from "@/lib/linkGate";
 
 // Componente global (montado uma vez no layout) responsável por reabrir o
-// player correto quando o usuário volta do Link Gate (encurtador). A
-// navegação completa até o encurtador e de volta perde todo o estado local
-// do React, então os dados do conteúdo ficam salvos no sessionStorage antes
-// de sair do site (veja lib/linkGate.ts) e são recuperados aqui.
+// player correto ou fechar a aba do encurtador quando o usuário volta do Link Gate.
 export function GateRecovery() {
   const [recovered, setRecovered] = useState<GateContentInfo | null>(null);
 
@@ -21,9 +22,25 @@ export function GateRecovery() {
     const key = getGateUnlockParam();
     if (!key) return;
 
+    if (isUnlockReferrerValid()) {
+      unlockContent(key);
+      notifyGateUnlocked(key);
+      stripGateUnlockParam();
+
+      // Tenta fechar a aba se ela foi aberta especificamente para o encurtador
+      if (typeof window !== "undefined") {
+        try {
+          window.close();
+        } catch {
+          // ignora falha de permissão de fechar janela
+        }
+      }
+    }
+
     const info = consumePendingGateContent(key);
     if (!info) return;
 
+    // Se a aba não tiver fechado (fallback), abre o player nesta aba
     setRecovered(info);
   }, []);
 

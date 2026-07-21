@@ -7,6 +7,7 @@ import {
   getGateUnlockParam,
   isContentUnlocked,
   isUnlockReferrerValid,
+  notifyGateUnlocked,
   savePendingGateContent,
   stripGateUnlockParam,
   unlockContent,
@@ -32,12 +33,40 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
     if (getGateUnlockParam() === contentKey) {
       if (isUnlockReferrerValid()) {
         unlockContent(contentKey);
+        notifyGateUnlocked(contentKey);
         nextUnlocked = true;
       }
       stripGateUnlockParam();
     }
 
     setUnlocked(nextUnlocked);
+
+    // Escuta evento de desbloqueio emitido por outra aba (encurtador concluído)
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        channel = new BroadcastChannel("totalflix_gate");
+        channel.onmessage = (event) => {
+          if (event.data?.type === "GATE_UNLOCKED" && event.data?.key === contentKey) {
+            setUnlocked(true);
+          }
+        };
+      } catch {}
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key?.includes(contentKey) && isContentUnlocked(contentKey)) {
+        setUnlocked(true);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (channel) {
+        channel.close();
+      }
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [contentKey]);
 
   if (unlocked) return <>{children}</>;
@@ -45,7 +74,8 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
   const handleUnlockClick = () => {
     if (recoveryInfo) savePendingGateContent(recoveryInfo);
     const returnTo = window.location.pathname + window.location.search;
-    window.location.href = buildGateUrl(contentKey, returnTo);
+    const gateUrl = buildGateUrl(contentKey, returnTo);
+    window.open(gateUrl, "_blank");
   };
 
   return (

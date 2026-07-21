@@ -44,6 +44,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
 
+  // Apenas esquemas HTTP/HTTPS são suportados pela Cache API (evita erros com chrome-extension://, etc.)
+  if (!requestUrl.protocol.startsWith('http')) {
+    return;
+  }
+
   // Chunks do Next mudam a cada build e nunca devem ficar no cache do PWA.
   if (
     event.request.method !== 'GET' ||
@@ -71,8 +76,8 @@ self.addEventListener('fetch', (event) => {
         // Faz a requisição na rede
         return fetch(event.request)
           .then((networkResponse) => {
-            // Não cacheia se não for GET
-            if (event.request.method !== 'GET') {
+            // Não cacheia se não for GET ou resposta inválida
+            if (event.request.method !== 'GET' || !networkResponse || networkResponse.status !== 200) {
               return networkResponse;
             }
 
@@ -81,10 +86,14 @@ self.addEventListener('fetch', (event) => {
 
             caches.open(CACHE_NAME)
               .then((cache) => {
-                cache.put(event.request, responseToCache);
+                if (event.request.url.startsWith('http')) {
+                  cache.put(event.request, responseToCache).catch((err) => {
+                    console.warn('Erro ao cachear:', err);
+                  });
+                }
               })
               .catch((err) => {
-                console.error('Erro ao cachear:', err);
+                console.error('Erro ao abrir cache:', err);
               });
 
             return networkResponse;
