@@ -60,12 +60,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Não intercepta requisições de anúncios
-  if (event.request.url.includes('effectivegatecpm.com') || 
-      event.request.url.includes('google')) {
-    return;
-  }
-
   event.respondWith(
     caches.match(event.request)
       .then((response) => {

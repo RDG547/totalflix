@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
-import { triggerPopunderOnWatch } from "@/lib/popunder";
 
 interface WatchButtonProps {
   type: "movie" | "tv";
@@ -44,9 +43,6 @@ export function WatchButton({
   const [fixedData, setFixedData] = useState<FixedPlayerData | null>(null);
 
   const handleOpenModal = useCallback(() => {
-    // Abre popunder antes de abrir o modal
-    triggerPopunderOnWatch();
-    
     // Fixa os dados no momento do clique
     setFixedData({
       type,

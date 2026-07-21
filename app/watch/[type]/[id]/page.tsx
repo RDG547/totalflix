@@ -5,6 +5,8 @@ import { tmdb, getPlayerUrl, getImageUrl, type MovieDetails } from "@/lib/tmdb";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LinkGate } from "@/components/LinkGate";
+import { buildMovieGateKey, buildSeriesGateKey } from "@/lib/linkGate";
 
 interface PageProps {
   params: {
@@ -69,6 +71,13 @@ export default function WatchPage({ params }: PageProps) {
     setCurrentPlayer(player);
     setPlayerError(false);
   };
+
+  const gateKey = type === "movie"
+    ? buildMovieGateKey(parseInt(id))
+    : buildSeriesGateKey(parseInt(id), selectedSeason, selectedEpisode);
+  const gateLabel = type === "movie"
+    ? "este filme"
+    : `o episódio ${selectedEpisode} da temporada ${selectedSeason}`;
 
   const players: { id: PlayerType; name: string }[] = [
     { id: 'megaembed', name: 'MegaEmbed' },
@@ -143,6 +152,7 @@ export default function WatchPage({ params }: PageProps) {
 
         {/* Player */}
         <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl glow-effect mb-8">
+          <LinkGate contentKey={gateKey} label={gateLabel}>
           {embedUrl ? (
             <iframe
               key={`${currentPlayer}-${embedUrl}`}
@@ -176,6 +186,7 @@ export default function WatchPage({ params }: PageProps) {
               </div>
             </div>
           )}
+          </LinkGate>
         </div>
 
         {/* Episode Selector for TV Shows */}

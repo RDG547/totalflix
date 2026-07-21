@@ -8,7 +8,8 @@ import { useRef } from "react";
 import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
-import { triggerPopunderOnWatch } from "@/lib/popunder";
+import { LinkGate } from "@/components/LinkGate";
+import { buildMovieGateKey, buildSeriesGateKey, type GateContentInfo } from "@/lib/linkGate";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -118,12 +119,10 @@ export function VideoPlayerModal({
   useEffect(() => {
     if (isOpen) {
       openPlayer();
-      // Abre popunder quando o modal de vídeo abrir
-      triggerPopunderOnWatch();
     } else {
       closePlayer();
     }
-    
+
     return () => {
       closePlayer();
     };
@@ -158,6 +157,24 @@ export function VideoPlayerModal({
 
   const embedUrl = getPlayerUrl(selectedPlayer, type, tmdbId, selectedSeason, selectedEpisode);
   const selectedVidSrc = VIDSRC_OPTIONS.find((player) => player.id === selectedPlayer);
+
+  const gateKey = type === "movie"
+    ? buildMovieGateKey(tmdbId)
+    : buildSeriesGateKey(tmdbId, selectedSeason, selectedEpisode);
+  const gateLabel = type === "movie"
+    ? "este filme"
+    : `o episódio ${selectedEpisode} da temporada ${selectedSeason}`;
+  const gateRecoveryInfo: GateContentInfo = {
+    kind: "video",
+    key: gateKey,
+    type,
+    tmdbId,
+    season: selectedSeason,
+    episode: selectedEpisode,
+    title,
+    numberOfSeasons,
+    posterPath,
+  };
 
   if (!mounted || !isOpen) return null;
 
@@ -303,24 +320,26 @@ export function VideoPlayerModal({
 
         {/* Video Player Container */}
         <div id="player-container" className="relative z-0 min-h-0 flex-1 bg-black">
-          {selectedPlayer === 'webtorrent' ? (
-            <TorrentPlayer
-              poster={posterPath ? getImageUrl(posterPath) : undefined}
-              tmdbId={tmdbId}
-              mediaType={type}
-              season={selectedSeason}
-              episode={selectedEpisode}
-            />
-          ) : (
-            <iframe
-              id="video-player"
-              key={embedUrl}
-              src={embedUrl}
-              className="w-full h-full"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            />
-          )}
+          <LinkGate contentKey={gateKey} label={gateLabel} recoveryInfo={gateRecoveryInfo}>
+            {selectedPlayer === 'webtorrent' ? (
+              <TorrentPlayer
+                poster={posterPath ? getImageUrl(posterPath) : undefined}
+                tmdbId={tmdbId}
+                mediaType={type}
+                season={selectedSeason}
+                episode={selectedEpisode}
+              />
+            ) : (
+              <iframe
+                id="video-player"
+                key={embedUrl}
+                src={embedUrl}
+                className="w-full h-full"
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              />
+            )}
+          </LinkGate>
         </div>
       </div>
     </div>,

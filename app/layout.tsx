@@ -7,13 +7,8 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { ClientLayout } from "@/components/ClientLayout";
-import { AdsterraAds } from "@/components/AdsterraAds";
-import { HilltopAds } from "@/components/HilltopAds";
-import { Clickadilla, ClickadillaBanner } from "@/components/Clickadilla";
-import { AntiAdBlock } from "@/components/AntiAdBlock";
 import { PWARegister } from "@/components/PWARegister";
-import { GlobalPopunder } from "@/components/GlobalPopunder";
-import { AdSlot } from "@/components/AdSlot";
+import { GateRecovery } from "@/components/GateRecovery";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -54,14 +49,6 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* Precisa estar no HTML inicial para a verificação de instalação do Clickadilla. */}
-        <script
-          async
-          id="clickadilla-ad-manager"
-          src="https://js.wpadmngr.com/static/adManager.js"
-          data-admpid="427023"
-          data-cfasync="false"
-        />
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -74,41 +61,19 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
-        {/* HilltopAds Verification */}
-        <meta name="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" content="f11f46ca4b5fd4700ed4643bcc9080e4d18639d7" />
-        {/* HilltopAds Referrer Tag para +20% receita */}
-        <meta name="referrer" content="no-referrer-when-downgrade" />
       </head>
       <body className={inter.className}>
-        <AdsterraAds />
-        <HilltopAds />
-        <Clickadilla />
-        <GlobalPopunder />
-        <AntiAdBlock />
         <PWARegister />
+        <GateRecovery />
         <AuthProvider>
           <PlayerProvider>
             <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
               <Navbar />
-              {/* Adsterra Native Banner */}
-              <AdSlot
-                id="container-28fe29024925ba318c588b98f9674bb9"
-                className="w-full max-w-[728px] flex items-center justify-center"
-                wrapperClassName="w-full flex justify-center bg-black/50"
-              />
               <main className="relative flex-1">
                 <ClientLayout>
                   {children}
                 </ClientLayout>
               </main>
-              {/* Clickadilla Banner #1481459 */}
-              <ClickadillaBanner />
-              {/* Adsterra Banner 300x250 no footer */}
-              <AdSlot
-                id="banner-300x250-container"
-                className="flex justify-center items-center"
-                wrapperClassName="w-full flex justify-center bg-black/50"
-              />
               <Footer />
               <ScrollToTop />
             </div>

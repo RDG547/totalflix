@@ -12,7 +12,6 @@ import { updateAchievementProgress, initializeAchievements } from "@/lib/achieve
 import toast from "react-hot-toast";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { getGenreName } from "@/lib/genres";
-import { triggerPopunderOnWatch } from "@/lib/popunder";
 
 import { useScrollLock } from "@/hooks/useScrollLock";
 
@@ -148,10 +147,7 @@ export function MovieCard({ movie }: MovieCardProps) {
   const handleWatchClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Abre popunder antes de abrir o modal
-    triggerPopunderOnWatch();
-    
+
     setIsWatchModalOpen(true);
   };
 

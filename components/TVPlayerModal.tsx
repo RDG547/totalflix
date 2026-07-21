@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import type { TVChannel } from "@/lib/tv-channels";
 import Hls from "hls.js";
 import { usePlayer } from "@/contexts/PlayerContext";
-import { triggerPopunderOnWatch } from "@/lib/popunder";
+import { LinkGate } from "@/components/LinkGate";
+import { buildChannelGateKey, type GateContentInfo } from "@/lib/linkGate";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -69,7 +70,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     // Para streams M3U8, tenta o proxy
     if (originalUrl.includes(".m3u8")) {
       const proxyUrl = `/api/tv-proxy?url=${encodeURIComponent(originalUrl)}`;
-      
+
       try {
         // Primeiro verifica se o proxy consegue acessar o stream
         const checkResponse = await fetch(proxyUrl);
@@ -79,7 +80,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
         }
 
         const contentType = checkResponse.headers.get('content-type') || '';
-        
+
         // Se não é M3U8, pode ser que o servidor bloqueou
         if (!contentType.includes('mpegurl') && !contentType.includes('m3u8') && !contentType.includes('octet-stream')) {
           // Tenta carregar direto mesmo assim
@@ -138,7 +139,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
 
           hls.on(Hls.Events.ERROR, (event, data) => {
             console.error("HLS error:", data);
-            
+
             if (data.fatal) {
               switch (data.type) {
                 case Hls.ErrorTypes.NETWORK_ERROR:
@@ -206,8 +207,6 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     if (isOpen) {
       openPlayer();
       document.body.style.overflow = "hidden";
-      // Abre popunder quando o modal de TV abrir
-      triggerPopunderOnWatch();
     } else {
       closePlayer();
       document.body.style.overflow = "unset";
@@ -254,6 +253,9 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     currentStreamUrl.includes("youtube.com") ||
     currentStreamUrl.includes("youtu.be");
   const isEmbed = currentStreamUrl.includes('embedcanaisdetv.') || currentStreamUrl.includes('/e/index.php') || currentStreamUrl.includes('rde.lat/');
+
+  const gateKey = buildChannelGateKey(channel.id);
+  const gateRecoveryInfo: GateContentInfo = { kind: "tvchannel", key: gateKey, channel };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -340,6 +342,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
           ref={containerRef}
           className="relative aspect-video bg-black"
         >
+          <LinkGate contentKey={gateKey} label={`o canal ${channel.name}`} recoveryInfo={gateRecoveryInfo}>
           {isYouTube || isEmbed ? (
             <iframe
               key={currentStreamUrl}
@@ -417,6 +420,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
               )}
             </>
           )}
+          </LinkGate>
         </div>
       </div>
     </div>
