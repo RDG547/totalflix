@@ -8,6 +8,7 @@ import { GoogleIcon } from "@/components/GoogleIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { isAdminEmail } from "@/lib/admin";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,7 +21,12 @@ export default function LoginPage() {
   // Redirecionar se já estiver logado
   useEffect(() => {
     if (user) {
-      router.push("/");
+      if (isAdminEmail(user.email)) {
+        // A recarga completa descarrega scripts de publicidade da área pública.
+        window.location.replace("/admin");
+        return;
+      }
+      router.replace("/");
     }
   }, [user, router]);
 
@@ -31,7 +37,6 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password);
-      router.push("/");
     } catch (err: any) {
       setError(err.message || "Ocorreu um erro. Tente novamente.");
     } finally {
@@ -44,7 +49,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      router.push("/");
     } catch (err: any) {
       setError(err.message || "Ocorreu um erro. Tente novamente.");
     } finally {

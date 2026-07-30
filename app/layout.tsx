@@ -1,14 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
-import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
-import { ClientLayout } from "@/components/ClientLayout";
 import { PWARegister } from "@/components/PWARegister";
-import { GateRecovery } from "@/components/GateRecovery";
+import { SiteShell } from "@/components/SiteShell";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -66,17 +62,7 @@ export default function RootLayout({
         <PWARegister />
         <AuthProvider>
           <PlayerProvider>
-            <GateRecovery />
-            <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black flex flex-col">
-              <Navbar />
-              <main className="relative flex-1">
-                <ClientLayout>
-                  {children}
-                </ClientLayout>
-              </main>
-              <Footer />
-              <ScrollToTop />
-            </div>
+            <SiteShell>{children}</SiteShell>
           </PlayerProvider>
           <Toaster
             position="bottom-center"

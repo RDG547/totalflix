@@ -14,6 +14,7 @@ import { db, storage } from './firebase';
 export interface UserProfile {
   uid: string;
   email: string;
+  role?: 'admin' | 'user';
   displayName?: string;
   photoURL?: string;
   bio?: string;

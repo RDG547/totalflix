@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Tags, Sword, Compass, Sparkles, Laugh, Fingerprint, FileText, Drama, Users, Wand2, Landmark, Ghost, Music, Heart, Rocket, Zap, Shield, Mountain, Baby, Newspaper, Mic, MessageCircle } from "lucide-react";
+import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Tags, Sword, Compass, Sparkles, Laugh, Fingerprint, FileText, Drama, Users, Wand2, Landmark, Ghost, Music, Heart, Rocket, Zap, Shield, Mountain, Baby, Newspaper, Mic, MessageCircle, LayoutDashboard } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import { useScrollLock } from "@/hooks/useScrollLock";
+import { isAdminEmail } from "@/lib/admin";
 
 interface Genre {
   id: number;
@@ -423,6 +424,16 @@ export function Navbar() {
                         <p className="text-sm text-gray-400">Conectado como</p>
                         <p className="text-white font-medium truncate">{user.email}</p>
                       </div>
+                      {isAdminEmail(user.email) && (
+                        <a
+                          href="/admin"
+                          className="w-full flex items-center gap-2 px-4 py-3 text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 transition-colors"
+                          onClick={() => setShowUserDropdown(false)}
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          Painel administrativo
+                        </a>
+                      )}
                       <Link
                         href="/profile"
                         className="w-full flex items-center gap-2 px-4 py-3 text-gray-300 hover:bg-purple-500/20 hover:text-white transition-colors"
@@ -600,6 +611,15 @@ export function Navbar() {
 
               {user ? (
                 <>
+                  {isAdminEmail(user.email) && (
+                    <a
+                      href="/admin"
+                      className="flex items-center gap-2 text-purple-300 hover:text-purple-200 transition-colors py-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <LayoutDashboard className="w-4 h-4" /> Painel administrativo
+                    </a>
+                  )}
                   <Link
                     href="/profile"
                     className="flex items-center gap-2 text-gray-300 hover:text-purple-400 transition-colors py-2"
