@@ -14,14 +14,20 @@ import {
 import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
 import { createUserProfile } from '@/lib/userProfile';
+import { claimsFromRecord, type AccessClaims } from '@/lib/access-control';
+import { isAdminEmail } from '@/lib/admin';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  access: AccessClaims;
+  isAdmin: boolean;
+  isVip: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  refreshAccess: () => Promise<AccessClaims>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -57,20 +63,51 @@ export const useAuth = () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [access, setAccess] = useState<AccessClaims>(() => claimsFromRecord(undefined));
+
+  const readAccess = async (currentUser: User, forceRefresh = false) => {
+    const tokenResult = await currentUser.getIdTokenResult(forceRefresh);
+    const nextAccess = claimsFromRecord(tokenResult.claims, isAdminEmail(currentUser.email));
+    setAccess(nextAccess);
+    return nextAccess;
+  };
+
+  const syncServerSession = async (currentUser: User) => {
+    const idToken = await currentUser.getIdToken();
+    const response = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+
+    // Ambientes ainda sem credencial Admin continuam com autenticação cliente.
+    if (!response.ok && ![401, 503].includes(response.status)) {
+      throw new Error('Não foi possível sincronizar a sessão segura.');
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Criar ou atualizar perfil do usuário
-        await createUserProfile(
-          user.uid,
-          user.email || '',
-          user.displayName || undefined,
-          user.photoURL || undefined
-        );
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      try {
+        if (currentUser) {
+          await Promise.all([
+            createUserProfile(
+              currentUser.uid,
+              currentUser.email || '',
+              currentUser.displayName || undefined,
+              currentUser.photoURL || undefined,
+            ),
+            readAccess(currentUser),
+            syncServerSession(currentUser),
+          ]);
+        } else {
+          setAccess(claimsFromRecord(undefined));
+        }
+      } catch (error) {
+        console.error('Não foi possível sincronizar completamente a sessão:', error);
+      } finally {
+        setUser(currentUser);
+        setLoading(false);
       }
-      setUser(user);
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -78,7 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      await Promise.all([
+        readAccess(credential.user, true),
+        syncServerSession(credential.user),
+      ]);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
     }
@@ -90,6 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
       await updateProfile(userCredential.user, { displayName: name.trim() });
       await createUserProfile(userCredential.user.uid, normalizedEmail, name.trim());
+      await Promise.all([
+        readAccess(userCredential.user, true),
+        syncServerSession(userCredential.user),
+      ]);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
     }
@@ -106,22 +151,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userCredential.user.displayName || undefined,
         userCredential.user.photoURL || undefined
       );
+      await Promise.all([
+        readAccess(userCredential.user, true),
+        syncServerSession(userCredential.user),
+      ]);
     } catch (error) {
       throw new Error(getAuthErrorMessage(error));
     }
   };
 
   const logout = async () => {
+    await fetch('/api/auth/session', { method: 'DELETE' }).catch(() => undefined);
     await signOut(auth);
+    setAccess(claimsFromRecord(undefined));
+  };
+
+  const refreshAccess = async () => {
+    if (!user) {
+      const emptyAccess = claimsFromRecord(undefined);
+      setAccess(emptyAccess);
+      return emptyAccess;
+    }
+
+    return readAccess(user, true);
   };
 
   const value = {
     user,
     loading,
+    access,
+    isAdmin: access.admin,
+    isVip: access.vip,
     signIn,
     signUp,
     signInWithGoogle,
     logout,
+    refreshAccess,
   };
 
   return (

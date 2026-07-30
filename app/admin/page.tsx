@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Crown,
   Database,
   ExternalLink,
   Film,
@@ -17,19 +18,22 @@ import {
   LogOut,
   MessageSquare,
   RefreshCw,
+  Radio,
   Search,
   ServerCog,
   ShieldAlert,
   ShieldCheck,
   Trash2,
+  Trophy,
+  Tv,
   UserRound,
   Users,
   XCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { isAdminEmail } from "@/lib/admin";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { UserManagementDialog } from "@/components/admin/UserManagementDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -40,7 +44,20 @@ interface AdminUser {
   email: string;
   displayName: string;
   photoURL: string;
-  role: "admin" | "user";
+  role: "admin" | "moderator" | "user";
+  achievementsUnlocked: number;
+  emailVerified: boolean;
+  disabled: boolean;
+  isPrimaryAdmin: boolean;
+  vip: boolean;
+  vipExpiresAt: number | null;
+  lastSignInAt: number;
+  providers: string[];
+  consumption: {
+    movie: { views: number; unique: number; lastViewedAt: number };
+    tv: { views: number; unique: number; lastViewedAt: number };
+    liveTv: { views: number; unique: number; lastViewedAt: number };
+  };
   favoritesCount: number;
   historyCount: number;
   createdAt: number;
@@ -72,6 +89,13 @@ interface AdminDashboardData {
     favorites: number;
     historyItems: number;
     activeUsers30d: number;
+    achievementsUnlocked: number;
+    vipUsers: number;
+    consumption: {
+      movie: number;
+      tv: number;
+      liveTv: number;
+    };
   };
   users: {
     items: AdminUser[];
@@ -85,10 +109,17 @@ interface AdminDashboardData {
   };
   system: {
     projectId: string;
+    adminSdkConfigured: boolean;
     integrations: Array<{
       name: string;
       configured: boolean;
     }>;
+  };
+  maintenance: {
+    enabled: boolean;
+    message: string;
+    updatedAt: number;
+    updatedBy: string;
   };
 }
 
@@ -216,7 +247,7 @@ function DashboardSkeleton() {
 }
 
 export default function AdminPage() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, isAdmin } = useAuth();
   const router = useRouter();
   const [section, setSection] = useState<AdminSection>("overview");
   const [data, setData] = useState<AdminDashboardData | null>(null);
@@ -227,11 +258,12 @@ export default function AdminPage() {
   const [commentSearch, setCommentSearch] = useState("");
   const [commentToDelete, setCommentToDelete] = useState<AdminComment | null>(null);
   const [deletingComment, setDeletingComment] = useState(false);
+  const [selectedUserUid, setSelectedUserUid] = useState<string | null>(null);
 
-  const adminAllowed = isAdminEmail(user?.email);
+  const adminAllowed = isAdmin;
 
   const loadDashboard = useCallback(async (silent = false) => {
-    if (!user || !isAdminEmail(user.email)) return;
+    if (!user || !adminAllowed) return;
 
     silent ? setRefreshing(true) : setLoading(true);
     setError("");
@@ -259,7 +291,7 @@ export default function AdminPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, adminAllowed]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -274,6 +306,19 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, [user, adminAllowed, authLoading, loadDashboard]);
+
+  useEffect(() => {
+    if (!user || !adminAllowed) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadDashboard(true);
+    };
+    const interval = window.setInterval(refresh, 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [user, adminAllowed, loadDashboard]);
 
   const filteredUsers = useMemo(() => {
     const query = userSearch.trim().toLowerCase();
@@ -346,6 +391,24 @@ export default function AdminPage() {
     }
   };
 
+  const handleMaintenanceChange = async (enabled: boolean, message: string) => {
+    if (!user) throw new Error("Sessão administrativa indisponível.");
+    const idToken = await user.getIdToken();
+    const response = await fetch("/api/admin/settings/maintenance", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ enabled, message }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || "Não foi possível alterar o modo manutenção.");
+    }
+    setData((current) => current ? { ...current, maintenance: payload } : current);
+  };
+
   if (authLoading || (loading && adminAllowed)) {
     return <DashboardSkeleton />;
   }
@@ -404,9 +467,15 @@ export default function AdminPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {data?.maintenance.enabled && (
+              <div className="hidden items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200 sm:flex">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                Em manutenção
+              </div>
+            )}
             <div className="hidden items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 md:flex">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              Acesso validado
+              Atualização em tempo real
             </div>
             <Button
               type="button"
@@ -521,6 +590,7 @@ export default function AdminPage() {
               users={filteredUsers}
               search={userSearch}
               onSearch={setUserSearch}
+              onManage={setSelectedUserUid}
             />
           )}
           {data && section === "comments" && (
@@ -532,7 +602,9 @@ export default function AdminPage() {
               onDelete={setCommentToDelete}
             />
           )}
-          {data && section === "system" && <SystemSection data={data} />}
+          {data && section === "system" && (
+            <SystemSection data={data} onMaintenanceChange={handleMaintenanceChange} />
+          )}
         </main>
       </div>
 
@@ -549,6 +621,11 @@ export default function AdminPage() {
         onCancel={() => {
           if (!deletingComment) setCommentToDelete(null);
         }}
+      />
+      <UserManagementDialog
+        uid={selectedUserUid}
+        onClose={() => setSelectedUserUid(null)}
+        onChanged={() => loadDashboard(true)}
       />
     </div>
   );
@@ -589,6 +666,12 @@ function OverviewSection({
     { label: "Perfis ativos em 30 dias", value: data.overview.activeUsers30d, tone: "bg-emerald-500" },
   ];
   const maxEngagement = Math.max(...engagementRows.map((row) => row.value), 1);
+  const consumptionRows = [
+    { label: "Filmes", value: data.overview.consumption.movie, icon: Film, tone: "bg-purple-500" },
+    { label: "Séries", value: data.overview.consumption.tv, icon: Tv, tone: "bg-blue-500" },
+    { label: "TV ao vivo", value: data.overview.consumption.liveTv, icon: Radio, tone: "bg-red-500" },
+  ];
+  const maxConsumption = Math.max(...consumptionRows.map((row) => row.value), 1);
 
   return (
     <>
@@ -598,7 +681,7 @@ function OverviewSection({
         description={`Dados atualizados em ${formatDate(data.generatedAt, true)}. Acompanhe a comunidade e a atividade do TotalFlix em um só lugar.`}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
           title="Usuários cadastrados"
           value={integerFormatter.format(data.overview.users)}
@@ -626,7 +709,50 @@ function OverviewSection({
           icon={Clock3}
           tone="amber"
         />
+        <MetricCard
+          title="Usuários VIP"
+          value={integerFormatter.format(data.overview.vipUsers)}
+          detail="Acessos VIP ativos neste momento"
+          icon={Crown}
+          tone="amber"
+        />
+        <MetricCard
+          title="Conquistas"
+          value={integerFormatter.format(data.overview.achievementsUnlocked)}
+          detail="Conquistas desbloqueadas pela comunidade"
+          icon={Trophy}
+          tone="green"
+        />
       </div>
+
+      <Panel
+        title="Consumo por tipo de conteúdo"
+        description="Reproduções registradas pelos players do TotalFlix"
+        className="mt-6"
+      >
+        <div className="grid gap-5 p-5 md:grid-cols-3">
+          {consumptionRows.map((row) => {
+            const Icon = row.icon;
+            return (
+              <div key={row.label} className="rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm text-zinc-400">
+                    <Icon className="h-4 w-4 text-purple-400" />
+                    {row.label}
+                  </span>
+                  <span className="font-semibold text-white">{integerFormatter.format(row.value)}</span>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className={`h-full rounded-full ${row.tone}`}
+                    style={{ width: `${Math.max(row.value ? 3 : 0, (row.value / maxConsumption) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_1fr]">
         <Panel
@@ -713,18 +839,20 @@ function UsersSection({
   users,
   search,
   onSearch,
+  onManage,
 }: {
   data: AdminDashboardData;
   users: AdminUser[];
   search: string;
   onSearch: (value: string) => void;
+  onManage: (uid: string) => void;
 }) {
   return (
     <>
       <PageHeading
         eyebrow="Comunidade"
         title="Usuários"
-        description="Consulte contas, atividade salva e data de cadastro dos perfis do TotalFlix."
+        description="Gerencie cargos, VIP, credenciais, perfis, consumo, favoritos, histórico e conquistas."
       />
 
       <Panel
@@ -748,15 +876,17 @@ function UsersSection({
           <EmptyState icon={UserRound} message="Nenhum perfil corresponde à busca." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-left text-sm">
+            <table className="w-full min-w-[1180px] text-left text-sm">
               <thead className="bg-white/[0.025] text-xs uppercase tracking-wider text-zinc-600">
                 <tr>
                   <th className="px-5 py-3 font-medium">Usuário</th>
                   <th className="px-5 py-3 font-medium">Acesso</th>
-                  <th className="px-5 py-3 font-medium">Favoritos</th>
-                  <th className="px-5 py-3 font-medium">Histórico</th>
+                  <th className="px-5 py-3 font-medium">VIP</th>
+                  <th className="px-5 py-3 font-medium">Consumo</th>
+                  <th className="px-5 py-3 font-medium">Biblioteca</th>
+                  <th className="px-5 py-3 font-medium">Conquistas</th>
                   <th className="px-5 py-3 font-medium">Cadastro</th>
-                  <th className="px-5 py-3 font-medium">Última atualização</th>
+                  <th className="px-5 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -780,13 +910,45 @@ function UsersSection({
                           : "border-white/10 bg-white/[0.03] text-zinc-500"
                       }`}>
                         {item.role === "admin" && <ShieldCheck className="h-3 w-3" />}
-                        {item.role === "admin" ? "Admin" : "Usuário"}
+                        {item.role === "admin" ? "Admin" : item.role === "moderator" ? "Moderador" : "Usuário"}
                       </span>
+                      {item.disabled && (
+                        <span className="ml-2 text-xs text-red-400">Desativada</span>
+                      )}
                     </td>
-                    <td className="px-5 py-4 text-zinc-400">{integerFormatter.format(item.favoritesCount)}</td>
-                    <td className="px-5 py-4 text-zinc-400">{integerFormatter.format(item.historyCount)}</td>
+                    <td className="px-5 py-4">
+                      {item.vip ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+                          <Crown className="h-3 w-3" />
+                          {item.vipExpiresAt ? `até ${formatDate(item.vipExpiresAt)}` : "Indeterminado"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-600">Padrão</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-3 text-xs text-zinc-500">
+                        <span title="Filmes">🎬 {item.consumption.movie.views}</span>
+                        <span title="Séries">📺 {item.consumption.tv.views}</span>
+                        <span title="TV ao vivo">🔴 {item.consumption.liveTv.views}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-xs text-zinc-500">
+                      {integerFormatter.format(item.favoritesCount)} favoritos · {integerFormatter.format(item.historyCount)} histórico
+                    </td>
+                    <td className="px-5 py-4 text-zinc-400">{integerFormatter.format(item.achievementsUnlocked)}</td>
                     <td className="px-5 py-4 text-zinc-500">{formatDate(item.createdAt)}</td>
-                    <td className="px-5 py-4 text-zinc-500">{formatDate(item.updatedAt)}</td>
+                    <td className="px-5 py-4 text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onManage(item.uid)}
+                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-purple-500/15 hover:text-purple-200"
+                      >
+                        Gerenciar
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -898,7 +1060,43 @@ function CommentsSection({
   );
 }
 
-function SystemSection({ data }: { data: AdminDashboardData }) {
+function SystemSection({
+  data,
+  onMaintenanceChange,
+}: {
+  data: AdminDashboardData;
+  onMaintenanceChange: (enabled: boolean, message: string) => Promise<void>;
+}) {
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(data.maintenance.enabled);
+  const [maintenanceMessage, setMaintenanceMessage] = useState(data.maintenance.message);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+
+  useEffect(() => {
+    setMaintenanceEnabled(data.maintenance.enabled);
+    setMaintenanceMessage(data.maintenance.message);
+  }, [data.maintenance.enabled, data.maintenance.message]);
+
+  const saveMaintenance = async () => {
+    setMaintenanceSaving(true);
+    try {
+      await onMaintenanceChange(maintenanceEnabled, maintenanceMessage);
+      toast.success(
+        maintenanceEnabled
+          ? "Modo manutenção ativado. Apenas administradores podem acessar."
+          : "Modo manutenção desativado.",
+      );
+    } catch (maintenanceError) {
+      setMaintenanceEnabled(data.maintenance.enabled);
+      toast.error(
+        maintenanceError instanceof Error
+          ? maintenanceError.message
+          : "Não foi possível atualizar a manutenção.",
+      );
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
   return (
     <>
       <PageHeading
@@ -922,12 +1120,26 @@ function SystemSection({ data }: { data: AdminDashboardData }) {
               </div>
             </div>
 
-            <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.06] p-4">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+            <div className={`mt-4 flex items-start gap-3 rounded-xl border p-4 ${
+              data.system.adminSdkConfigured
+                ? "border-emerald-500/15 bg-emerald-500/[0.06]"
+                : "border-amber-500/20 bg-amber-500/[0.06]"
+            }`}>
+              {data.system.adminSdkConfigured
+                ? <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+                : <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />}
               <div>
-                <p className="text-sm font-medium text-emerald-100">Autorização no servidor</p>
-                <p className="mt-1 text-xs leading-5 text-emerald-200/60">
-                  O token da sessão é validado no Firebase antes de cada consulta administrativa.
+                <p className={`text-sm font-medium ${
+                  data.system.adminSdkConfigured ? "text-emerald-100" : "text-amber-100"
+                }`}>
+                  {data.system.adminSdkConfigured ? "Firebase Admin ativo" : "Firebase Admin pendente"}
+                </p>
+                <p className={`mt-1 text-xs leading-5 ${
+                  data.system.adminSdkConfigured ? "text-emerald-200/60" : "text-amber-200/60"
+                }`}>
+                  {data.system.adminSdkConfigured
+                    ? "Claims, sessões, manutenção e operações sensíveis são validadas no servidor."
+                    : "Configure FIREBASE_SERVICE_ACCOUNT_JSON no servidor para habilitar a gestão segura."}
                 </p>
               </div>
             </div>
@@ -962,6 +1174,70 @@ function SystemSection({ data }: { data: AdminDashboardData }) {
           </div>
         </Panel>
       </div>
+
+      <Panel
+        title="Modo manutenção"
+        description="Bloqueia todo o site para visitantes e usuários comuns; administradores continuam com acesso identificado."
+        className="mt-6"
+        action={
+          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+            data.maintenance.enabled
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+              : "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+          }`}>
+            <span className={`h-2 w-2 rounded-full ${
+              data.maintenance.enabled ? "bg-amber-400" : "bg-emerald-400"
+            }`} />
+            {data.maintenance.enabled ? "Ativo" : "Site online"}
+          </span>
+        }
+      >
+        <div className="space-y-5 p-5">
+          <label className="flex items-start justify-between gap-6 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Restringir acesso ao site</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                A decisão é feita no servidor. Alterações no navegador não contornam o bloqueio.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={maintenanceEnabled}
+              onChange={(event) => setMaintenanceEnabled(event.target.checked)}
+              className="mt-1 h-5 w-5 shrink-0 accent-amber-500"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium text-zinc-400">
+              Mensagem exibida ao público
+            </span>
+            <textarea
+              value={maintenanceMessage}
+              onChange={(event) => setMaintenanceMessage(event.target.value.slice(0, 240))}
+              rows={3}
+              className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-purple-500"
+              placeholder="Estamos realizando melhorias. Voltaremos em breve."
+            />
+            <span className="mt-1 block text-right text-[11px] text-zinc-600">
+              {maintenanceMessage.length}/240
+            </span>
+          </label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-zinc-600">
+              Última alteração: {formatDate(data.maintenance.updatedAt, true)}
+            </p>
+            <Button
+              type="button"
+              onClick={() => void saveMaintenance()}
+              disabled={maintenanceSaving || (maintenanceEnabled && !maintenanceMessage.trim())}
+              className={maintenanceEnabled ? "bg-amber-600 hover:bg-amber-500" : "bg-purple-600 hover:bg-purple-500"}
+            >
+              {maintenanceSaving && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+              Aplicar configuração
+            </Button>
+          </div>
+        </div>
+      </Panel>
 
       <Panel
         title="Sessão administrativa"

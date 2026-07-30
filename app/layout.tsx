@@ -5,10 +5,14 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { PWARegister } from "@/components/PWARegister";
 import { SiteShell } from "@/components/SiteShell";
+import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ["latin"] });
+
+// O estado de manutenção é consultado no servidor a cada navegação.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "TotalFlix - Filmes e Séries Online",
@@ -61,9 +65,11 @@ export default function RootLayout({
       <body className={inter.className}>
         <PWARegister />
         <AuthProvider>
-          <PlayerProvider>
-            <SiteShell>{children}</SiteShell>
-          </PlayerProvider>
+          <MaintenanceGate>
+            <PlayerProvider>
+              <SiteShell>{children}</SiteShell>
+            </PlayerProvider>
+          </MaintenanceGate>
           <Toaster
             position="bottom-center"
             toastOptions={{

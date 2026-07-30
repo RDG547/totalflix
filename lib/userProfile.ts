@@ -14,7 +14,9 @@ import { db, storage } from './firebase';
 export interface UserProfile {
   uid: string;
   email: string;
-  role?: 'admin' | 'user';
+  role?: 'admin' | 'moderator' | 'user';
+  vip?: boolean;
+  vipExpiresAt?: number | null;
   displayName?: string;
   photoURL?: string;
   bio?: string;

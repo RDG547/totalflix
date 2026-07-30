@@ -11,7 +11,7 @@ import {
   Comment,
 } from '@/lib/comments';
 import { updateAchievementProgress, initializeAchievements } from '@/lib/achievements';
-import { ThumbsUp, ThumbsDown, Reply, Trash2, Send } from 'lucide-react';
+import { Crown, ShieldCheck, ThumbsUp, ThumbsDown, Reply, Trash2, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CommentsSectionProps {
@@ -22,6 +22,7 @@ interface CommentsSectionProps {
 export function CommentsSection({ contentId, contentType }: CommentsSectionProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
+  const [badges, setBadges] = useState<Record<string, { role: string; vip: boolean }>>({});
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -31,6 +32,29 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
   useEffect(() => {
     loadComments();
   }, [contentId, contentType]);
+
+  useEffect(() => {
+    const uids = Array.from(new Set(comments.map((comment) => comment.userId)))
+      .filter((uid) => uid && uid !== 'deleted')
+      .slice(0, 50);
+    if (uids.length === 0) {
+      setBadges({});
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/users/badges?uids=${encodeURIComponent(uids.join(','))}`)
+      .then((response) => response.ok ? response.json() : { badges: {} })
+      .then((payload) => {
+        if (!cancelled) setBadges(payload.badges || {});
+      })
+      .catch(() => {
+        if (!cancelled) setBadges({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [comments]);
 
   async function loadComments() {
     try {
@@ -216,7 +240,19 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
           <div className="flex-1">
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-white">{comment.userName}</span>
+                <span className="flex flex-wrap items-center gap-2 font-semibold text-white">
+                  {comment.userName}
+                  {badges[comment.userId]?.vip && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                      <Crown className="h-3 w-3" /> VIP
+                    </span>
+                  )}
+                  {badges[comment.userId]?.role === 'admin' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold text-purple-300">
+                      <ShieldCheck className="h-3 w-3" /> ADMIN
+                    </span>
+                  )}
+                </span>
                 {isAuthor && (
                   <button
                     onClick={() => handleDelete(comment.id)}

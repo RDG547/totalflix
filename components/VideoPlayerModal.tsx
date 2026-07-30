@@ -10,6 +10,7 @@ import TorrentPlayer from "./TorrentPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
 import { buildMovieGateKey, buildSeriesGateKey, revokeContentUnlock, type GateContentInfo } from "@/lib/linkGate";
+import { ConsumptionTracker } from "@/components/ConsumptionTracker";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -327,6 +328,12 @@ export function VideoPlayerModal({
         {/* Video Player Container */}
         <div id="player-container" className="relative z-0 min-h-0 flex-1 bg-black">
           <LinkGate contentKey={gateKey} label={gateLabel} recoveryInfo={gateRecoveryInfo}>
+            <ConsumptionTracker
+              type={type}
+              contentId={tmdbId}
+              itemKey={type === "movie" ? String(tmdbId) : `${tmdbId}:s${selectedSeason}e${selectedEpisode}`}
+              title={title}
+            />
             {selectedPlayer === 'webtorrent' ? (
               <TorrentPlayer
                 poster={posterPath ? getImageUrl(posterPath) : undefined}

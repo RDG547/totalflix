@@ -1,4 +1,5 @@
 import { authenticateAdminRequest, adminAuthErrorResponse } from '@/lib/admin-server';
+import { getFirebaseAdminDb, isFirebaseAdminConfigured } from '@/lib/firebase-admin';
 import {
   deleteFirestoreDocument,
   FirestoreRequestError,
@@ -24,6 +25,20 @@ export async function DELETE(
   }
 
   try {
+    if (isFirebaseAdminConfigured()) {
+      const db = getFirebaseAdminDb();
+      const replies = await db.collection('comments').where('parentId', '==', commentId).get();
+      const writer = db.bulkWriter();
+      replies.docs.forEach((reply) => writer.delete(reply.ref));
+      writer.delete(db.doc(`comments/${commentId}`));
+      await writer.close();
+
+      return Response.json({
+        ok: true,
+        deleted: 1 + replies.size,
+      });
+    }
+
     const replies = await queryFirestoreDocuments(
       'comments',
       'parentId',

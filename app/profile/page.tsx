@@ -20,7 +20,8 @@ import {
   X,
   Trash2,
   Camera,
-  Trophy
+  Trophy,
+  Crown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -31,7 +32,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { GENRE_MAP, getGenreName } from "@/lib/genres";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, isVip, access } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -321,10 +322,25 @@ export default function ProfilePage() {
               ) : (
                 <>
                   <div>
-                    <h1 className="text-3xl font-bold text-gradient">
-                      {profile.displayName || "Usuário"}
-                    </h1>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h1 className="text-3xl font-bold text-gradient">
+                        {profile.displayName || "Usuário"}
+                      </h1>
+                      {isVip && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
+                          <Crown className="h-3.5 w-3.5" />
+                          VIP
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-400">{profile.email}</p>
+                    {isVip && (
+                      <p className="mt-1 text-xs text-amber-300/70">
+                        {access.vipExpiresAt
+                          ? `Acesso VIP até ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(access.vipExpiresAt < 10_000_000_000 ? access.vipExpiresAt * 1000 : access.vipExpiresAt))}`
+                          : "Acesso VIP por tempo indeterminado"}
+                      </p>
+                    )}
                   </div>
                   {profile.bio && (
                     <p className="text-gray-300">{profile.bio}</p>

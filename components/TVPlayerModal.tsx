@@ -8,6 +8,7 @@ import Hls from "hls.js";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
 import { buildChannelGateKey, revokeContentUnlock, type GateContentInfo } from "@/lib/linkGate";
+import { ConsumptionTracker } from "@/components/ConsumptionTracker";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -348,6 +349,12 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
           className="relative aspect-video bg-black"
         >
           <LinkGate contentKey={gateKey} label={`o canal ${channel.name}`} recoveryInfo={gateRecoveryInfo}>
+          <ConsumptionTracker
+            type="live_tv"
+            contentId={channel.id}
+            itemKey={channel.id}
+            title={channel.name}
+          />
           {isYouTube || isEmbed ? (
             <iframe
               key={currentStreamUrl}

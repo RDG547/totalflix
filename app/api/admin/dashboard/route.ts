@@ -4,6 +4,9 @@ import {
   listFirestoreCollection,
   type FirestoreCollectionResult,
 } from '@/lib/firestore-rest';
+import { getFirebaseAdminDb, isFirebaseAdminConfigured } from '@/lib/firebase-admin';
+import { listAdminUsers } from '@/lib/admin-user-service';
+import { getMaintenanceSettings } from '@/lib/site-settings-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +45,27 @@ async function loadCollection(
   }
 }
 
+async function loadAdminCollection(
+  collectionId: string,
+): Promise<{ result: FirestoreCollectionResult | null; error: string | null }> {
+  try {
+    const snapshot = await getFirebaseAdminDb().collection(collectionId).limit(1001).get();
+    return {
+      result: {
+        documents: snapshot.docs.slice(0, 1000).map((doc) => ({
+          id: doc.id,
+          data: doc.data(),
+        })),
+        truncated: snapshot.size > 1000,
+      },
+      error: null,
+    };
+  } catch (error) {
+    console.error(`Admin SDK collection "${collectionId}" failed:`, error);
+    return { result: null, error: 'Não foi possível consultar esta coleção agora.' };
+  }
+}
+
 export async function GET(request: Request) {
   let admin;
   try {
@@ -50,12 +74,25 @@ export async function GET(request: Request) {
     return adminAuthErrorResponse(error);
   }
 
-  const [usersCollection, commentsCollection] = await Promise.all([
-    loadCollection('users', admin.idToken),
-    loadCollection('comments', admin.idToken),
+  const adminSdkConfigured = isFirebaseAdminConfigured();
+  const [usersCollection, commentsCollection, adminUsersResult, maintenance] = await Promise.all([
+    adminSdkConfigured ? loadAdminCollection('users') : loadCollection('users', admin.idToken),
+    adminSdkConfigured ? loadAdminCollection('comments') : loadCollection('comments', admin.idToken),
+    adminSdkConfigured
+      ? listAdminUsers()
+        .then((items) => ({ items, error: null as string | null }))
+        .catch((error) => {
+          console.error('Could not list Firebase Auth users:', error);
+          return { items: null, error: 'Não foi possível consultar o Firebase Auth.' };
+        })
+      : Promise.resolve({
+        items: null,
+        error: 'Configure FIREBASE_SERVICE_ACCOUNT_JSON para habilitar a gestão completa.',
+      }),
+    getMaintenanceSettings(),
   ]);
 
-  const users = (usersCollection.result?.documents || [])
+  const fallbackUsers = (usersCollection.result?.documents || [])
     .map(({ id, data }) => ({
       uid: asString(data.uid) || id,
       email: asString(data.email),
@@ -66,10 +103,24 @@ export async function GET(request: Request) {
         : 'user',
       favoritesCount: asArray(data.favorites).length,
       historyCount: asArray(data.history).length,
+      achievementsUnlocked: 0,
+      emailVerified: false,
+      disabled: false,
+      isPrimaryAdmin: asString(data.email).toLowerCase() === admin.email,
+      vip: data.vip === true && (!data.vipExpiresAt || asNumber(data.vipExpiresAt) > Date.now()),
+      vipExpiresAt: asNumber(data.vipExpiresAt) || null,
+      lastSignInAt: 0,
+      providers: [],
+      consumption: {
+        movie: { views: 0, unique: 0, lastViewedAt: 0 },
+        tv: { views: 0, unique: 0, lastViewedAt: 0 },
+        liveTv: { views: 0, unique: 0, lastViewedAt: 0 },
+      },
       createdAt: asNumber(data.createdAt),
       updatedAt: asNumber(data.updatedAt),
     }))
     .sort((a, b) => b.createdAt - a.createdAt);
+  const users = adminUsersResult.items || fallbackUsers;
 
   const comments = (commentsCollection.result?.documents || [])
     .map(({ id, data }) => ({
@@ -100,11 +151,18 @@ export async function GET(request: Request) {
       favorites: users.reduce((sum, user) => sum + user.favoritesCount, 0),
       historyItems: users.reduce((sum, user) => sum + user.historyCount, 0),
       activeUsers30d: users.filter((user) => user.updatedAt >= updatedSince).length,
+      achievementsUnlocked: users.reduce((sum, user) => sum + user.achievementsUnlocked, 0),
+      consumption: {
+        movie: users.reduce((sum, user) => sum + user.consumption.movie.views, 0),
+        tv: users.reduce((sum, user) => sum + user.consumption.tv.views, 0),
+        liveTv: users.reduce((sum, user) => sum + user.consumption.liveTv.views, 0),
+      },
+      vipUsers: users.filter((user) => user.vip).length,
     },
     users: {
       items: users,
-      truncated: usersCollection.result?.truncated || false,
-      error: usersCollection.error,
+      truncated: adminUsersResult.items ? false : usersCollection.result?.truncated || false,
+      error: adminUsersResult.items ? null : adminUsersResult.error || usersCollection.error,
     },
     comments: {
       items: comments,
@@ -113,6 +171,7 @@ export async function GET(request: Request) {
     },
     system: {
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
+      adminSdkConfigured,
       integrations: [
         { name: 'Firebase', configured: Boolean(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) },
         { name: 'TMDB', configured: Boolean(process.env.NEXT_PUBLIC_TMDB_API_KEY) },
@@ -120,6 +179,7 @@ export async function GET(request: Request) {
         { name: 'Softurl / LinkGate', configured: Boolean(process.env.SOFTURL_API_TOKEN) },
       ],
     },
+    maintenance,
   }, {
     headers: { 'Cache-Control': 'private, no-store' },
   });

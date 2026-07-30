@@ -7,6 +7,7 @@ import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LinkGate } from "@/components/LinkGate";
 import { buildMovieGateKey, buildSeriesGateKey } from "@/lib/linkGate";
+import { ConsumptionTracker } from "@/components/ConsumptionTracker";
 
 interface PageProps {
   params: {
@@ -153,6 +154,12 @@ export default function WatchPage({ params }: PageProps) {
         {/* Player */}
         <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl glow-effect mb-8">
           <LinkGate contentKey={gateKey} label={gateLabel}>
+          <ConsumptionTracker
+            type={type === "tv" ? "tv" : "movie"}
+            contentId={id}
+            itemKey={type === "tv" ? `${id}:s${selectedSeason}e${selectedEpisode}` : id}
+            title={title}
+          />
           {embedUrl ? (
             <iframe
               key={`${currentPlayer}-${embedUrl}`}

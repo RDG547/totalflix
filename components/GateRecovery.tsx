@@ -1,50 +1,66 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { TVPlayerModal } from "@/components/TVPlayerModal";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   consumePendingGateContent,
-  getGateUnlockParam,
-  isUnlockReferrerValid,
+  getGateGrantParam,
   notifyGateUnlocked,
+  readGrantKey,
   revokeContentUnlock,
-  stripGateUnlockParam,
-  unlockContent,
+  storeGateGrant,
+  stripGateGrantParam,
   type GateContentInfo,
 } from "@/lib/linkGate";
 
 // Componente global (montado uma vez no layout) responsável por reabrir o
 // player correto ou fechar a aba do encurtador quando o usuário volta do Link Gate.
 export function GateRecovery() {
+  const { user, loading } = useAuth();
   const [recovered, setRecovered] = useState<GateContentInfo | null>(null);
   const [unlockedSuccess, setUnlockedSuccess] = useState(false);
+  const handledGrant = useRef<string | null>(null);
 
   useEffect(() => {
-    const key = getGateUnlockParam();
-    if (!key) return;
+    if (loading) return;
+    const grant = getGateGrantParam();
+    if (!grant || handledGrant.current === grant) return;
+    handledGrant.current = grant;
 
-    if (isUnlockReferrerValid()) {
-      unlockContent(key);
-      notifyGateUnlocked(key);
-      stripGateUnlockParam();
-      setUnlockedSuccess(true);
+    const key = readGrantKey(grant);
+    if (!key) {
+      stripGateGrantParam();
+      return;
+    }
 
-      // Tenta fechar a aba se ela foi aberta especificamente para o encurtador
-      if (typeof window !== "undefined") {
-        try {
-          window.close();
-        } catch {
-          // ignora falha de permissão de fechar janela
-        }
+    const recover = async () => {
+      try {
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
+
+        const response = await fetch("/api/access/entitlement", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ contentKey: key, grant }),
+          cache: "no-store",
+        });
+        const result = await response.json().catch(() => ({})) as { authorized?: boolean };
+        if (!response.ok || result.authorized !== true) return;
+
+        storeGateGrant(key, grant);
+        notifyGateUnlocked(key);
+        setUnlockedSuccess(true);
+        const info = consumePendingGateContent(key);
+        if (info) setRecovered(info);
+      } finally {
+        stripGateGrantParam();
       }
-    }
+    };
 
-    const info = consumePendingGateContent(key);
-    if (info) {
-      setRecovered(info);
-    }
-  }, []);
+    void recover();
+  }, [loading, user]);
 
   if (unlockedSuccess && !recovered) {
     return (

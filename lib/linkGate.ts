@@ -1,7 +1,5 @@
 import type { TVChannel } from "@/lib/tv-channels";
 
-// Chave única de conteúdo usada para saber qual filme/episódio/canal já foi
-// liberado pelo usuário através do Link Gate.
 export function buildMovieGateKey(tmdbId: number): string {
   return `movie:${tmdbId}`;
 }
@@ -32,51 +30,34 @@ export type GateContentInfo =
       channel: TVChannel;
     };
 
-const UNLOCK_STORAGE_PREFIX = "totalflix:gateUnlocked:";
+const GRANT_STORAGE_PREFIX = "totalflix:gateGrant:";
 const PENDING_GATE_STORAGE_KEY = "totalflix:pendingGate";
 
-export function isContentUnlocked(key: string): boolean {
-  if (typeof window === "undefined") return false;
+export function getStoredGateGrant(key: string): string | null {
+  if (typeof window === "undefined") return null;
   try {
-    return window.localStorage.getItem(UNLOCK_STORAGE_PREFIX + key) === "1";
+    return window.sessionStorage.getItem(GRANT_STORAGE_PREFIX + key);
   } catch {
-    return false;
+    return null;
   }
 }
 
-export function unlockContent(key: string): void {
+export function storeGateGrant(key: string, grant: string): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(UNLOCK_STORAGE_PREFIX + key, "1");
+    window.sessionStorage.setItem(GRANT_STORAGE_PREFIX + key, grant);
   } catch {
-    // localStorage indisponível (modo privado, etc.) — ignora
-  }
-}
-
-// Verifica se o usuário veio do encurtador ou parâmetro de desbloqueio válido
-export function isUnlockReferrerValid(): boolean {
-  if (typeof document === "undefined") return false;
-  if (!document.referrer) return true; // Se o navegador omitiu o referrer cross-origin
-  try {
-    const hostname = new URL(document.referrer).hostname.toLowerCase();
-    return (
-      hostname.endsWith("softurl.in") ||
-      hostname.includes("total-flix") ||
-      hostname === "localhost" ||
-      hostname === "127.0.0.1"
-    );
-  } catch {
-    return true;
+    // sessionStorage indisponível.
   }
 }
 
 export function revokeContentUnlock(key: string): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(UNLOCK_STORAGE_PREFIX + key);
+    window.sessionStorage.removeItem(GRANT_STORAGE_PREFIX + key);
     notifyGateRevoked(key);
   } catch {
-    // ignora
+    // Ignora armazenamento indisponível.
   }
 }
 
@@ -84,88 +65,78 @@ export function clearAllContentUnlocks(): void {
   if (typeof window === "undefined") return;
   try {
     const keysToRemove: string[] = [];
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const storageKey = window.localStorage.key(i);
-      if (storageKey && storageKey.startsWith(UNLOCK_STORAGE_PREFIX)) {
-        keysToRemove.push(storageKey);
-      }
+    for (let index = 0; index < window.sessionStorage.length; index++) {
+      const storageKey = window.sessionStorage.key(index);
+      if (storageKey?.startsWith(GRANT_STORAGE_PREFIX)) keysToRemove.push(storageKey);
     }
-    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+    keysToRemove.forEach((key) => window.sessionStorage.removeItem(key));
   } catch {
-    // ignora
-  }
-}
-
-// Verifica se a página atual sofreu um F5 / Reload no navegador.
-// Se sim, revoga todas as liberações ativas (navegação SPA interna não aciona reload).
-if (typeof window !== "undefined") {
-  try {
-    const navEntries = performance.getEntriesByType("navigation");
-    const isReload =
-      (navEntries.length > 0 && (navEntries[0] as PerformanceNavigationTiming).type === "reload") ||
-      (performance as any).navigation?.type === 1;
-
-    if (isReload) {
-      clearAllContentUnlocks();
-    }
-  } catch {
-    // ignora
+    // Ignora armazenamento indisponível.
   }
 }
 
 export function notifyGateUnlocked(key: string): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return;
   try {
-    if (typeof BroadcastChannel !== "undefined") {
-      const bc = new BroadcastChannel("totalflix_gate");
-      bc.postMessage({ type: "GATE_UNLOCKED", key });
-      bc.close();
-    }
+    const channel = new BroadcastChannel("totalflix_gate");
+    channel.postMessage({ type: "GATE_GRANT_UPDATED", key });
+    channel.close();
   } catch {
-    // BroadcastChannel não suportado ou erro — fallback via localStorage é mantido
+    // BroadcastChannel não suportado.
   }
 }
 
 export function notifyGateRevoked(key: string): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return;
   try {
-    if (typeof BroadcastChannel !== "undefined") {
-      const bc = new BroadcastChannel("totalflix_gate");
-      bc.postMessage({ type: "GATE_REVOKED", key });
-      bc.close();
-    }
+    const channel = new BroadcastChannel("totalflix_gate");
+    channel.postMessage({ type: "GATE_REVOKED", key });
+    channel.close();
   } catch {
-    // ignora
+    // BroadcastChannel não suportado.
   }
 }
 
-export function getGateUnlockParam(): string | null {
+export function getGateGrantParam(): string | null {
   if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("gate_unlock");
+  return new URLSearchParams(window.location.search).get("gate_grant");
 }
 
-export function stripGateUnlockParam(): void {
+export function stripGateGrantParam(): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
-  if (!params.has("gate_unlock")) return;
-  params.delete("gate_unlock");
+  if (!params.has("gate_grant")) return;
+  params.delete("gate_grant");
   const query = params.toString();
-  const newUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
-  window.history.replaceState(null, "", newUrl);
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+  );
+}
+
+export function readGrantKey(grant: string): string | null {
+  try {
+    const encoded = grant.split(".")[0];
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded)) as { key?: unknown };
+    return typeof payload.key === "string" ? payload.key : null;
+  } catch {
+    return null;
+  }
 }
 
 export function buildGateUrl(key: string, returnTo: string): string {
   return `/api/linkgate?key=${encodeURIComponent(key)}&returnTo=${encodeURIComponent(returnTo)}`;
 }
 
-// Guarda os dados necessários para reabrir o player certo depois que o
-// usuário voltar do encurtador (a navegação completa perde o estado do React).
 export function savePendingGateContent(info: GateContentInfo): void {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.setItem(PENDING_GATE_STORAGE_KEY, JSON.stringify(info));
   } catch {
-    // ignora
+    // Ignora.
   }
 }
 

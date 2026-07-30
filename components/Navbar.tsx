@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Tags, Sword, Compass, Sparkles, Laugh, Fingerprint, FileText, Drama, Users, Wand2, Landmark, Ghost, Music, Heart, Rocket, Zap, Shield, Mountain, Baby, Newspaper, Mic, MessageCircle, LayoutDashboard } from "lucide-react";
+import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Tags, Sword, Compass, Sparkles, Laugh, Fingerprint, FileText, Drama, Users, Wand2, Landmark, Ghost, Music, Heart, Rocket, Zap, Shield, Mountain, Baby, Newspaper, Mic, MessageCircle, LayoutDashboard, Crown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import { useScrollLock } from "@/hooks/useScrollLock";
-import { isAdminEmail } from "@/lib/admin";
 
 interface Genre {
   id: number;
@@ -51,7 +50,7 @@ export function Navbar() {
   const movieDropdownRef = useRef<HTMLDivElement>(null);
   const tvDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin, isVip } = useAuth();
 
   useEffect(() => {
     const handleInstallAvailability = (event: Event) => {
@@ -397,7 +396,8 @@ export function Navbar() {
                     className="rounded-full hover:bg-purple-500/20 transition-all overflow-hidden p-0"
                   >
                     {user.photoURL && user.photoURL.trim() !== '' ? (
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                      <div className="relative w-8 h-8 rounded-full">
+                        <div className="h-full w-full overflow-hidden rounded-full">
                         <Image
                           src={user.photoURL}
                           alt="Avatar"
@@ -410,6 +410,12 @@ export function Navbar() {
                             e.currentTarget.style.display = 'none';
                           }}
                         />
+                        </div>
+                        {isVip && (
+                          <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-black bg-amber-400">
+                            <Crown className="h-2.5 w-2.5 text-black" />
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-purple-800 flex items-center justify-center">
@@ -422,9 +428,17 @@ export function Navbar() {
                     <div className="absolute right-0 top-full mt-2 w-56 bg-black/95 backdrop-blur-xl border border-purple-500/30 rounded-lg overflow-hidden shadow-2xl">
                       <div className="px-4 py-3 border-b border-purple-500/30">
                         <p className="text-sm text-gray-400">Conectado como</p>
-                        <p className="text-white font-medium truncate">{user.email}</p>
+                        <div className="mt-0.5 flex items-center gap-2">
+                          <p className="text-white font-medium truncate">{user.displayName || user.email}</p>
+                          {isVip && (
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                              <Crown className="h-3 w-3" /> VIP
+                            </span>
+                          )}
+                        </div>
+                        {user.displayName && <p className="truncate text-xs text-gray-500">{user.email}</p>}
                       </div>
-                      {isAdminEmail(user.email) && (
+                      {isAdmin && (
                         <a
                           href="/admin"
                           className="w-full flex items-center gap-2 px-4 py-3 text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 transition-colors"
@@ -611,7 +625,7 @@ export function Navbar() {
 
               {user ? (
                 <>
-                  {isAdminEmail(user.email) && (
+                  {isAdmin && (
                     <a
                       href="/admin"
                       className="flex items-center gap-2 text-purple-300 hover:text-purple-200 transition-colors py-2"
@@ -626,6 +640,11 @@ export function Navbar() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <User className="w-4 h-4 text-purple-400" /> Meu Perfil
+                    {isVip && (
+                      <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                        <Crown className="h-3 w-3" /> VIP
+                      </span>
+                    )}
                   </Link>
                   <button
                     onClick={handleLogout}

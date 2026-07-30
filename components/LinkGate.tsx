@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Lock, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ExternalLink, Loader2, Lock } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   buildGateUrl,
-  getGateUnlockParam,
-  isContentUnlocked,
-  isUnlockReferrerValid,
+  getGateGrantParam,
+  getStoredGateGrant,
   notifyGateUnlocked,
+  readGrantKey,
   savePendingGateContent,
-  stripGateUnlockParam,
-  unlockContent,
+  storeGateGrant,
+  stripGateGrantParam,
   type GateContentInfo,
 } from "@/lib/linkGate";
 
@@ -25,30 +26,61 @@ interface LinkGateProps {
 }
 
 export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGateProps) {
-  const [unlocked, setUnlocked] = useState(() => isContentUnlocked(contentKey));
+  const { user, loading: authLoading } = useAuth();
+  const [unlocked, setUnlocked] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  const verifyAccess = useCallback(async (grant?: string | null) => {
+    try {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (user) {
+        headers.Authorization = `Bearer ${await user.getIdToken()}`;
+      }
+
+      const response = await fetch("/api/access/entitlement", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ contentKey, grant: grant || undefined }),
+        cache: "no-store",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        authorized?: boolean;
+        reason?: string;
+      };
+
+      if (result.authorized && grant && result.reason === "gate") {
+        storeGateGrant(contentKey, grant);
+        notifyGateUnlocked(contentKey);
+      }
+      setUnlocked(result.authorized === true);
+      return result.authorized === true;
+    } catch {
+      setUnlocked(false);
+      return false;
+    } finally {
+      setChecking(false);
+    }
+  }, [contentKey, user]);
 
   useEffect(() => {
-    let nextUnlocked = isContentUnlocked(contentKey);
+    if (authLoading) return;
 
-    if (getGateUnlockParam() === contentKey) {
-      if (isUnlockReferrerValid()) {
-        unlockContent(contentKey);
-        notifyGateUnlocked(contentKey);
-        nextUnlocked = true;
-      }
-      stripGateUnlockParam();
-    }
+    setChecking(true);
+    const grantFromUrl = getGateGrantParam();
+    const matchingUrlGrant = grantFromUrl && readGrantKey(grantFromUrl) === contentKey
+      ? grantFromUrl
+      : null;
+    void verifyAccess(matchingUrlGrant || getStoredGateGrant(contentKey));
+    if (grantFromUrl) stripGateGrantParam();
 
-    setUnlocked(nextUnlocked);
-
-    // Escuta evento de desbloqueio ou revogação emitido por outra aba ou pelo fechamento do modal
+    // Eventos apenas disparam uma nova validação no servidor; nunca autorizam por si.
     let channel: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
       try {
         channel = new BroadcastChannel("totalflix_gate");
         channel.onmessage = (event) => {
-          if (event.data?.type === "GATE_UNLOCKED" && event.data?.key === contentKey) {
-            setUnlocked(true);
+          if (event.data?.type === "GATE_GRANT_UPDATED" && event.data?.key === contentKey) {
+            void verifyAccess(getStoredGateGrant(contentKey));
           } else if (event.data?.type === "GATE_REVOKED" && event.data?.key === contentKey) {
             setUnlocked(false);
           }
@@ -56,20 +88,21 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
       } catch {}
     }
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key?.includes(contentKey)) {
-        setUnlocked(isContentUnlocked(contentKey));
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-
     return () => {
       if (channel) {
         channel.close();
       }
-      window.removeEventListener("storage", handleStorage);
     };
-  }, [contentKey]);
+  }, [authLoading, contentKey, verifyAccess]);
+
+  if (checking) {
+    return (
+      <div className="flex h-full min-h-[280px] w-full flex-col items-center justify-center gap-3 bg-black/90 p-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+        <p className="text-sm text-gray-400">Verificando seu acesso seguro…</p>
+      </div>
+    );
+  }
 
   if (unlocked) return <>{children}</>;
 
