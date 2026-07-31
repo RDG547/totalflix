@@ -36,7 +36,7 @@ jobs:
         run: |
           npm install --save-exact \
             next@15.5.22 \
-            firebase-admin@10.3.0 \
+            firebase-admin@14.2.0 \
             sharp@0.35.3 \
             postcss@8.5.23 \
             axios@1.18.1 \
@@ -75,26 +75,57 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('fs');
-          const path = 'app/api/admin/users/[uid]/route.ts';
-          let source = fs.readFileSync(path, 'utf8');
-          source = source.replaceAll(
+
+          const usersRoute = 'app/api/admin/users/[uid]/route.ts';
+          let users = fs.readFileSync(usersRoute, 'utf8');
+          users = users.replaceAll(
             '{ params }: { params: { uid: string } },',
             '{ params }: { params: Promise<{ uid: string }> },',
           );
-          source = source.replace(
-            "export async function GET(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {",
-            "export async function GET(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {\n    const { uid } = await params;",
+          for (const method of ['GET', 'PATCH', 'DELETE']) {
+            const before = `export async function ${method}(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {`;
+            const after = `${before}\n    const { uid } = await params;`;
+            users = users.replace(before, after);
+          }
+          users = users.replaceAll('params.uid', 'uid');
+          fs.writeFileSync(usersRoute, users);
+
+          const detailsPath = 'app/details/[type]/[id]/page.tsx';
+          let details = fs.readFileSync(detailsPath, 'utf8');
+          details = details.replace(
+            '  params: {\n    type: string;\n    id: string;\n  };',
+            '  params: Promise<{\n    type: string;\n    id: string;\n  }>;',
           );
-          source = source.replace(
-            "export async function PATCH(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {",
-            "export async function PATCH(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {\n    const { uid } = await params;",
+          details = details.replace('  const { type, id } = params;', '  const { type, id } = await params;');
+          fs.writeFileSync(detailsPath, details);
+
+          const genrePath = 'app/genre/[id]/page.tsx';
+          let genre = fs.readFileSync(genrePath, 'utf8');
+          genre = genre.replace(
+            '  params: {\n    id: string;\n  };\n  searchParams: {\n    type?: string;\n    page?: string;\n  };',
+            '  params: Promise<{\n    id: string;\n  }>;\n  searchParams: Promise<{\n    type?: string;\n    page?: string;\n  }>;',
           );
-          source = source.replace(
-            "export async function DELETE(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {",
-            "export async function DELETE(\n  request: Request,\n  { params }: { params: Promise<{ uid: string }> },\n) {\n  try {\n    const { uid } = await params;",
+          genre = genre.replace(
+            'export default async function GenrePage({ params, searchParams }: PageProps) {\n  // Tratar Aventura separadamente (10759-adventure)',
+            'export default async function GenrePage({ params, searchParams }: PageProps) {\n  const resolvedParams = await params;\n  const resolvedSearchParams = await searchParams;\n\n  // Tratar Aventura separadamente (10759-adventure)',
           );
-          source = source.replaceAll('params.uid', 'uid');
-          fs.writeFileSync(path, source);
+          genre = genre.replaceAll('params.id', 'resolvedParams.id');
+          genre = genre.replaceAll('searchParams.type', 'resolvedSearchParams.type');
+          genre = genre.replaceAll('searchParams.page', 'resolvedSearchParams.page');
+          fs.writeFileSync(genrePath, genre);
+
+          const watchPath = 'app/watch/[type]/[id]/page.tsx';
+          let watch = fs.readFileSync(watchPath, 'utf8');
+          watch = watch.replace(
+            'import { useRouter } from "next/navigation";',
+            'import { useParams, useRouter } from "next/navigation";',
+          );
+          watch = watch.replace(/interface PageProps \{[\s\S]*?\}\n\ntype PlayerType/, 'type PlayerType');
+          watch = watch.replace(
+            'export default function WatchPage({ params }: PageProps) {\n  const { type, id } = params;',
+            'export default function WatchPage() {\n  const params = useParams<{ type: string; id: string }>();\n  const type = params.type;\n  const id = params.id;',
+          );
+          fs.writeFileSync(watchPath, watch);
           NODE
 
       - name: Audit report
@@ -126,7 +157,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json app/api/admin/users/'[uid]'/route.ts tsconfig.json
+          git add package.json package-lock.json app/api/admin/users/'[uid]'/route.ts app/details/'[type]'/'[id]'/page.tsx app/genre/'[id]'/page.tsx app/watch/'[type]'/'[id]'/page.tsx tsconfig.json
           if git diff --cached --quiet; then
             echo "No dependency changes to commit"
           else
