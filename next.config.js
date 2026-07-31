@@ -40,7 +40,6 @@ const nextConfig = {
       },
     ],
   },
-  // Configurações para PWA
   async headers() {
     return [
       {
@@ -79,33 +78,6 @@ const nextConfig = {
         ],
       },
     ];
-  },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-      };
-
-      // Add global polyfill for WebTorrent
-      config.plugins.push(
-        new (require('webpack')).DefinePlugin({
-          'global': 'window',
-        })
-      );
-    }
-
-    // Suppress "Critical dependency" warnings from WebTorrent native modules
-    config.ignoreWarnings = [
-      ...(config.ignoreWarnings || []),
-      { module: /node_modules[\\/]fs-native-extensions/ },
-      { module: /node_modules[\\/]require-addon/ },
-    ];
-
-    return config;
   },
 }
 
