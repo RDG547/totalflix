@@ -11,10 +11,10 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { notFound } from "next/navigation";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     type: string;
     id: string;
-  };
+  }>;
 }
 
 // Componente separado para buscar detalhes dos títulos similares
@@ -51,7 +51,7 @@ async function SimilarContentSection({ type, similar }: { type: "movie" | "tv"; 
 }
 
 export default async function DetailsPage({ params }: PageProps) {
-  const { type, id } = params;
+  const { type, id } = await params;
 
   if (type !== "movie" && type !== "tv") {
     notFound();

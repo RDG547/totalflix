@@ -40,15 +40,16 @@ function canManageTarget(
 
 export async function GET(
   request: Request,
-  { params }: { params: { uid: string } },
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
+    const { uid } = await params;
     await authenticateAdminRequest(request);
     requireFirebaseAdmin();
-    if (!validUid(params.uid)) {
+    if (!validUid(uid)) {
       return Response.json({ error: 'Usuário inválido.' }, { status: 400 });
     }
-    return Response.json(await getAdminUserDetail(params.uid), {
+    return Response.json(await getAdminUserDetail(uid), {
       headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (error) {
@@ -58,17 +59,18 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { uid: string } },
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
+    const { uid } = await params;
     const actor = await authenticateAdminRequest(request);
     requireFirebaseAdmin();
-    if (!validUid(params.uid)) {
+    if (!validUid(uid)) {
       return Response.json({ error: 'Usuário inválido.' }, { status: 400 });
     }
 
     const auth = getFirebaseAdminAuth();
-    const target = await auth.getUser(params.uid);
+    const target = await auth.getUser(uid);
     canManageTarget(actor, target, 'edit');
 
     const payload = await request.json() as {
@@ -247,20 +249,21 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { uid: string } },
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
+    const { uid } = await params;
     const actor = await authenticateAdminRequest(request);
     requireFirebaseAdmin();
-    if (!validUid(params.uid)) {
+    if (!validUid(uid)) {
       return Response.json({ error: 'Usuário inválido.' }, { status: 400 });
     }
-    if (params.uid === actor.uid) {
+    if (uid === actor.uid) {
       return Response.json({ error: 'Você não pode excluir sua própria conta.' }, { status: 403 });
     }
 
     const auth = getFirebaseAdminAuth();
-    const target = await auth.getUser(params.uid);
+    const target = await auth.getUser(uid);
     canManageTarget(actor, target, 'delete');
 
     await writeAdminAuditLog({

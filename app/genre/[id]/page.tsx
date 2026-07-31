@@ -4,13 +4,13 @@ import { Film, Tv, TrendingUp, Calendar } from "lucide-react";
 import { GenrePagination } from "@/components/GenrePagination";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     type?: string;
     page?: string;
-  };
+  }>;
 }
 
 const genreNames: { [key: string]: string } = {
@@ -75,13 +75,16 @@ const genreDescriptions: { [key: string]: string } = {
 };
 
 export default async function GenrePage({ params, searchParams }: PageProps) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+
   // Tratar Aventura separadamente (10759-adventure)
-  const isAdventure = params.id === "10759-adventure";
-  const genreId = isAdventure ? 10759 : parseInt(params.id);
-  const genreName = genreNames[params.id] || "Gênero";
-  const genreDescription = genreDescriptions[params.id] || `Explore o melhor do gênero ${genreName}`;
-  const type = searchParams.type || "both";
-  const currentPage = parseInt(searchParams.page || "1");
+  const isAdventure = resolvedParams.id === "10759-adventure";
+  const genreId = isAdventure ? 10759 : parseInt(resolvedParams.id);
+  const genreName = genreNames[resolvedParams.id] || "Gênero";
+  const genreDescription = genreDescriptions[resolvedParams.id] || `Explore o melhor do gênero ${genreName}`;
+  const type = resolvedSearchParams.type || "both";
+  const currentPage = parseInt(resolvedSearchParams.page || "1");
 
   const movieData = type === "tv" ? { results: [], total_pages: 0, total_results: 0, page: 1 } : await tmdb.getByGenre("movie", genreId, currentPage);
   const seriesData = type === "movie" ? { results: [], total_pages: 0, total_results: 0, page: 1 } : await tmdb.getByGenre("tv", genreId, currentPage);
@@ -127,7 +130,7 @@ export default async function GenrePage({ params, searchParams }: PageProps) {
         {/* Filters */}
         <div className="flex gap-2 flex-wrap">
           <a
-            href={`/genre/${params.id}`}
+            href={`/genre/${resolvedParams.id}`}
             className={`px-4 py-2 rounded-lg transition-all active:scale-95 ${
               type === "both"
                 ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
@@ -137,7 +140,7 @@ export default async function GenrePage({ params, searchParams }: PageProps) {
             Todos
           </a>
           <a
-            href={`/genre/${params.id}?type=movie`}
+            href={`/genre/${resolvedParams.id}?type=movie`}
             className={`px-4 py-2 rounded-lg transition-all active:scale-95 ${
               type === "movie"
                 ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
@@ -148,7 +151,7 @@ export default async function GenrePage({ params, searchParams }: PageProps) {
             Filmes
           </a>
           <a
-            href={`/genre/${params.id}?type=tv`}
+            href={`/genre/${resolvedParams.id}?type=tv`}
             className={`px-4 py-2 rounded-lg transition-all active:scale-95 ${
               type === "tv"
                 ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
