@@ -1,0 +1,65 @@
+name: Refresh vulnerable dependencies
+
+on:
+  push:
+    branches: [fix/tv-player-security]
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: ${{ !contains(github.event.head_commit.message, 'chore: refresh secure dependencies') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tv-player-security
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install current lockfile
+        run: npm ci
+
+      - name: Remove unused player packages
+        run: npm uninstall react-player video.js @types/video.js
+
+      - name: Upgrade vulnerable direct dependencies
+        run: |
+          npm install --save-exact \
+            next@15.5.22 \
+            firebase-admin@14.2.0 \
+            sharp@0.35.3 \
+            webtorrent@3.0.11 \
+            axios@1.18.1 \
+            hls.js@1.6.16 \
+            framer-motion@12.42.2
+          npm install --save-dev --save-exact eslint-config-next@15.5.22
+
+      - name: Apply compatible transitive fixes
+        run: npm audit fix
+
+      - name: Production build
+        run: npm run build
+
+      - name: Require clean audit
+        run: npm audit --audit-level=low
+
+      - name: Commit refreshed lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes to commit"
+          else
+            git commit -m "chore: refresh secure dependencies"
+            git push origin HEAD:fix/tv-player-security
+          fi
