@@ -2,24 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { tmdb, getPlayerUrl, getImageUrl, type MovieDetails } from "@/lib/tmdb";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LinkGate } from "@/components/LinkGate";
 import { buildMovieGateKey, buildSeriesGateKey } from "@/lib/linkGate";
 import { ConsumptionTracker } from "@/components/ConsumptionTracker";
 
-interface PageProps {
-  params: {
-    type: string;
-    id: string;
-  };
-}
-
 type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | 'superflixapi' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
 
-export default function WatchPage({ params }: PageProps) {
-  const { type, id } = params;
+export default function WatchPage() {
+  const params = useParams<{ type: string; id: string }>();
+  const type = params.type;
+  const id = params.id;
   const router = useRouter();
   const [details, setDetails] = useState<MovieDetails | null>(null);
   const [selectedSeason, setSelectedSeason] = useState(1);

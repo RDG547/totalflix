@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Maximize2, MonitorPlay, X } from "lucide-react";
+import { ChevronDown, Loader2, Maximize2, MonitorPlay, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getImageUrl, getPlayerUrl, type VideoPlayer } from "@/lib/tmdb";
+import {
+  getImageUrl,
+  getPlayerUrl,
+  tmdb,
+  type TVSeasonEpisode,
+  type VideoPlayer,
+} from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
@@ -29,15 +35,112 @@ interface VideoPlayerModalProps {
   posterPath?: string;
 }
 
-const PLAYER_OPTIONS = [
-  { id: "megaembed" as VideoPlayer, name: "Mega Embed", icon: "🎬" },
-  { id: "embedmovies" as VideoPlayer, name: "EmbedMovies", icon: "🔗" },
-  { id: "warezcdn" as VideoPlayer, name: "WarezCDN", icon: "🌐" },
-  { id: "superflixapi" as VideoPlayer, name: "SuperFlix API", icon: "🎬" },
-  { id: "2embed" as VideoPlayer, name: "2Embed", icon: "🎞️" },
-  { id: "superembed" as VideoPlayer, name: "SuperEmbed", icon: "⭐" },
-  { id: "smashystream" as VideoPlayer, name: "Smashy", icon: "💥" },
-  { id: "webtorrent" as VideoPlayer, name: "WebTorrent (P2P)", icon: "⚡" },
+interface MenuOption<T extends string | number> {
+  value: T;
+  label: string;
+  icon?: string;
+}
+
+interface SelectMenuProps<T extends string | number> {
+  label: string;
+  value: T;
+  options: MenuOption<T>[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+  loading?: boolean;
+  align?: "left" | "right";
+  className?: string;
+}
+
+function SelectMenu<T extends string | number>({
+  label,
+  value,
+  options,
+  open,
+  onOpenChange,
+  onChange,
+  disabled = false,
+  loading = false,
+  align = "left",
+  className = "",
+}: SelectMenuProps<T>) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) onOpenChange(false);
+    };
+
+    document.addEventListener("pointerdown", handleOutside);
+    return () => document.removeEventListener("pointerdown", handleOutside);
+  }, [onOpenChange, open]);
+
+  return (
+    <div ref={rootRef} className={`relative min-w-0 ${className}`}>
+      <span className="mb-1.5 block text-xs font-medium text-gray-400">{label}</span>
+      <button
+        type="button"
+        disabled={disabled || loading}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => onOpenChange(!open)}
+        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-purple-500/30 bg-black px-3 py-2.5 text-left text-sm text-white outline-none transition-colors hover:border-purple-400 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <span className="flex min-w-0 items-center gap-2 truncate">
+          {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : selected?.icon ? <span>{selected.icon}</span> : null}
+          <span className="truncate">{loading ? "Carregando..." : selected?.label || "Selecionar"}</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && !disabled && !loading && (
+        <div
+          role="listbox"
+          className={`absolute top-[calc(100%+0.4rem)] z-[500] max-h-[min(320px,42dvh)] min-w-full overflow-y-auto overscroll-contain rounded-lg border border-purple-500/40 bg-black/98 p-1 shadow-2xl shadow-black ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+          style={{ width: "max-content", maxWidth: "min(22rem, calc(100vw - 2rem))" }}
+        >
+          {options.map((option) => (
+            <button
+              key={String(option.value)}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => {
+                onChange(option.value);
+                onOpenChange(false);
+              }}
+              className={`flex w-full min-w-[10rem] items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                option.value === value
+                  ? "bg-purple-600 text-white"
+                  : "text-gray-300 hover:bg-purple-500/20 hover:text-white"
+              }`}
+            >
+              {option.icon && <span className="shrink-0">{option.icon}</span>}
+              <span className="truncate">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PLAYER_OPTIONS: Array<{ id: VideoPlayer; name: string; icon: string }> = [
+  { id: "megaembed", name: "Mega Embed", icon: "🎬" },
+  { id: "embedmovies", name: "EmbedMovies", icon: "🔗" },
+  { id: "warezcdn", name: "WarezCDN", icon: "🌐" },
+  { id: "superflixapi", name: "SuperFlix API", icon: "🎬" },
+  { id: "2embed", name: "2Embed", icon: "🎞️" },
+  { id: "superembed", name: "SuperEmbed", icon: "⭐" },
+  { id: "smashystream", name: "Smashy", icon: "💥" },
+  { id: "webtorrent", name: "WebTorrent (P2P)", icon: "⚡" },
 ];
 
 const VIDSRC_OPTIONS: Array<{ id: VideoPlayer; name: string; icon: string }> = [
@@ -53,6 +156,15 @@ const VIDSRC_OPTIONS: Array<{ id: VideoPlayer; name: string; icon: string }> = [
   { id: "vidapi", name: "VidAPI", icon: "🎥" },
 ];
 
+const buildFallbackEpisodes = (count = 10): TVSeasonEpisode[] => Array.from(
+  { length: Math.max(count, 1) },
+  (_, index) => ({
+    id: index + 1,
+    episode_number: index + 1,
+    name: `Episódio ${index + 1}`,
+  }),
+);
+
 export function VideoPlayerModal({
   isOpen,
   onClose,
@@ -64,20 +176,23 @@ export function VideoPlayerModal({
   initialEpisode = 1,
   posterPath,
 }: VideoPlayerModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState(initialSeason);
   const [selectedEpisode, setSelectedEpisode] = useState(initialEpisode);
+  const [seasonCount, setSeasonCount] = useState(Math.max(numberOfSeasons, 1));
+  const [episodes, setEpisodes] = useState<TVSeasonEpisode[]>(buildFallbackEpisodes());
+  const [isSeriesMetadataLoading, setIsSeriesMetadataLoading] = useState(false);
+  const [isEpisodeLoading, setIsEpisodeLoading] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<VideoPlayer>("megaembed");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
+  const [isSeasonMenuOpen, setIsSeasonMenuOpen] = useState(false);
+  const [isEpisodeMenuOpen, setIsEpisodeMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const vidSrcMenuRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const { openPlayer, closePlayer } = usePlayer();
-  const episodeCount = 10;
 
   const gateKey = type === "movie"
     ? buildMovieGateKey(tmdbId)
@@ -93,10 +208,84 @@ export function VideoPlayerModal({
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  const closeAllMenus = useCallback(() => {
+    setIsVidSrcMenuOpen(false);
+    setIsSeasonMenuOpen(false);
+    setIsEpisodeMenuOpen(false);
+  }, []);
+
   const handleModalClose = useCallback(() => {
+    closeAllMenus();
     revokeContentUnlock(gateKey);
     onCloseRef.current();
-  }, [gateKey]);
+  }, [closeAllMenus, gateKey]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setSelectedSeason(Math.max(initialSeason, 1));
+    setSelectedEpisode(Math.max(initialEpisode, 1));
+    setSeasonCount(Math.max(numberOfSeasons, 1));
+    setEpisodes(buildFallbackEpisodes());
+    closeAllMenus();
+  }, [closeAllMenus, initialEpisode, initialSeason, isOpen, numberOfSeasons, tmdbId]);
+
+  useEffect(() => {
+    if (!isOpen || type !== "tv") return;
+
+    let active = true;
+    setIsSeriesMetadataLoading(true);
+
+    void tmdb.getDetails("tv", tmdbId)
+      .then((details) => {
+        if (!active) return;
+        const resolvedCount = Math.max(details.number_of_seasons || numberOfSeasons || 1, 1);
+        setSeasonCount(resolvedCount);
+        setSelectedSeason((current) => Math.min(Math.max(current, 1), resolvedCount));
+      })
+      .catch((error) => {
+        console.error("Não foi possível carregar as temporadas da série:", error);
+      })
+      .finally(() => {
+        if (active) setIsSeriesMetadataLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, numberOfSeasons, tmdbId, type]);
+
+  useEffect(() => {
+    if (!isOpen || type !== "tv") return;
+
+    let active = true;
+    setIsEpisodeLoading(true);
+
+    void tmdb.getSeasonDetails(tmdbId, selectedSeason)
+      .then((season) => {
+        if (!active) return;
+        const resolvedEpisodes = season.episodes?.length ? season.episodes : buildFallbackEpisodes();
+        setEpisodes(resolvedEpisodes);
+        setSelectedEpisode((current) => {
+          const episodeNumbers = new Set(resolvedEpisodes.map((episode) => episode.episode_number));
+          return episodeNumbers.has(current) ? current : resolvedEpisodes[0]?.episode_number || 1;
+        });
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.error("Não foi possível carregar os episódios da temporada:", error);
+        const fallback = buildFallbackEpisodes();
+        setEpisodes(fallback);
+        setSelectedEpisode((current) => Math.min(Math.max(current, 1), fallback.length));
+      })
+      .finally(() => {
+        if (active) setIsEpisodeLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, selectedSeason, tmdbId, type]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -109,15 +298,13 @@ export function VideoPlayerModal({
       closePlayer();
       previouslyFocused?.focus?.();
     };
-  }, [isOpen, openPlayer, closePlayer]);
+  }, [closePlayer, isOpen, openPlayer]);
 
   useEffect(() => {
     if (!isOpen || !rootRef.current) return;
 
     const modalRoot = rootRef.current;
-    const siblings = Array.from(document.body.children).filter(
-      (element) => element !== modalRoot,
-    );
+    const siblings = Array.from(document.body.children).filter((element) => element !== modalRoot);
     const previousState = siblings.map((element) => ({
       inert: (element as HTMLElement).inert,
       ariaHidden: element.getAttribute("aria-hidden"),
@@ -142,42 +329,21 @@ export function VideoPlayerModal({
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (isVidSrcMenuOpen) {
-          setIsVidSrcMenuOpen(false);
-          return;
-        }
-        handleModalClose();
+      if (event.key !== "Escape") return;
+
+      if (isVidSrcMenuOpen || isSeasonMenuOpen || isEpisodeMenuOpen) {
+        closeAllMenus();
+        return;
       }
+      handleModalClose();
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isVidSrcMenuOpen, handleModalClose]);
+  }, [closeAllMenus, handleModalClose, isEpisodeMenuOpen, isOpen, isSeasonMenuOpen, isVidSrcMenuOpen]);
 
   useEffect(() => {
-    if (!isVidSrcMenuOpen) return;
-
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!vidSrcMenuRef.current?.contains(event.target as Node)) {
-        setIsVidSrcMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", closeOnOutsideClick);
-    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
-  }, [isVidSrcMenuOpen]);
-
-  useEffect(() => {
-    setSelectedSeason(initialSeason);
-    setSelectedEpisode(initialEpisode);
-  }, [initialSeason, initialEpisode, tmdbId]);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-
+    const handleFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
@@ -187,24 +353,34 @@ export function VideoPlayerModal({
     if (!playerContainer) return;
 
     if (!document.fullscreenElement) {
-      playerContainer.requestFullscreen().catch((error) => {
+      void playerContainer.requestFullscreen().catch((error) => {
         console.error("Não foi possível ativar a tela cheia:", error);
       });
     } else {
-      document.exitFullscreen().catch((error) => {
+      void document.exitFullscreen().catch((error) => {
         console.error("Não foi possível sair da tela cheia:", error);
       });
     }
   };
 
-  const embedUrl = getPlayerUrl(
-    selectedPlayer,
-    type,
-    tmdbId,
-    selectedSeason,
-    selectedEpisode,
-  );
+  const embedUrl = getPlayerUrl(selectedPlayer, type, tmdbId, selectedSeason, selectedEpisode);
   const selectedVidSrc = VIDSRC_OPTIONS.find((player) => player.id === selectedPlayer);
+  const seasonOptions = useMemo<MenuOption<number>[]>(() => Array.from(
+    { length: Math.max(seasonCount, 1) },
+    (_, index) => ({ value: index + 1, label: `Temporada ${index + 1}` }),
+  ), [seasonCount]);
+  const episodeOptions = useMemo<MenuOption<number>[]>(() => episodes.map((episode) => ({
+    value: episode.episode_number,
+    label: episode.name && !/^epis[oó]dio\s+\d+$/i.test(episode.name)
+      ? `Episódio ${episode.episode_number} · ${episode.name}`
+      : `Episódio ${episode.episode_number}`,
+  })), [episodes]);
+  const vidSrcOptions = useMemo<MenuOption<VideoPlayer>[]>(() => VIDSRC_OPTIONS.map((player) => ({
+    value: player.id,
+    label: player.name,
+    icon: player.icon,
+  })), []);
+
   const gateLabel = type === "movie"
     ? "este filme"
     : `o episódio ${selectedEpisode} da temporada ${selectedSeason}`;
@@ -216,7 +392,7 @@ export function VideoPlayerModal({
     season: selectedSeason,
     episode: selectedEpisode,
     title,
-    numberOfSeasons,
+    numberOfSeasons: seasonCount,
     posterPath,
   };
 
@@ -236,7 +412,6 @@ export function VideoPlayerModal({
       />
 
       <div
-        ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-label={`Player de ${title}`}
@@ -269,8 +444,8 @@ export function VideoPlayerModal({
           </div>
         </div>
 
-        <div className="relative z-30 max-h-[44dvh] shrink-0 overflow-x-hidden overflow-y-auto border-b border-purple-500/20 bg-black/50 p-3 sm:p-4 md:overflow-visible">
-          <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-start">
+        <div className="relative z-[200] shrink-0 overflow-visible border-b border-purple-500/20 bg-black/95 p-3 sm:p-4">
+          <div className="flex flex-col items-stretch gap-4 xl:flex-row xl:items-end">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <MonitorPlay className="h-4 w-4 shrink-0 text-purple-400" />
               <span className="text-sm font-medium text-gray-400">Player:</span>
@@ -281,11 +456,11 @@ export function VideoPlayerModal({
                   type="button"
                   onClick={() => {
                     setSelectedPlayer(player.id);
-                    setIsVidSrcMenuOpen(false);
+                    closeAllMenus();
                   }}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${
                     selectedPlayer === player.id
-                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
                       : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
                   }`}
                 >
@@ -294,105 +469,75 @@ export function VideoPlayerModal({
                 </button>
               ))}
 
-              <div ref={vidSrcMenuRef} className="relative w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsVidSrcMenuOpen((open) => !open)}
-                  aria-expanded={isVidSrcMenuOpen}
-                  aria-haspopup="menu"
-                  className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-[0.99] sm:w-auto sm:py-1.5 ${
-                    selectedVidSrc
-                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
-                      : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
-                  }`}
-                >
-                  <span>📺</span>
-                  <span className="truncate">{selectedVidSrc?.name || "VidSrc"}</span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isVidSrcMenuOpen ? "rotate-180" : ""}`} />
-                </button>
+              <SelectMenu
+                label=""
+                value={selectedVidSrc?.id || "vidsrcsbs"}
+                options={vidSrcOptions}
+                open={isVidSrcMenuOpen}
+                onOpenChange={(open) => {
+                  setIsVidSrcMenuOpen(open);
+                  if (open) {
+                    setIsSeasonMenuOpen(false);
+                    setIsEpisodeMenuOpen(false);
+                  }
+                }}
+                onChange={(player) => setSelectedPlayer(player)}
+                align="right"
+                className="w-full sm:w-52 [&>span]:hidden"
+              />
 
-                {isVidSrcMenuOpen && (
-                  <div
-                    role="menu"
-                    className="relative z-[120] mt-2 max-h-[min(320px,40dvh)] w-full overflow-y-auto overscroll-contain rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl shadow-black sm:absolute sm:right-0 sm:top-full sm:w-64"
-                  >
-                    {VIDSRC_OPTIONS.map((player) => (
-                      <button
-                        key={player.id}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setSelectedPlayer(player.id);
-                          setIsVidSrcMenuOpen(false);
-                        }}
-                        className={`block w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                          selectedPlayer === player.id
-                            ? "bg-purple-600 text-white"
-                            : "text-gray-300 hover:bg-purple-500/20 hover:text-white"
-                        }`}
-                      >
-                        <span className="mr-2">{player.icon}</span>
-                        {player.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {PLAYER_OPTIONS.filter((player) => player.id === "webtorrent").map((player) => (
-                <button
-                  key={player.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedPlayer(player.id);
-                    setIsVidSrcMenuOpen(false);
-                  }}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${
-                    selectedPlayer === player.id
-                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
-                      : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
-                  }`}
-                >
-                  <span className="mr-1">{player.icon}</span>
-                  {player.name}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlayer("webtorrent");
+                  closeAllMenus();
+                }}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${
+                  selectedPlayer === "webtorrent"
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+                    : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
+                }`}
+              >
+                ⚡ WebTorrent (P2P)
+              </button>
             </div>
 
             {type === "tv" && selectedPlayer !== "webtorrent" && (
-              <div className="grid w-full shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 md:w-auto">
-                <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-gray-400">
-                  Temporada
-                  <select
-                    value={selectedSeason}
-                    onChange={(event) => {
-                      setSelectedSeason(Number(event.target.value));
-                      setSelectedEpisode(1);
-                    }}
-                    className="relative z-40 w-full min-w-0 rounded-lg border border-purple-500/30 bg-black px-3 py-2.5 text-white outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30"
-                  >
-                    {Array.from({ length: Math.max(numberOfSeasons, 1) }, (_, index) => index + 1).map((season) => (
-                      <option key={season} value={season}>
-                        Temporada {season}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-gray-400">
-                  Episódio
-                  <select
-                    value={selectedEpisode}
-                    onChange={(event) => setSelectedEpisode(Number(event.target.value))}
-                    className="relative z-40 w-full min-w-0 rounded-lg border border-purple-500/30 bg-black px-3 py-2.5 text-white outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30"
-                  >
-                    {Array.from({ length: episodeCount }, (_, index) => index + 1).map((episode) => (
-                      <option key={episode} value={episode}>
-                        Episódio {episode}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="grid w-full shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:w-[25rem]">
+                <SelectMenu
+                  label="Temporada"
+                  value={selectedSeason}
+                  options={seasonOptions}
+                  open={isSeasonMenuOpen}
+                  onOpenChange={(open) => {
+                    setIsSeasonMenuOpen(open);
+                    if (open) {
+                      setIsVidSrcMenuOpen(false);
+                      setIsEpisodeMenuOpen(false);
+                    }
+                  }}
+                  onChange={(season) => {
+                    setSelectedSeason(season);
+                    setSelectedEpisode(1);
+                  }}
+                  loading={isSeriesMetadataLoading}
+                />
+                <SelectMenu
+                  label="Episódio"
+                  value={selectedEpisode}
+                  options={episodeOptions}
+                  open={isEpisodeMenuOpen}
+                  onOpenChange={(open) => {
+                    setIsEpisodeMenuOpen(open);
+                    if (open) {
+                      setIsVidSrcMenuOpen(false);
+                      setIsSeasonMenuOpen(false);
+                    }
+                  }}
+                  onChange={setSelectedEpisode}
+                  loading={isEpisodeLoading}
+                  align="right"
+                />
               </div>
             )}
           </div>
@@ -420,9 +565,10 @@ export function VideoPlayerModal({
                 key={embedUrl}
                 src={embedUrl}
                 title={`Player de ${title}`}
-                className="h-full w-full"
+                className="h-full w-full border-0"
                 allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="origin-when-cross-origin"
               />
             )}
           </LinkGate>

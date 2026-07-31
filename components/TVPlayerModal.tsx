@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { X, Maximize2, Radio, Loader2, RefreshCw, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ExternalLink, Loader2, Maximize2, Radio, RefreshCw, X } from "lucide-react";
+import Hls from "hls.js";
 import { Button } from "@/components/ui/button";
 import type { TVChannel } from "@/lib/tv-channels";
-import Hls from "hls.js";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
 import { buildChannelGateKey, revokeContentUnlock, type GateContentInfo } from "@/lib/linkGate";
 import { ConsumptionTracker } from "@/components/ConsumptionTracker";
+import { useScrollLock } from "@/hooks/useScrollLock";
 
 interface TVPlayerModalProps {
   isOpen: boolean;
@@ -16,425 +18,469 @@ interface TVPlayerModalProps {
   channel: TVChannel;
 }
 
+const LOAD_TIMEOUT_MS = 20_000;
+
+const isYouTubeUrl = (url: string) => /(?:youtube\.com|youtu\.be)/i.test(url);
+const isHlsUrl = (url: string) => /(?:\.m3u8?|format=m3u8|type=hls)(?:$|[?#&])/i.test(url);
+const isDirectVideoUrl = (url: string) => /\.(?:mp4|webm|ogv|ogg|mov)(?:$|[?#])/i.test(url);
+const isDirectMediaUrl = (url: string) => isHlsUrl(url) || isDirectVideoUrl(url);
+const buildProxyUrl = (url: string) => `/api/tv-proxy?url=${encodeURIComponent(url)}`;
+
 export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [useNativePlayer, setUseNativePlayer] = useState(false);
   const [selectedSourceIndex, setSelectedSourceIndex] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const onCloseRef = useRef(onClose);
   const { openPlayer, closePlayer } = usePlayer();
-  const sources = channel.sources?.length
-    ? channel.sources
-    : [{ id: channel.id, provider: 'Fonte principal', streamUrl: channel.streamUrl }];
-  const selectedSource = sources[selectedSourceIndex] || sources[0];
-  const currentStreamUrl = selectedSource.streamUrl;
 
-  const handleModalClose = () => {
-    revokeContentUnlock(buildChannelGateKey(channel.id));
-    onClose();
-  };
+  const sources = useMemo(() => {
+    const rawSources = channel.sources?.length
+      ? channel.sources
+      : [{ id: channel.id, provider: "Fonte principal", streamUrl: channel.streamUrl }];
+    const seen = new Set<string>();
+
+    return rawSources.filter((source) => {
+      if (!source.streamUrl || seen.has(source.streamUrl)) return false;
+      seen.add(source.streamUrl);
+      return true;
+    });
+  }, [channel.id, channel.sources, channel.streamUrl]);
+
+  const selectedSource = sources[selectedSourceIndex] || sources[0];
+  const currentStreamUrl = selectedSource?.streamUrl || "";
+  const useIframe = Boolean(currentStreamUrl) && !isDirectMediaUrl(currentStreamUrl);
+  const gateKey = buildChannelGateKey(channel.id);
+  const gateRecoveryInfo: GateContentInfo = { kind: "tvchannel", key: gateKey, channel };
+
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const handleModalClose = useCallback(() => {
+    revokeContentUnlock(gateKey);
+    onCloseRef.current();
+  }, [gateKey]);
+
+  const clearPlayer = useCallback(() => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+  }, []);
+
+  const selectSource = useCallback((index: number) => {
+    clearPlayer();
+    setSelectedSourceIndex(index);
+    setRetryCount(0);
+    setError(null);
+    setErrorDetails(null);
+    setIsLoading(true);
+  }, [clearPlayer]);
+
+  const handleRetry = useCallback(() => {
+    clearPlayer();
+    setError(null);
+    setErrorDetails(null);
+    setIsLoading(true);
+    setRetryCount((count) => count + 1);
+  }, [clearPlayer]);
+
+  const handleNextSource = useCallback(() => {
+    if (sources.length <= 1) {
+      handleRetry();
+      return;
+    }
+    selectSource((selectedSourceIndex + 1) % sources.length);
+  }, [handleRetry, selectSource, selectedSourceIndex, sources.length]);
 
   useEffect(() => {
     setSelectedSourceIndex(0);
-  }, [channel.id]);
-
-  // Cleanup HLS instance on unmount
-  useEffect(() => {
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, []);
-
-  const loadStream = useCallback(async () => {
-    if (!isOpen || !currentStreamUrl) return;
-
-    setIsLoading(true);
+    setRetryCount(0);
     setError(null);
     setErrorDetails(null);
+    setIsLoading(true);
+    clearPlayer();
+  }, [channel.id, clearPlayer]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    openPlayer();
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    return () => {
+      clearPlayer();
+      closePlayer();
+      previouslyFocused?.focus?.();
+    };
+  }, [clearPlayer, closePlayer, isOpen, openPlayer]);
+
+  useEffect(() => {
+    if (!isOpen || !rootRef.current) return;
+
+    const modalRoot = rootRef.current;
+    const siblings = Array.from(document.body.children).filter((element) => element !== modalRoot);
+    const previousState = siblings.map((element) => ({
+      inert: (element as HTMLElement).inert,
+      ariaHidden: element.getAttribute("aria-hidden"),
+    }));
+
+    siblings.forEach((element) => {
+      (element as HTMLElement).inert = true;
+      element.setAttribute("aria-hidden", "true");
+    });
+
+    return () => {
+      siblings.forEach((element, index) => {
+        (element as HTMLElement).inert = previousState[index].inert;
+        const ariaHidden = previousState[index].ariaHidden;
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+      });
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") handleModalClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleModalClose, isOpen]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || !currentStreamUrl) return;
+
+    setError(null);
+    setErrorDetails(null);
+    setIsLoading(true);
+
+    if (useIframe) {
+      const timeout = window.setTimeout(() => {
+        // Alguns players externos não disparam o evento load. O iframe continua
+        // disponível, mas o indicador não fica preso indefinidamente.
+        setIsLoading(false);
+      }, LOAD_TIMEOUT_MS);
+
+      return () => window.clearTimeout(timeout);
+    }
 
     const video = videoRef.current;
     if (!video) return;
 
-    const originalUrl = currentStreamUrl;
-    const isEmbedUrl = originalUrl.includes('embedcanaisdetv.') || originalUrl.includes('/e/index.php') || originalUrl.includes('rde.lat/');
-
-    // Iframes externos são renderizados diretamente no JSX.
-    if (isEmbedUrl || originalUrl.includes("youtube.com") || originalUrl.includes("youtu.be")) {
-      setUseNativePlayer(false);
+    let networkRecoveryCount = 0;
+    let mediaRecoveryCount = 0;
+    const proxiedUrl = buildProxyUrl(currentStreamUrl);
+    const timeout = window.setTimeout(() => {
+      setError("O canal demorou demais para responder.");
+      setErrorDetails("Tente novamente ou selecione outra fonte.");
       setIsLoading(false);
-      return;
-    }
+    }, LOAD_TIMEOUT_MS);
 
-    // Para streams M3U8, tenta o proxy
-    if (originalUrl.includes(".m3u8")) {
-      const proxyUrl = `/api/tv-proxy?url=${encodeURIComponent(originalUrl)}`;
+    const handleReady = () => {
+      window.clearTimeout(timeout);
+      setIsLoading(false);
+      setError(null);
+      void video.play().catch(() => {
+        // Autoplay pode ser bloqueado; os controles permanecem disponíveis.
+      });
+    };
 
-      try {
-        // Primeiro verifica se o proxy consegue acessar o stream
-        const checkResponse = await fetch(proxyUrl);
-        if (!checkResponse.ok) {
-          const errorData = await checkResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || `Proxy error: ${checkResponse.status}`);
+    const handleVideoError = () => {
+      window.clearTimeout(timeout);
+      setError("Erro ao carregar o canal.");
+      setErrorDetails("O servidor não entregou um formato de vídeo compatível.");
+      setIsLoading(false);
+    };
+
+    video.addEventListener("loadedmetadata", handleReady);
+    video.addEventListener("canplay", handleReady);
+    video.addEventListener("playing", handleReady);
+    video.addEventListener("error", handleVideoError);
+
+    if (isHlsUrl(currentStreamUrl) && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 10,
+      });
+      hlsRef.current = hls;
+
+      hls.on(Hls.Events.MANIFEST_PARSED, handleReady);
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!data.fatal) return;
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRecoveryCount < 2) {
+          networkRecoveryCount += 1;
+          hls.startLoad();
+          return;
         }
 
-        const contentType = checkResponse.headers.get('content-type') || '';
-
-        // Se não é M3U8, pode ser que o servidor bloqueou
-        if (!contentType.includes('mpegurl') && !contentType.includes('m3u8') && !contentType.includes('octet-stream')) {
-          // Tenta carregar direto mesmo assim
-          console.log('Proxy returned non-M3U8 content, trying direct load');
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveryCount < 1) {
+          mediaRecoveryCount += 1;
+          hls.recoverMediaError();
+          return;
         }
 
-        if (useNativePlayer || !Hls.isSupported()) {
-          // Usa player nativo (Safari)
-          video.src = proxyUrl;
-          video.addEventListener("loadedmetadata", () => {
-            setIsLoading(false);
-            video.play().catch((e) => {
-              console.log("Autoplay prevented:", e);
-            });
-          });
-          video.addEventListener("error", (e) => {
-            console.error("Video error:", e);
-            setError("Erro ao carregar o canal.");
-            setErrorDetails("O servidor do canal pode estar bloqueando a reprodução.");
-            setIsLoading(false);
-          });
-        } else {
-          // Usa HLS.js
-          if (hlsRef.current) {
-            hlsRef.current.destroy();
-            hlsRef.current = null;
-          }
-
-          const hls = new Hls({
-            enableWorker: true,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 10,
-            debug: false,
-            loader: class CustomLoader extends Hls.DefaultConfig.loader {
-              load(context: any, config: any, callbacks: any) {
-                // Proxy todas as requisições de segmentos
-                if (context.url && !context.url.startsWith('/api/')) {
-                  context.url = `/api/tv-proxy?url=${encodeURIComponent(context.url)}`;
-                }
-                super.load(context, config, callbacks);
-              }
-            },
-          });
-
-          hlsRef.current = hls;
-
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            console.log("HLS manifest parsed");
-            setIsLoading(false);
-            video.play().catch((e) => {
-              console.log("Autoplay prevented:", e);
-            });
-          });
-
-          hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error("HLS error:", data);
-
-            if (data.fatal) {
-              switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                  if (data.details === 'manifestLoadError') {
-                    setError("Não foi possível carregar o canal.");
-                    setErrorDetails("O servidor de streaming pode estar bloqueando acesso externo.");
-                  } else {
-                    setError("Erro de rede ao carregar o canal.");
-                    setErrorDetails(`Detalhes: ${data.details}`);
-                  }
-                  break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                  setError("Erro no stream do canal.");
-                  hls.recoverMediaError();
-                  return;
-                default:
-                  setError("Erro ao reproduzir o canal.");
-                  setErrorDetails(`Tipo: ${data.type}, Detalhes: ${data.details}`);
-                  break;
-              }
-              setIsLoading(false);
-            }
-          });
-
-          hls.loadSource(proxyUrl);
-          hls.attachMedia(video);
-        }
-      } catch (err) {
-        console.error("Error loading stream:", err);
-        setError("Erro ao carregar o canal.");
-        setErrorDetails(err instanceof Error ? err.message : "Erro desconhecido");
+        window.clearTimeout(timeout);
+        setError("Não foi possível reproduzir o canal.");
+        setErrorDetails(`Falha HLS: ${data.details}`);
         setIsLoading(false);
-      }
+        hls.destroy();
+        if (hlsRef.current === hls) hlsRef.current = null;
+      });
+
+      hls.attachMedia(video);
+      hls.loadSource(proxiedUrl);
     } else {
-      // Para outros tipos de URL, tenta direto
-      video.src = originalUrl;
-      video.addEventListener("loadedmetadata", () => {
-        setIsLoading(false);
-        video.play().catch((e) => {
-          console.log("Autoplay prevented:", e);
-        });
-      });
-      video.addEventListener("error", () => {
-        setError("Erro ao carregar o canal.");
-        setIsLoading(false);
-      });
+      video.src = proxiedUrl;
+      video.load();
     }
 
     return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-      video.src = "";
+      window.clearTimeout(timeout);
+      video.removeEventListener("loadedmetadata", handleReady);
+      video.removeEventListener("canplay", handleReady);
+      video.removeEventListener("playing", handleReady);
+      video.removeEventListener("error", handleVideoError);
+      clearPlayer();
     };
-  }, [currentStreamUrl, isOpen, useNativePlayer]);
-
-  // Initialize player
-  useEffect(() => {
-    loadStream();
-  }, [loadStream, retryCount]);
-
-  // Notifica contexto quando modal abre/fecha
-  useEffect(() => {
-    if (isOpen) {
-      openPlayer();
-      document.body.style.overflow = "hidden";
-    } else {
-      closePlayer();
-      document.body.style.overflow = "unset";
-    }
-
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-    return () => {
-      document.body.style.overflow = "unset";
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      closePlayer();
-    };
-  }, [isOpen, openPlayer, closePlayer]);
+  }, [clearPlayer, currentStreamUrl, isOpen, retryCount, useIframe]);
 
   const handleFullscreen = () => {
     const playerContainer = containerRef.current;
-    if (playerContainer) {
-      if (!document.fullscreenElement) {
-        playerContainer.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
+    if (!playerContainer) return;
+
+    if (!document.fullscreenElement) {
+      void playerContainer.requestFullscreen().catch((error) => {
+        console.error("Não foi possível ativar a tela cheia:", error);
+      });
+    } else {
+      void document.exitFullscreen().catch((error) => {
+        console.error("Não foi possível sair da tela cheia:", error);
+      });
     }
   };
 
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    setError(null);
-    setIsLoading(true);
-  };
+  if (!mounted || !isOpen) return null;
 
-  const handleTogglePlayer = () => {
-    setUseNativePlayer(!useNativePlayer);
-    handleRetry();
-  };
-
-  if (!isOpen) return null;
-
-  const isYouTube =
-    currentStreamUrl.includes("youtube.com") ||
-    currentStreamUrl.includes("youtu.be");
-  const isEmbed = currentStreamUrl.includes('embedcanaisdetv.') || currentStreamUrl.includes('/e/index.php') || currentStreamUrl.includes('rde.lat/');
-
-  const gateKey = buildChannelGateKey(channel.id);
-  const gateRecoveryInfo: GateContentInfo = { kind: "tvchannel", key: gateKey, channel };
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+  return createPortal(
+    <div
+      ref={rootRef}
+      className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4"
+      role="presentation"
+    >
+      <button
+        type="button"
+        aria-label="Fechar player de TV"
+        className="absolute inset-0 h-full w-full cursor-default bg-black/90 backdrop-blur-sm"
         onClick={handleModalClose}
       />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-6xl bg-black/95 rounded-xl overflow-hidden shadow-2xl border border-purple-500/30 animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-purple-500/30 bg-gradient-to-r from-red-900/50 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 animate-pulse">
-              <span className="w-2 h-2 bg-white rounded-full"></span>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Canal ${channel.name}`}
+        className="relative flex h-[calc(100dvh-1rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-purple-500/30 bg-gradient-to-r from-red-900/50 to-transparent p-3 sm:p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
               AO VIVO
             </div>
-            <h2 className="text-xl font-bold text-white truncate">
-              {channel.name}
-            </h2>
+            <h2 className="truncate text-base font-bold text-white sm:text-xl">{channel.name}</h2>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleFullscreen}
-              className="hover:bg-purple-500/20 transition-all active:scale-95"
-              title="Tela Cheia"
+              className="transition-all hover:bg-purple-500/20 active:scale-95"
+              title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
             >
-              <Maximize2 className="w-5 h-5" />
+              <Maximize2 className="h-5 w-5" />
             </Button>
             <Button
+              ref={closeButtonRef}
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleModalClose}
-              className="hover:bg-purple-500/20 transition-all active:scale-95"
+              className="transition-all hover:bg-purple-500/20 active:scale-95"
               title="Fechar"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
-        {/* Channel Info */}
-        <div className="flex items-center gap-3 p-3 bg-black/50 border-b border-purple-500/20">
-          <Radio className="w-4 h-4 text-purple-400" />
-          <span className="text-sm text-gray-400">
-            {channel.category} • {channel.country}
-          </span>
-          {sources.length > 1 && (
-            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              <span className="text-xs text-gray-500">Fonte:</span>
-              {sources.map((source, index) => {
-                const providerTotal = sources.filter((item) => item.provider === source.provider).length;
-                const providerPosition = sources
-                  .slice(0, index + 1)
-                  .filter((item) => item.provider === source.provider).length;
-                const sourceLabel = providerTotal > 1
-                  ? `${source.provider} ${providerPosition}`
-                  : source.provider;
+        <div className="flex shrink-0 flex-col gap-3 border-b border-purple-500/20 bg-black/50 p-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-3">
+            <Radio className="h-4 w-4 shrink-0 text-purple-400" />
+            <span className="truncate text-sm text-gray-400">
+              {channel.category} • {channel.country}
+            </span>
+          </div>
 
-                return (
-                  <button
-                    key={source.id}
-                    type="button"
-                    onClick={() => setSelectedSourceIndex(index)}
-                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${index === selectedSourceIndex
-                      ? 'border-purple-400 bg-purple-600 text-white'
-                      : 'border-purple-500/30 text-gray-300 hover:bg-purple-500/20'
-                      }`}
-                  >
-                    {sourceLabel}
-                  </button>
-                );
-              })}
+          {sources.length > 0 && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
+              <span className="text-xs text-gray-500">Fonte:</span>
+              {sources.map((source, index) => (
+                <button
+                  key={`${source.id}-${index}`}
+                  type="button"
+                  onClick={() => selectSource(index)}
+                  title={source.provider}
+                  className={`max-w-full truncate rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                    index === selectedSourceIndex
+                      ? "border-purple-400 bg-purple-600 text-white"
+                      : "border-purple-500/30 text-gray-300 hover:bg-purple-500/20"
+                  }`}
+                >
+                  {source.provider}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* TV Player Container */}
         <div
           id="tv-player-container"
           ref={containerRef}
-          className="relative aspect-video bg-black"
+          className="relative min-h-0 flex-1 bg-black sm:aspect-video sm:flex-none"
         >
           <LinkGate contentKey={gateKey} label={`o canal ${channel.name}`} recoveryInfo={gateRecoveryInfo}>
-          <ConsumptionTracker
-            type="live_tv"
-            contentId={channel.id}
-            itemKey={channel.id}
-            title={channel.name}
-          />
-          {isYouTube || isEmbed ? (
-            <iframe
-              key={currentStreamUrl}
-              src={isYouTube
-                ? `${currentStreamUrl}${currentStreamUrl.includes("?") ? "&" : "?"}autoplay=1&mute=1`
-                : currentStreamUrl}
-              className="w-full h-full"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            <ConsumptionTracker
+              type="live_tv"
+              contentId={channel.id}
+              itemKey={channel.id}
+              title={channel.name}
             />
-          ) : (
-            // HLS Video player
-            <>
-              <video
-                ref={videoRef}
-                className="w-full h-full"
-                autoPlay
-                playsInline
-                controls
-                muted
-                onClick={(e) => {
-                  if (e.currentTarget.paused) {
-                    e.currentTarget.play();
-                  } else {
-                    e.currentTarget.pause();
-                  }
-                }}
-              />
 
-              {/* Loading overlay */}
-              {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
-                  <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-4" />
-                  <p className="text-gray-400">Carregando canal...</p>
-                </div>
-              )}
+            {currentStreamUrl ? (
+              useIframe ? (
+                <iframe
+                  key={`${currentStreamUrl}-${retryCount}`}
+                  src={isYouTubeUrl(currentStreamUrl)
+                    ? `${currentStreamUrl}${currentStreamUrl.includes("?") ? "&" : "?"}autoplay=1&mute=1`
+                    : currentStreamUrl}
+                  title={`Transmissão de ${channel.name}`}
+                  className="h-full min-h-[280px] w-full border-0 sm:min-h-0"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="origin-when-cross-origin"
+                  onLoad={() => {
+                    setIsLoading(false);
+                    setError(null);
+                  }}
+                  onError={() => {
+                    setIsLoading(false);
+                    setError("A fonte externa não pôde ser carregada.");
+                    setErrorDetails("Selecione outra fonte ou tente novamente.");
+                  }}
+                />
+              ) : (
+                <video
+                  key={`${currentStreamUrl}-${retryCount}`}
+                  ref={videoRef}
+                  className="h-full min-h-[280px] w-full bg-black object-contain sm:min-h-0"
+                  autoPlay
+                  playsInline
+                  controls
+                  muted
+                />
+              )
+            ) : (
+              <div className="flex h-full min-h-[280px] items-center justify-center text-gray-400">
+                Nenhuma fonte disponível para este canal.
+              </div>
+            )}
 
-              {/* Error overlay */}
-              {error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 px-4">
-                  <div className="text-red-500 text-4xl mb-4">⚠️</div>
-                  <p className="text-white text-lg mb-2 text-center">{error}</p>
-                  {errorDetails && (
-                    <p className="text-gray-500 text-sm mb-4 text-center max-w-md">
-                      {errorDetails}
-                    </p>
-                  )}
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      onClick={handleRetry}
-                      variant="default"
-                      className="bg-purple-600 hover:bg-purple-700"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Tentar Novamente
+            {isLoading && currentStreamUrl && (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+                <Loader2 className="mb-4 h-12 w-12 animate-spin text-purple-500" />
+                <p className="text-gray-400">Carregando canal...</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 px-4 text-center">
+                <div className="mb-3 text-4xl">⚠️</div>
+                <p className="mb-2 text-lg text-white">{error}</p>
+                {errorDetails && <p className="mb-4 max-w-md text-sm text-gray-500">{errorDetails}</p>}
+
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button type="button" onClick={handleRetry} className="bg-purple-600 hover:bg-purple-700">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Tentar novamente
+                  </Button>
+                  {sources.length > 1 && (
+                    <Button type="button" variant="outline" onClick={handleNextSource} className="border-purple-500/50 hover:bg-purple-500/20">
+                      Próxima fonte
                     </Button>
-                    {!useNativePlayer && Hls.isSupported() && (
-                      <Button
-                        onClick={handleTogglePlayer}
-                        variant="outline"
-                        className="border-purple-500/50 hover:bg-purple-500/20"
-                      >
-                        Usar Player Nativo
-                      </Button>
-                    )}
+                  )}
+                  {currentStreamUrl && (
                     <Button
-                      onClick={onClose}
+                      type="button"
                       variant="outline"
+                      onClick={() => window.open(currentStreamUrl, "_blank", "noopener,noreferrer")}
                       className="border-purple-500/50 hover:bg-purple-500/20"
                     >
-                      Fechar
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Abrir fonte
                     </Button>
-                  </div>
+                  )}
+                  <Button type="button" variant="outline" onClick={handleModalClose} className="border-purple-500/50 hover:bg-purple-500/20">
+                    Fechar
+                  </Button>
                 </div>
-              )}
-            </>
-          )}
+              </div>
+            )}
           </LinkGate>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

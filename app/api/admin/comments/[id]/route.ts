@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   let admin;
   try {
@@ -19,7 +19,7 @@ export async function DELETE(
     return adminAuthErrorResponse(error);
   }
 
-  const commentId = params.id;
+  const { id: commentId } = await params;
   if (!/^[A-Za-z0-9_-]{1,200}$/.test(commentId)) {
     return Response.json({ error: 'Comentário inválido.' }, { status: 400 });
   }

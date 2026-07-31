@@ -6,39 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
     "@vercel/analytics": "^1.6.1",
-    "axios": "^1.7.2",
+    "axios": "1.18.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.1.5",
     "firebase": "^12.6.0",
-    "firebase-admin": "^13.6.0",
-    "framer-motion": "^11.2.10",
-    "hls.js": "^1.6.15",
+    "firebase-admin": "14.2.0",
+    "framer-motion": "12.42.2",
+    "hls.js": "1.6.16",
     "lucide-react": "^0.400.0",
-    "next": "^14.2.33",
+    "next": "15.5.22",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
-    "react-player": "^2.16.0",
-    "sharp": "^0.34.5",
+    "sharp": "0.35.3",
     "tailwind-merge": "^2.3.0",
-    "tailwindcss-animate": "^1.0.7",
-    "video.js": "^8.23.4",
-    "webtorrent": "^2.8.5"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/node": "^20.14.8",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.35",
-    "postcss": "^8.4.38",
+    "postcss": "8.5.23",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.2"
   },
@@ -51,5 +46,18 @@
     "unrs-resolver@1.11.1": true,
     "utf-8-validate@6.0.6": true,
     "utp-native@2.5.3": true
+  },
+  "overrides": {
+    "postcss": "8.5.23",
+    "sharp": "0.35.3",
+    "uuid": "11.1.1",
+    "gaxios": "7.3.0",
+    "retry-request": "8.0.3",
+    "teeny-request": "10.1.4",
+    "brace-expansion": "5.0.8",
+    "glob": "13.0.6",
+    "minimatch": "10.2.5",
+    "rimraf": "6.1.3",
+    "websocket-driver": "0.7.5"
   }
 }

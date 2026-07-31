@@ -43,7 +43,7 @@ export async function verifySessionCookieValue(
 }
 
 export async function getServerSessionUser(): Promise<ServerSessionUser | null> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return verifySessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
 }
 

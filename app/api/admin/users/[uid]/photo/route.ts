@@ -15,12 +15,13 @@ const VALID_UID = /^[A-Za-z0-9_-]{1,128}$/;
 
 export async function POST(
   request: Request,
-  { params }: { params: { uid: string } },
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
     const actor = await authenticateAdminRequest(request);
     requireFirebaseAdmin();
-    if (!VALID_UID.test(params.uid)) {
+    const { uid } = await params;
+    if (!VALID_UID.test(uid)) {
       return Response.json({ error: 'Usuário inválido.' }, { status: 400 });
     }
 
@@ -37,7 +38,7 @@ export async function POST(
     }
 
     const auth = getFirebaseAdminAuth();
-    const target = await auth.getUser(params.uid);
+    const target = await auth.getUser(uid);
     const targetIsAdmin = isAdminEmail(target.email)
       || target.customClaims?.admin === true
       || target.customClaims?.role === 'admin';
@@ -47,10 +48,10 @@ export async function POST(
         { status: 403 },
       );
     }
-    const photoURL = await uploadAdminProfilePhoto(params.uid, file);
+    const photoURL = await uploadAdminProfilePhoto(uid, file);
     await Promise.all([
-      auth.updateUser(params.uid, { photoURL }),
-      getFirebaseAdminDb().doc(`users/${params.uid}`).set({
+      auth.updateUser(uid, { photoURL }),
+      getFirebaseAdminDb().doc(`users/${uid}`).set({
         photoURL,
         updatedAt: Date.now(),
       }, { merge: true }),
@@ -58,7 +59,7 @@ export async function POST(
         action: 'user.photo.updated',
         actorUid: actor.uid,
         actorEmail: actor.email,
-        targetUid: params.uid,
+        targetUid: uid,
       }),
     ]);
 
