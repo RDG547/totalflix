@@ -156,6 +156,32 @@ function initials(name: string, email: string): string {
     .join("") || "U";
 }
 
+
+function UserAvatar({ user, compact = false }: { user: AdminUser; compact?: boolean }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [user.photoURL]);
+
+  return (
+    <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-purple-500/25 to-violet-800/25 text-xs font-semibold text-purple-200 ${compact ? "h-9 w-9" : "h-10 w-10"}`}>
+      {user.photoURL && !imageFailed ? (
+        <img
+          src={user.photoURL}
+          alt={`Foto de ${user.displayName}`}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        initials(user.displayName, user.email)
+      )}
+    </div>
+  );
+}
+
 function MetricCard({
   title,
   value,
@@ -811,9 +837,7 @@ function OverviewSection({
             <div className="divide-y divide-white/10">
               {recentUsers.map((item) => (
                 <div key={item.uid} className="flex items-center gap-3 px-5 py-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/25 to-violet-800/25 text-xs font-semibold text-purple-200">
-                    {initials(item.displayName, item.email)}
-                  </div>
+                  <UserAvatar user={item} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium text-zinc-200">{item.displayName}</p>
@@ -894,9 +918,7 @@ function UsersSection({
                   <tr key={item.uid} className="transition-colors hover:bg-white/[0.025]">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-xs font-semibold text-purple-300">
-                          {initials(item.displayName, item.email)}
-                        </div>
+                        <UserAvatar user={item} compact />
                         <div className="min-w-0">
                           <p className="max-w-[240px] truncate font-medium text-zinc-200">{item.displayName}</p>
                           <p className="max-w-[240px] truncate text-xs text-zinc-600">{item.email}</p>

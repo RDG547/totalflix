@@ -3,6 +3,10 @@
 ## 2026-07-31
 
 ### Corrigido
+- Menus de VidSrc, temporada e episódio com fundo sólido e largura ajustada ao conteúdo.
+- Navegação do botão Ver detalhes nos cards da página inicial, inclusive no mobile.
+- Exibição da foto real dos usuários no painel administrativo, com iniciais como fallback.
+- Seletor integrado de temporadas e episódios na página de detalhes, com nomes completos do TMDB.
 - Erro `500 Internal Server Error` causado pela incompatibilidade entre o carregamento CommonJS do `jwks-rsa` e o pacote ESM `jose` nas funções da Vercel.
 - Runtime do projeto alinhado ao Node.js 22 e patch automático de compatibilidade ESM aplicado durante a instalação.
 - Reprodução de canais ao vivo por embeds e streams HLS.
