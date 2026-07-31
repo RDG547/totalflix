@@ -32,6 +32,10 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'api.reidoscanais.st',
+      },
+      {
+        protocol: 'https',
         hostname: 'd1muf25xaso8hp.cloudfront.net',
       },
     ],
