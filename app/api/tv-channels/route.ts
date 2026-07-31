@@ -64,6 +64,14 @@ function decodeHtml(value: string) {
     .replace(/&gt;/g, ">");
 }
 
+function normalizeEmbedChannelId(value: string) {
+  try {
+    return decodeURIComponent(value).replace(/\/+$/g, "").trim();
+  } catch {
+    return value.replace(/\/+$/g, "").trim();
+  }
+}
+
 async function fetchWithTimeout(
   input: string,
   init: RequestInit & { next?: { revalidate: number } } = {},
@@ -96,8 +104,18 @@ async function fetchEmbedChannels(): Promise<ProviderResult> {
   const channels = new Map<string, PublicChannel>();
 
   for (const match of Array.from(html.matchAll(pattern))) {
-    const [, rawName, rawHref, channelId, rawPoster] = match;
-    const streamUrl = new URL(decodeHtml(rawHref), EMBED_CHANNELS_URL).toString();
+    const [, rawName, rawHref, rawChannelId, rawPoster] = match;
+    const channelId = normalizeEmbedChannelId(rawChannelId);
+    if (!channelId) continue;
+
+    // O catálogo às vezes publica o parâmetro como "canal=espn6/" ou
+    // "canal=espn6%2F". Essa barra passa a fazer parte do identificador e o
+    // player remoto tenta buscar uma playlist inexistente, resultando em
+    // hls:networkError_manifestLoadError. Regravamos o parâmetro já limpo.
+    const embedUrl = new URL(decodeHtml(rawHref), EMBED_CHANNELS_URL);
+    embedUrl.searchParams.set("canal", channelId);
+    const streamUrl = embedUrl.toString();
+
     const channel: PublicChannel = {
       id: `embedcanais-${channelId}`,
       name: decodeHtml(rawName).trim(),
