@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // O projeto usa `npm run check` (tsc --noEmit) no CI. O ESLint legado foi
+    // removido porque a cadeia antiga continha dependências vulneráveis.
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
       {
