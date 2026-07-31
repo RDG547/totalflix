@@ -12,7 +12,7 @@ jobs:
   refresh:
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
@@ -29,23 +29,46 @@ jobs:
       - name: Install current lockfile
         run: npm ci
 
-      - name: Remove unused player packages
-        run: npm uninstall react-player video.js @types/video.js
+      - name: Remove vulnerable or unused packages
+        run: npm uninstall react-player video.js @types/video.js webtorrent eslint eslint-config-next
 
-      - name: Upgrade vulnerable direct dependencies
+      - name: Upgrade direct dependencies
         run: |
           npm install --save-exact \
             next@15.5.22 \
             firebase-admin@14.2.0 \
             sharp@0.35.3 \
-            webtorrent@3.0.11 \
+            postcss@8.5.23 \
             axios@1.18.1 \
             hls.js@1.6.16 \
             framer-motion@12.42.2
-          npm install --save-dev --save-exact eslint-config-next@15.5.22
 
-      - name: Apply compatible transitive fixes
-        run: npm audit fix
+      - name: Pin patched transitive dependencies
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          packageJson.scripts = {
+            ...packageJson.scripts,
+            check: 'tsc --noEmit',
+          };
+          delete packageJson.scripts.lint;
+          packageJson.overrides = {
+            ...(packageJson.overrides || {}),
+            postcss: '8.5.23',
+            sharp: '0.35.3',
+            uuid: '11.1.1',
+            gaxios: '7.3.0',
+            'retry-request': '8.0.3',
+            'teeny-request': '10.1.4',
+            'brace-expansion': '2.1.2',
+          };
+          fs.writeFileSync('package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+          npm install
+
+      - name: Type check
+        run: npm run check
 
       - name: Production build
         run: npm run build
