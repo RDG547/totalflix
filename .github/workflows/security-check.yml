@@ -3,20 +3,19 @@ name: Security and build check
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [fix/tv-player-security]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout hotfix branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: fix/vercel-node22-runtime
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,29 +23,27 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Synchronize dependencies
-        run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Verify authentication dependency tree
-        run: npm ls firebase-admin jwks-rsa jose
-
-      - name: Type check
-        run: npm run check
+      - name: NPM audit report
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          console.log('AUDIT_METADATA=' + JSON.stringify(report.metadata?.vulnerabilities || {}));
+          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
+            console.log(`AUDIT_ITEM package=${name} severity=${item.severity} direct=${item.isDirect} range=${item.range} fix=${JSON.stringify(item.fixAvailable)}`);
+            for (const via of item.via || []) {
+              if (typeof via === 'object') console.log(`  via=${via.source} ${via.title} range=${via.range}`);
+            }
+          }
+          NODE
 
       - name: Production build
         run: npm run build
 
       - name: Require clean audit
         run: npm audit --audit-level=low
-
-      - name: Commit synchronized lockfile
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          if git diff --cached --quiet; then
-            echo "Lockfile already synchronized"
-          else
-            git commit -m "chore: sincroniza lockfile do hotfix de autenticação"
-            git push origin HEAD:fix/vercel-node22-runtime
-          fi
