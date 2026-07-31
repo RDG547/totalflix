@@ -1,0 +1,49 @@
+name: Security and build check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [fix/tv-player-security]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: NPM audit report
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          console.log('AUDIT_METADATA=' + JSON.stringify(report.metadata?.vulnerabilities || {}));
+          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
+            console.log(`AUDIT_ITEM package=${name} severity=${item.severity} direct=${item.isDirect} range=${item.range} fix=${JSON.stringify(item.fixAvailable)}`);
+            for (const via of item.via || []) {
+              if (typeof via === 'object') console.log(`  via=${via.source} ${via.title} range=${via.range}`);
+            }
+          }
+          NODE
+
+      - name: Production build
+        run: npm run build
+
+      - name: Require clean audit
+        run: npm audit --audit-level=low
