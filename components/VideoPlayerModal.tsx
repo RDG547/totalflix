@@ -1,16 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, X, Maximize2, MonitorPlay } from "lucide-react";
+import { ChevronDown, Maximize2, MonitorPlay, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRef } from "react";
-import { getPlayerUrl, getImageUrl, type VideoPlayer } from "@/lib/tmdb";
+import { getImageUrl, getPlayerUrl, type VideoPlayer } from "@/lib/tmdb";
 import TorrentPlayer from "./TorrentPlayer";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { LinkGate } from "@/components/LinkGate";
-import { buildMovieGateKey, buildSeriesGateKey, revokeContentUnlock, type GateContentInfo } from "@/lib/linkGate";
+import {
+  buildMovieGateKey,
+  buildSeriesGateKey,
+  revokeContentUnlock,
+  type GateContentInfo,
+} from "@/lib/linkGate";
 import { ConsumptionTracker } from "@/components/ConsumptionTracker";
+import { useScrollLock } from "@/hooks/useScrollLock";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -25,30 +30,28 @@ interface VideoPlayerModalProps {
 }
 
 const PLAYER_OPTIONS = [
-  { id: 'megaembed' as VideoPlayer, name: 'Mega Embed', icon: '🎬' },
-  { id: 'embedmovies' as VideoPlayer, name: 'EmbedMovies', icon: '🔗' },
-  { id: 'warezcdn' as VideoPlayer, name: 'WarezCDN', icon: '🌐' },
-  { id: 'superflixapi' as VideoPlayer, name: 'SuperFlix API', icon: '🎬' },
-  { id: '2embed' as VideoPlayer, name: '2Embed', icon: '🎞️' },
-  { id: 'superembed' as VideoPlayer, name: 'SuperEmbed', icon: '⭐' },
-  { id: 'smashystream' as VideoPlayer, name: 'Smashy', icon: '💥' },
-  { id: 'webtorrent' as VideoPlayer, name: 'WebTorrent (P2P)', icon: '⚡' },
+  { id: "megaembed" as VideoPlayer, name: "Mega Embed", icon: "🎬" },
+  { id: "embedmovies" as VideoPlayer, name: "EmbedMovies", icon: "🔗" },
+  { id: "warezcdn" as VideoPlayer, name: "WarezCDN", icon: "🌐" },
+  { id: "superflixapi" as VideoPlayer, name: "SuperFlix API", icon: "🎬" },
+  { id: "2embed" as VideoPlayer, name: "2Embed", icon: "🎞️" },
+  { id: "superembed" as VideoPlayer, name: "SuperEmbed", icon: "⭐" },
+  { id: "smashystream" as VideoPlayer, name: "Smashy", icon: "💥" },
+  { id: "webtorrent" as VideoPlayer, name: "WebTorrent (P2P)", icon: "⚡" },
 ];
 
 const VIDSRC_OPTIONS: Array<{ id: VideoPlayer; name: string; icon: string }> = [
-  { id: 'vidsrcsbs', name: 'VidSrc SBS', icon: '🟦' },
-  { id: 'vidsrcmeRu', name: 'VidSrcMe RU', icon: '🇷🇺' },
-  { id: 'vidsrcmeSu', name: 'VidSrcMe SU', icon: '🇺🇳' },
-  { id: 'vidsrcMeRu', name: 'VidSrc-Me RU', icon: '➖' },
-  { id: 'vidsrcMeSu', name: 'VidSrc-Me SU', icon: '🧩' },
-  { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU', icon: '🟥' },
-  { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU', icon: '🟪' },
-  { id: 'vsrcSu', name: 'VSrc SU', icon: '🟢' },
-  { id: 'vidsrcTo', name: 'VidSrc.to', icon: '▶️' },
-  { id: 'vidapi', name: 'VidAPI', icon: '🎥' },
+  { id: "vidsrcsbs", name: "VidSrc SBS", icon: "🟦" },
+  { id: "vidsrcmeRu", name: "VidSrcMe RU", icon: "🇷🇺" },
+  { id: "vidsrcmeSu", name: "VidSrcMe SU", icon: "🇺🇳" },
+  { id: "vidsrcMeRu", name: "VidSrc-Me RU", icon: "➖" },
+  { id: "vidsrcMeSu", name: "VidSrc-Me SU", icon: "🧩" },
+  { id: "vidsrcEmbedRu", name: "VidSrc Embed RU", icon: "🟥" },
+  { id: "vidsrcEmbedSu", name: "VidSrc Embed SU", icon: "🟪" },
+  { id: "vsrcSu", name: "VSrc SU", icon: "🟢" },
+  { id: "vidsrcTo", name: "VidSrc.to", icon: "▶️" },
+  { id: "vidapi", name: "VidAPI", icon: "🎥" },
 ];
-
-import { useScrollLock } from "@/hooks/useScrollLock";
 
 export function VideoPlayerModal({
   isOpen,
@@ -63,111 +66,145 @@ export function VideoPlayerModal({
 }: VideoPlayerModalProps) {
   const [selectedSeason, setSelectedSeason] = useState(initialSeason);
   const [selectedEpisode, setSelectedEpisode] = useState(initialEpisode);
-  const [episodeCount, setEpisodeCount] = useState(10);
-  const [selectedPlayer, setSelectedPlayer] = useState<VideoPlayer>('megaembed');
+  const [selectedPlayer, setSelectedPlayer] = useState<VideoPlayer>("megaembed");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isVidSrcMenuOpen, setIsVidSrcMenuOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const vidSrcMenuRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const { openPlayer, closePlayer } = usePlayer();
+  const episodeCount = 10;
 
   const gateKey = type === "movie"
     ? buildMovieGateKey(tmdbId)
     : buildSeriesGateKey(tmdbId, selectedSeason, selectedEpisode);
 
-  const handleModalClose = () => {
-    revokeContentUnlock(gateKey);
-    onClose();
-  };
-
-  useEffect(() => setMounted(true), []);
+  useScrollLock(isOpen);
 
   useEffect(() => {
-    if (!isVidSrcMenuOpen) return;
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!vidSrcMenuRef.current?.contains(event.target as Node)) setIsVidSrcMenuOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsVidSrcMenuOpen(false);
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isVidSrcMenuOpen]);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const handleModalClose = useCallback(() => {
+    revokeContentUnlock(gateKey);
+    onCloseRef.current();
+  }, [gateKey]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const modalRoot = document.querySelector('[data-player-modal-root]');
-    const siblings = Array.from(document.body.children).filter((element) => element !== modalRoot);
-    const previousAria = siblings.map((element) => element.getAttribute('aria-hidden'));
+
+    openPlayer();
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    return () => {
+      closePlayer();
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen, openPlayer, closePlayer]);
+
+  useEffect(() => {
+    if (!isOpen || !rootRef.current) return;
+
+    const modalRoot = rootRef.current;
+    const siblings = Array.from(document.body.children).filter(
+      (element) => element !== modalRoot,
+    );
+    const previousState = siblings.map((element) => ({
+      inert: (element as HTMLElement).inert,
+      ariaHidden: element.getAttribute("aria-hidden"),
+    }));
 
     siblings.forEach((element) => {
       (element as HTMLElement).inert = true;
-      element.setAttribute('aria-hidden', 'true');
+      element.setAttribute("aria-hidden", "true");
     });
 
     return () => {
       siblings.forEach((element, index) => {
-        (element as HTMLElement).inert = false;
-        const ariaValue = previousAria[index];
-        if (ariaValue === null) element.removeAttribute('aria-hidden');
-        else element.setAttribute('aria-hidden', ariaValue);
+        (element as HTMLElement).inert = previousState[index].inert;
+        const ariaHidden = previousState[index].ariaHidden;
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
       });
     };
   }, [isOpen]);
 
-  // Atualiza season/episode quando props mudarem
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (isVidSrcMenuOpen) {
+          setIsVidSrcMenuOpen(false);
+          return;
+        }
+        handleModalClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isVidSrcMenuOpen, handleModalClose]);
+
+  useEffect(() => {
+    if (!isVidSrcMenuOpen) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!vidSrcMenuRef.current?.contains(event.target as Node)) {
+        setIsVidSrcMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [isVidSrcMenuOpen]);
+
   useEffect(() => {
     setSelectedSeason(initialSeason);
     setSelectedEpisode(initialEpisode);
-  }, [initialSeason, initialEpisode]);
-
-  // Notifica contexto quando modal abre/fecha
-  useEffect(() => {
-    if (isOpen) {
-      openPlayer();
-    } else {
-      closePlayer();
-    }
-
-    return () => {
-      closePlayer();
-    };
-  }, [isOpen, openPlayer, closePlayer]);
-
-  // ... inside component ...
-  useScrollLock(isOpen);
+  }, [initialSeason, initialEpisode, tmdbId]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(Boolean(document.fullscreenElement));
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    return () => {
-      document.body.style.overflow = "unset";
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, [isOpen]);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   const handleFullscreen = () => {
-    const playerContainer = document.getElementById("player-container");
-    if (playerContainer) {
-      if (!document.fullscreenElement) {
-        playerContainer.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
+    const playerContainer = playerContainerRef.current;
+    if (!playerContainer) return;
+
+    if (!document.fullscreenElement) {
+      playerContainer.requestFullscreen().catch((error) => {
+        console.error("Não foi possível ativar a tela cheia:", error);
+      });
+    } else {
+      document.exitFullscreen().catch((error) => {
+        console.error("Não foi possível sair da tela cheia:", error);
+      });
     }
   };
 
-  const embedUrl = getPlayerUrl(selectedPlayer, type, tmdbId, selectedSeason, selectedEpisode);
+  const embedUrl = getPlayerUrl(
+    selectedPlayer,
+    type,
+    tmdbId,
+    selectedSeason,
+    selectedEpisode,
+  );
   const selectedVidSrc = VIDSRC_OPTIONS.find((player) => player.id === selectedPlayer);
-
   const gateLabel = type === "movie"
     ? "este filme"
     : `o episódio ${selectedEpisode} da temporada ${selectedSeason}`;
@@ -186,147 +223,182 @@ export function VideoPlayerModal({
   if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <div data-player-modal-root className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+    <div
+      ref={rootRef}
+      className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4"
+      role="presentation"
+    >
+      <button
+        type="button"
+        aria-label="Fechar player"
+        className="absolute inset-0 h-full w-full cursor-default bg-black/90 backdrop-blur-sm"
         onClick={handleModalClose}
       />
 
-      {/* Modal */}
-      <div onPointerDown={(event) => event.stopPropagation()} className="relative flex h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-purple-500/30 bg-gradient-to-r from-purple-900/50 to-transparent">
-          <h2 className="text-xl font-bold text-white truncate pr-4">{title}</h2>
-          <div className="flex items-center gap-2">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Player de ${title}`}
+        className="relative flex h-[calc(100dvh-1rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-purple-500/30 bg-black/95 shadow-2xl sm:h-[calc(100dvh-2rem)]"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-purple-500/30 bg-gradient-to-r from-purple-900/50 to-transparent p-3 sm:p-4">
+          <h2 className="truncate pr-3 text-base font-bold text-white sm:text-xl">{title}</h2>
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleFullscreen}
-              className="hover:bg-purple-500/20 transition-all active:scale-95"
-              title="Tela Cheia"
+              className="transition-all hover:bg-purple-500/20 active:scale-95"
+              title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
             >
-              <Maximize2 className="w-5 h-5" />
+              <Maximize2 className="h-5 w-5" />
             </Button>
             <Button
+              ref={closeButtonRef}
+              type="button"
               variant="ghost"
               size="icon"
               onClick={handleModalClose}
-              className="hover:bg-purple-500/20 transition-all active:scale-95"
+              className="transition-all hover:bg-purple-500/20 active:scale-95"
               title="Fechar"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
-        {/* Player Selection & Controls */}
-        <div className="relative z-20 max-h-[34dvh] shrink-0 overflow-visible bg-black/50 p-3 sm:p-4 border-b border-purple-500/20">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-          {/* Player Selection */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <MonitorPlay className="w-4 h-4 text-purple-400" />
-            <span className="text-sm text-gray-400 font-medium">Player:</span>
-            {PLAYER_OPTIONS.filter((player) => player.id !== 'webtorrent').map((player) => (
-              <button
-                key={player.id}
-                onClick={() => setSelectedPlayer(player.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${selectedPlayer === player.id
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
-                  : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
+        <div className="relative z-30 max-h-[44dvh] shrink-0 overflow-x-hidden overflow-y-auto border-b border-purple-500/20 bg-black/50 p-3 sm:p-4 md:overflow-visible">
+          <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-start">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <MonitorPlay className="h-4 w-4 shrink-0 text-purple-400" />
+              <span className="text-sm font-medium text-gray-400">Player:</span>
+
+              {PLAYER_OPTIONS.filter((player) => player.id !== "webtorrent").map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPlayer(player.id);
+                    setIsVidSrcMenuOpen(false);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${
+                    selectedPlayer === player.id
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
+                      : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
                   }`}
-              >
-                <span className="mr-1">{player.icon}</span>
-                {player.name}
-              </button>
-            ))}
-            <div ref={vidSrcMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setIsVidSrcMenuOpen((open) => !open)}
-                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${selectedVidSrc
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
-                  : 'border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20'
+                >
+                  <span className="mr-1">{player.icon}</span>
+                  {player.name}
+                </button>
+              ))}
+
+              <div ref={vidSrcMenuRef} className="relative w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsVidSrcMenuOpen((open) => !open)}
+                  aria-expanded={isVidSrcMenuOpen}
+                  aria-haspopup="menu"
+                  className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-all active:scale-[0.99] sm:w-auto sm:py-1.5 ${
+                    selectedVidSrc
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
+                      : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
                   }`}
-              >
-                <span>📺</span>
-                {selectedVidSrc?.name || 'VidSrc'}
-                <ChevronDown className={`h-4 w-4 transition-transform ${isVidSrcMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isVidSrcMenuOpen && (
-                <div className="absolute right-0 top-full z-[100] mt-2 max-h-[min(320px,45dvh)] min-w-52 overflow-y-auto overscroll-contain rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl shadow-black">
-                  {VIDSRC_OPTIONS.map((player) => (
-                    <button
-                      key={player.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPlayer(player.id);
-                        setIsVidSrcMenuOpen(false);
-                      }}
-                      className={`block w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedPlayer === player.id
-                        ? 'bg-purple-600 text-white'
-                        : 'text-gray-300 hover:bg-purple-500/20 hover:text-white'
+                >
+                  <span>📺</span>
+                  <span className="truncate">{selectedVidSrc?.name || "VidSrc"}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isVidSrcMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {isVidSrcMenuOpen && (
+                  <div
+                    role="menu"
+                    className="relative z-[120] mt-2 max-h-[min(320px,40dvh)] w-full overflow-y-auto overscroll-contain rounded-lg border border-purple-500/30 bg-black/95 p-1 shadow-2xl shadow-black sm:absolute sm:right-0 sm:top-full sm:w-64"
+                  >
+                    {VIDSRC_OPTIONS.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setSelectedPlayer(player.id);
+                          setIsVidSrcMenuOpen(false);
+                        }}
+                        className={`block w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                          selectedPlayer === player.id
+                            ? "bg-purple-600 text-white"
+                            : "text-gray-300 hover:bg-purple-500/20 hover:text-white"
                         }`}
-                    >
-                      <span className="mr-2">{player.icon}</span>{player.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {PLAYER_OPTIONS.filter((player) => player.id === 'webtorrent').map((player) => (
-              <button
-                key={player.id}
-                onClick={() => setSelectedPlayer(player.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${selectedPlayer === player.id
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
-                  : 'bg-black/60 text-gray-300 hover:bg-purple-500/20 border border-purple-500/30'
+                      >
+                        <span className="mr-2">{player.icon}</span>
+                        {player.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {PLAYER_OPTIONS.filter((player) => player.id === "webtorrent").map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPlayer(player.id);
+                    setIsVidSrcMenuOpen(false);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all active:scale-95 ${
+                    selectedPlayer === player.id
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/50"
+                      : "border border-purple-500/30 bg-black/60 text-gray-300 hover:bg-purple-500/20"
                   }`}
-              >
-                <span className="mr-1">{player.icon}</span>{player.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Season/Episode Selector for TV Shows */}
-          {type === "tv" && selectedPlayer !== 'webtorrent' && (
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400 font-medium">Temporada:</label>
-                <select
-                  value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(Number(e.target.value))}
-                  className="bg-black/60 border border-purple-500/30 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:outline-none transition-all active:scale-95 cursor-pointer"
                 >
-                  {Array.from({ length: numberOfSeasons }, (_, i) => i + 1).map((season) => (
-                    <option key={season} value={season}>
-                      Temporada {season}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400 font-medium">Episódio:</label>
-                <select
-                  value={selectedEpisode}
-                  onChange={(e) => setSelectedEpisode(Number(e.target.value))}
-                  className="bg-black/60 border border-purple-500/30 rounded-lg px-3 py-2 text-white focus:border-purple-500 focus:outline-none transition-all active:scale-95 cursor-pointer"
-                >
-                  {Array.from({ length: episodeCount }, (_, i) => i + 1).map((episode) => (
-                    <option key={episode} value={episode}>
-                      Episódio {episode}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <span className="mr-1">{player.icon}</span>
+                  {player.name}
+                </button>
+              ))}
             </div>
-          )}
+
+            {type === "tv" && selectedPlayer !== "webtorrent" && (
+              <div className="grid w-full shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 md:w-auto">
+                <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-gray-400">
+                  Temporada
+                  <select
+                    value={selectedSeason}
+                    onChange={(event) => {
+                      setSelectedSeason(Number(event.target.value));
+                      setSelectedEpisode(1);
+                    }}
+                    className="relative z-40 w-full min-w-0 rounded-lg border border-purple-500/30 bg-black px-3 py-2.5 text-white outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30"
+                  >
+                    {Array.from({ length: Math.max(numberOfSeasons, 1) }, (_, index) => index + 1).map((season) => (
+                      <option key={season} value={season}>
+                        Temporada {season}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-gray-400">
+                  Episódio
+                  <select
+                    value={selectedEpisode}
+                    onChange={(event) => setSelectedEpisode(Number(event.target.value))}
+                    className="relative z-40 w-full min-w-0 rounded-lg border border-purple-500/30 bg-black px-3 py-2.5 text-white outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30"
+                  >
+                    {Array.from({ length: episodeCount }, (_, index) => index + 1).map((episode) => (
+                      <option key={episode} value={episode}>
+                        Episódio {episode}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Video Player Container */}
-        <div id="player-container" className="relative z-0 min-h-0 flex-1 bg-black">
+        <div ref={playerContainerRef} className="relative z-0 min-h-0 flex-1 bg-black">
           <LinkGate contentKey={gateKey} label={gateLabel} recoveryInfo={gateRecoveryInfo}>
             <ConsumptionTracker
               type={type}
@@ -334,7 +406,7 @@ export function VideoPlayerModal({
               itemKey={type === "movie" ? String(tmdbId) : `${tmdbId}:s${selectedSeason}e${selectedEpisode}`}
               title={title}
             />
-            {selectedPlayer === 'webtorrent' ? (
+            {selectedPlayer === "webtorrent" ? (
               <TorrentPlayer
                 poster={posterPath ? getImageUrl(posterPath) : undefined}
                 tmdbId={tmdbId}
@@ -347,7 +419,8 @@ export function VideoPlayerModal({
                 id="video-player"
                 key={embedUrl}
                 src={embedUrl}
-                className="w-full h-full"
+                title={`Player de ${title}`}
+                className="h-full w-full"
                 allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               />
@@ -356,6 +429,6 @@ export function VideoPlayerModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
