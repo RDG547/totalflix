@@ -19,6 +19,7 @@ interface TVPlayerModalProps {
 }
 
 const LOAD_TIMEOUT_MS = 20_000;
+const IFRAME_OVERLAY_TIMEOUT_MS = 4_000;
 
 const isYouTubeUrl = (url: string) => /(?:youtube\.com|youtu\.be)/i.test(url);
 const isHlsUrl = (url: string) => /(?:\.m3u8?|format=m3u8|type=hls)(?:$|[?#&])/i.test(url);
@@ -189,11 +190,13 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
     setIsLoading(true);
 
     if (useIframe) {
+      // Players de terceiros podem manter requisições abertas e nunca emitir o
+      // evento load do iframe, mesmo quando o vídeo já está visível. O overlay
+      // inicial é apenas um feedback curto; depois disso, o próprio player
+      // externo passa a mostrar o estado real da transmissão.
       const timeout = window.setTimeout(() => {
-        // Alguns players externos não disparam o evento load. O iframe continua
-        // disponível, mas o indicador não fica preso indefinidamente.
         setIsLoading(false);
-      }, LOAD_TIMEOUT_MS);
+      }, IFRAME_OVERLAY_TIMEOUT_MS);
 
       return () => window.clearTimeout(timeout);
     }
@@ -214,6 +217,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
       window.clearTimeout(timeout);
       setIsLoading(false);
       setError(null);
+      setErrorDetails(null);
       void video.play().catch(() => {
         // Autoplay pode ser bloqueado; os controles permanecem disponíveis.
       });
@@ -413,6 +417,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
                   onLoad={() => {
                     setIsLoading(false);
                     setError(null);
+                    setErrorDetails(null);
                   }}
                   onError={() => {
                     setIsLoading(false);
@@ -437,7 +442,7 @@ export function TVPlayerModal({ isOpen, onClose, channel }: TVPlayerModalProps) 
               </div>
             )}
 
-            {isLoading && currentStreamUrl && (
+            {isLoading && currentStreamUrl && !error && (
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-black/80">
                 <Loader2 className="mb-4 h-12 w-12 animate-spin text-purple-500" />
                 <p className="text-gray-400">Carregando canal...</p>
