@@ -3,6 +3,8 @@
 ## 2026-07-31
 
 ### Corrigido
+- Erro `500 Internal Server Error` causado pela incompatibilidade entre o carregamento CommonJS do `jwks-rsa` e o pacote ESM `jose` nas funções da Vercel.
+- Runtime do projeto alinhado ao Node.js 22 e patch automático de compatibilidade ESM aplicado durante a instalação.
 - Reprodução de canais ao vivo por embeds e streams HLS.
 - Normalização dos identificadores do EmbedCanais para evitar `hls:networkError_manifestLoadError` causado por barras extras no parâmetro `canal`.
 - Encerramento automático do indicador “Carregando canal...” em players externos que não disparam o evento `load` do iframe.

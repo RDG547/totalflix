@@ -2,11 +2,15 @@
   "name": "totalflix",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "postinstall": "node scripts/patch-jwks-rsa.cjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
