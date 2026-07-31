@@ -190,6 +190,9 @@ export function MovieCard({ movie }: MovieCardProps) {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest("[data-direct-details=\"true\"]")) return;
+
           if (window.innerWidth < 768) {
             event.preventDefault();
             if (mobileStage === 0) setMobileStage(1);
@@ -271,7 +274,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                     </button>
                   </div>
 
-                  <span className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all duration-200 ${
+                  <span data-direct-details="true" className={`flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all duration-200 ${
                     mediaType === "movie"
                       ? "bg-blue-600 shadow-lg shadow-blue-900/20 group-hover:bg-blue-700"
                       : "bg-red-600 shadow-lg shadow-red-900/20 group-hover:bg-red-700"

@@ -81,7 +81,7 @@ function SelectMenu<T extends string | number>({
   }, [onOpenChange, open]);
 
   return (
-    <div ref={rootRef} className={`relative min-w-0 ${className}`}>
+    <div ref={rootRef} className={`relative inline-block max-w-full align-bottom ${className}`}>
       <span className="mb-1.5 block text-xs font-medium text-gray-400">{label}</span>
       <button
         type="button"
@@ -89,11 +89,11 @@ function SelectMenu<T extends string | number>({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => onOpenChange(!open)}
-        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-purple-500/30 bg-black px-3 py-2.5 text-left text-sm text-white outline-none transition-colors hover:border-purple-400 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-max max-w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-purple-500/30 bg-[#07050a] px-3 py-2.5 text-left text-sm text-white outline-none transition-colors hover:border-purple-400 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <span className="flex min-w-0 items-center gap-2 truncate">
+        <span className="flex min-w-0 items-center gap-2">
           {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : selected?.icon ? <span>{selected.icon}</span> : null}
-          <span className="truncate">{loading ? "Carregando..." : selected?.label || "Selecionar"}</span>
+          <span className="max-w-[min(28rem,calc(100vw-5rem))] whitespace-normal break-words leading-snug">{loading ? "Carregando..." : selected?.label || "Selecionar"}</span>
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -101,10 +101,10 @@ function SelectMenu<T extends string | number>({
       {open && !disabled && !loading && (
         <div
           role="listbox"
-          className={`absolute top-[calc(100%+0.4rem)] z-[500] max-h-[min(320px,42dvh)] min-w-full overflow-y-auto overscroll-contain rounded-lg border border-purple-500/40 bg-black/98 p-1 shadow-2xl shadow-black ${
+          className={`absolute top-[calc(100%+0.4rem)] z-[500] isolate max-h-[min(320px,42dvh)] min-w-full overflow-y-auto overscroll-contain rounded-lg border border-purple-500/50 bg-[#07050a] p-1 shadow-2xl shadow-black ${
             align === "right" ? "right-0" : "left-0"
           }`}
-          style={{ width: "max-content", maxWidth: "min(22rem, calc(100vw - 2rem))" }}
+          style={{ width: "max-content", minWidth: "100%", maxWidth: "min(32rem, calc(100vw - 2rem))" }}
         >
           {options.map((option) => (
             <button
@@ -123,7 +123,7 @@ function SelectMenu<T extends string | number>({
               }`}
             >
               {option.icon && <span className="shrink-0">{option.icon}</span>}
-              <span className="truncate">{option.label}</span>
+              <span className="whitespace-normal break-words leading-snug">{option.label}</span>
             </button>
           ))}
         </div>
@@ -483,7 +483,7 @@ export function VideoPlayerModal({
                 }}
                 onChange={(player) => setSelectedPlayer(player)}
                 align="right"
-                className="w-full sm:w-52 [&>span]:hidden"
+                className="w-fit max-w-full [&>span]:hidden"
               />
 
               <button
@@ -503,7 +503,7 @@ export function VideoPlayerModal({
             </div>
 
             {type === "tv" && selectedPlayer !== "webtorrent" && (
-              <div className="grid w-full shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:w-[25rem]">
+              <div className="flex w-full shrink-0 flex-wrap items-end gap-3 xl:w-auto">
                 <SelectMenu
                   label="Temporada"
                   value={selectedSeason}
@@ -521,6 +521,7 @@ export function VideoPlayerModal({
                     setSelectedEpisode(1);
                   }}
                   loading={isSeriesMetadataLoading}
+                  className="w-fit max-w-full"
                 />
                 <SelectMenu
                   label="Episódio"
@@ -537,6 +538,7 @@ export function VideoPlayerModal({
                   onChange={setSelectedEpisode}
                   loading={isEpisodeLoading}
                   align="right"
+                  className="w-fit max-w-full"
                 />
               </div>
             )}
