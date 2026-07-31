@@ -1,146 +1,190 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-// Lista de User-Agents para tentar
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'VLC/3.0.18 LibVLC/3.0.18',
-  'IPTV Pro/8.0.0',
-  'Kodi/20.0',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-];
+const FETCH_TIMEOUT_MS = 15_000;
+const MAX_MANIFEST_SIZE = 2 * 1024 * 1024;
+const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Headers": "Range, Content-Type",
+  "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges",
+};
+
+function validateTarget(rawUrl: string) {
+  let target: URL;
+
+  try {
+    target = new URL(rawUrl);
+  } catch {
+    throw new Error("URL inválida");
+  }
+
+  if (!['http:', 'https:'].includes(target.protocol)) {
+    throw new Error("Protocolo não permitido");
+  }
+
+  const hostname = target.hostname.toLowerCase();
+  const blockedHostnames = new Set(["localhost", "0.0.0.0", "127.0.0.1", "::1"]);
+  const isPrivateIpv4 = /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
+
+  if (blockedHostnames.has(hostname) || isPrivateIpv4 || hostname.endsWith(".local")) {
+    throw new Error("Destino não permitido");
+  }
+
+  return target;
+}
+
+function isManifestResponse(target: URL, response: Response) {
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const pathname = target.pathname.toLowerCase();
+
+  return pathname.endsWith(".m3u8")
+    || pathname.endsWith(".m3u")
+    || contentType.includes("application/vnd.apple.mpegurl")
+    || contentType.includes("application/x-mpegurl")
+    || contentType.includes("audio/mpegurl");
+}
+
+function buildProxyUrl(value: string, baseUrl: string) {
+  const absoluteUrl = new URL(value, baseUrl).toString();
+  return `/api/tv-proxy?url=${encodeURIComponent(absoluteUrl)}`;
+}
+
+function rewriteManifest(manifest: string, baseUrl: string) {
+  return manifest
+    .split(/\r?\n/)
+    .map((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) return rawLine;
+
+      if (line.startsWith("#")) {
+        return rawLine.replace(/URI=("|')([^"']+)(\1)/gi, (_match, quote: string, uri: string) => (
+          `URI=${quote}${buildProxyUrl(uri, baseUrl)}${quote}`
+        ));
+      }
+
+      return buildProxyUrl(line, baseUrl);
+    })
+    .join("\n");
+}
+
+async function fetchUpstream(target: URL, request: Request) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const range = request.headers.get("range");
+  const origin = `${target.protocol}//${target.host}`;
+
+  try {
+    return await fetch(target, {
+      method: request.method === "HEAD" ? "HEAD" : "GET",
+      redirect: "follow",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        Accept: "*/*",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.7",
+        "User-Agent": USER_AGENT,
+        Referer: `${origin}/`,
+        Origin: origin,
+        ...(range ? { Range: range } : {}),
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const url = searchParams.get('url');
+  const { searchParams } = new URL(request.url);
+  const rawUrl = searchParams.get("url");
 
-    if (!url) {
-        return NextResponse.json(
-            { error: 'URL is required' },
-            { status: 400 }
-        );
+  if (!rawUrl) {
+    return NextResponse.json(
+      { error: "URL is required" },
+      { status: 400, headers: corsHeaders },
+    );
+  }
+
+  try {
+    const target = validateTarget(rawUrl);
+    const response = await fetchUpstream(target, request);
+
+    if (!response.ok && response.status !== 206) {
+      return NextResponse.json(
+        {
+          error: "O servidor do canal recusou a solicitação",
+          details: `HTTP ${response.status}`,
+        },
+        { status: response.status >= 400 && response.status < 600 ? response.status : 502, headers: corsHeaders },
+      );
     }
 
-    // Tenta diferentes combinações de headers
-    const attempts: { headers: Record<string, string>; referer: string }[] = [
-        // Tentativa 1: Headers de navegador comum
-        {
-            headers: {
-                'User-Agent': USER_AGENTS[0],
-                'Accept': '*/*',
-                'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache',
-            },
-            referer: '',
+    const finalUrl = response.url || target.toString();
+
+    if (isManifestResponse(target, response)) {
+      const contentLength = Number(response.headers.get("content-length") || 0);
+      if (contentLength > MAX_MANIFEST_SIZE) {
+        throw new Error("Manifesto HLS maior que o limite permitido");
+      }
+
+      const manifest = await response.text();
+      if (!manifest.trimStart().startsWith("#EXTM3U")) {
+        throw new Error("O endereço não retornou uma playlist HLS válida");
+      }
+
+      return new NextResponse(rewriteManifest(manifest, finalUrl), {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
         },
-        // Tentativa 2: Headers de VLC
-        {
-            headers: {
-                'User-Agent': USER_AGENTS[1],
-                'Accept': '*/*',
-                'Accept-Encoding': 'identity',
-                'Connection': 'close',
-            },
-            referer: '',
-        },
-        // Tentativa 3: Headers de IPTV Pro
-        {
-            headers: {
-                'User-Agent': USER_AGENTS[2],
-                'Accept': 'application/vnd.apple.mpegurl,*/*',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-            },
-            referer: 'http://localhost/',
-        },
+      });
+    }
+
+    const headers = new Headers(corsHeaders);
+    const passthroughHeaders = [
+      "content-type",
+      "content-length",
+      "content-range",
+      "accept-ranges",
+      "last-modified",
+      "etag",
     ];
 
-    let lastError = null;
+    passthroughHeaders.forEach((name) => {
+      const value = response.headers.get(name);
+      if (value) headers.set(name, value);
+    });
+    headers.set("Cache-Control", "public, max-age=30, s-maxage=30");
 
-    for (const attempt of attempts) {
-        try {
-            const fetchHeaders: Record<string, string> = { ...attempt.headers };
-            if (attempt.referer) {
-                fetchHeaders['Referer'] = attempt.referer;
-            }
+    return new NextResponse(request.method === "HEAD" ? null : response.body, {
+      status: response.status,
+      headers,
+    });
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.name === "AbortError"
+        ? "Tempo limite ao acessar o servidor do canal"
+        : error.message
+      : "Erro desconhecido";
 
-            const response = await fetch(url, {
-                headers: fetchHeaders,
-                redirect: 'follow',
-                cache: 'no-store',
-            });
-
-            if (!response.ok) {
-                lastError = `HTTP ${response.status}`;
-                continue;
-            }
-
-            const contentType = response.headers.get('content-type') || '';
-            const body = await response.text();
-
-            // Verifica se o conteúdo é um playlist M3U8 válido
-            if (body.trim().startsWith('#EXTM3U') || body.includes('.m3u8') || body.includes('.ts')) {
-                // É um M3U8 válido, processa para substituir URLs relativos
-                let processedBody = body;
-                
-                // Extrai o base URL para resolver URLs relativos
-                const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-                
-                // Substitui URLs relativos por absolutos (que serão proxyados)
-                const lines = body.split('\n');
-                const newLines = lines.map(line => {
-                    line = line.trim();
-                    // Se a linha não é um comentário e não está vazia
-                    if (line && !line.startsWith('#')) {
-                        // Se é uma URL relativa
-                        if (!line.startsWith('http')) {
-                            return baseUrl + line;
-                        }
-                        // Se é uma URL absoluta, não muda
-                        return line;
-                    }
-                    return line;
-                });
-                processedBody = newLines.join('\n');
-
-                return new NextResponse(processedBody, {
-                    status: 200,
-                    headers: {
-                        'Content-Type': 'application/vnd.apple.mpegurl',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                        'Access-Control-Allow-Headers': '*',
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache',
-                        'Expires': '0',
-                    },
-                });
-            }
-
-            // Se chegou aqui, o conteúdo não é um M3U8 válido
-            lastError = 'Invalid content type';
-            
-        } catch (error) {
-            lastError = error instanceof Error ? error.message : 'Unknown error';
-            console.error(`Proxy attempt failed:`, lastError);
-        }
-    }
-
-    // Todas as tentativas falharam
+    console.error("TV proxy failed:", message);
     return NextResponse.json(
-        { error: 'Failed to proxy stream', details: lastError },
-        { status: 502 }
+      { error: "Não foi possível carregar o stream", details: message },
+      { status: 502, headers: corsHeaders },
     );
+  }
+}
+
+export async function HEAD(request: Request) {
+  return GET(request);
 }
 
 export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 204,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': '*',
-        },
-    });
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
 }
