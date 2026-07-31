@@ -1,5 +1,12 @@
 import { TV_CHANNELS } from "@/lib/tv-channels";
 
+export interface TVProviderSource {
+  id: string;
+  provider: string;
+  streamUrl: string;
+  quality?: string;
+}
+
 export interface TVProviderMeta {
   id: string;
   name: string;
@@ -8,11 +15,7 @@ export interface TVProviderMeta {
   streamUrl?: string;
   genres?: string[];
   provider?: string;
-  sources?: Array<{
-    id: string;
-    provider: string;
-    streamUrl: string;
-  }>;
+  sources?: TVProviderSource[];
 }
 
 interface TVProviderCatalog {
@@ -25,6 +28,24 @@ const normalizeChannelName = (name: string) => name
   .toLocaleLowerCase("pt-BR")
   .replace(/[^a-z0-9]+/g, " ")
   .trim();
+
+const getProviderPriority = (provider: string) => {
+  const normalized = provider.toLocaleLowerCase("pt-BR");
+  if (normalized.startsWith("rei dos canais")) return 0;
+  if (normalized.startsWith("rei dos embeds")) return 1;
+  if (normalized.startsWith("embedcanais")) return 2;
+  if (normalized.startsWith("canal oficial")) return 3;
+  return 4;
+};
+
+const sortSources = (sources: TVProviderSource[]) => [...sources].sort((a, b) => {
+  const providerOrder = getProviderPriority(a.provider) - getProviderPriority(b.provider);
+  if (providerOrder !== 0) return providerOrder;
+
+  const aHd = /(^|\W)(full\s*hd|fhd|1080|hd)(\W|$)/i.test(a.quality || "");
+  const bHd = /(^|\W)(full\s*hd|fhd|1080|hd)(\W|$)/i.test(b.quality || "");
+  return Number(bHd) - Number(aHd);
+});
 
 const getOfficialFallbackChannels = (): TVProviderMeta[] => TV_CHANNELS.map((channel) => ({
   id: `official-${channel.id}`,
@@ -72,7 +93,17 @@ const mergeChannels = (channels: TVProviderMeta[]): TVProviderMeta[] => {
     if (!existing.genres?.length && channel.genres?.length) existing.genres = channel.genres;
   });
 
-  return Array.from(merged.values());
+  return Array.from(merged.values()).map((channel) => {
+    const sources = sortSources(channel.sources || []);
+    const primarySource = sources[0];
+
+    return {
+      ...channel,
+      sources,
+      streamUrl: primarySource?.streamUrl || channel.streamUrl,
+      provider: primarySource?.provider || channel.provider,
+    };
+  });
 };
 
 export async function getTVProviderChannels(): Promise<TVProviderMeta[]> {
@@ -89,9 +120,9 @@ export async function getTVProviderChannels(): Promise<TVProviderMeta[]> {
     }
 
     const data = await response.json() as TVProviderCatalog;
-    return mergeChannels([...officialChannels, ...(data.metas || [])]);
+    return mergeChannels([...(data.metas || []), ...officialChannels]);
   } catch (error) {
     console.error("Error fetching TV provider channels; using official fallback:", error);
-    return officialChannels;
+    return mergeChannels(officialChannels);
   }
 }
