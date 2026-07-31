@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Clapperboard, X } from "lucide-react";
+import { useState } from "react";
+import { Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { tmdb } from "@/lib/tmdb";
+import { TrailerModal } from "@/components/TrailerModal";
 
 interface TrailerButtonProps {
   mediaType: "movie" | "tv";
   id: number;
+  title?: string;
 }
 
-export function TrailerButton({ mediaType, id }: TrailerButtonProps) {
+export function TrailerButton({ mediaType, id, title = "este conteúdo" }: TrailerButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,16 +26,13 @@ export function TrailerButton({ mediaType, id }: TrailerButtonProps) {
     setLoading(true);
     try {
       const videos = await tmdb.getVideos(mediaType, id);
-
-      // Procurar trailer oficial em português ou inglês
       const trailer = videos.find((video: any) =>
         video.type === "Trailer" &&
         video.site === "YouTube" &&
         (video.iso_639_1 === "pt" || video.iso_639_1 === "en")
       ) || videos.find((video: any) =>
-        video.site === "YouTube" &&
-        video.type === "Trailer"
-      ) || videos[0];
+        video.site === "YouTube" && video.type === "Trailer"
+      ) || videos.find((video: any) => video.site === "YouTube");
 
       if (trailer?.key) {
         setTrailerKey(trailer.key);
@@ -49,60 +48,25 @@ export function TrailerButton({ mediaType, id }: TrailerButtonProps) {
     }
   };
 
-  const closeModal = () => {
-    setIsOpen(false);
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen]);
-
   return (
     <>
       <Button
+        type="button"
         onClick={loadTrailer}
         disabled={loading}
-        className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 text-white"
+        className="border border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
         size="lg"
       >
-        <Clapperboard className="w-5 h-5 mr-2" />
+        <Clapperboard className="mr-2 h-5 w-5" />
         {loading ? "Carregando..." : "Ver Trailer"}
       </Button>
 
-      {isOpen && trailerKey && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-          onClick={closeModal}
-        >
-          <button
-            onClick={closeModal}
-            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-[10000]"
-            aria-label="Fechar"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
-
-          <div
-            className="relative w-full max-w-5xl aspect-video"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <iframe
-              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0`}
-              className="w-full h-full rounded-lg shadow-2xl"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      )}
+      <TrailerModal
+        isOpen={isOpen}
+        trailerKey={trailerKey}
+        title={title}
+        onClose={() => setIsOpen(false)}
+      />
     </>
   );
 }
