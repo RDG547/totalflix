@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Tags, Sword, Compass, Sparkles, Laugh, Fingerprint, FileText, Drama, Users, Wand2, Landmark, Ghost, Music, Heart, Rocket, Zap, Shield, Mountain, Baby, Newspaper, Mic, MessageCircle, LayoutDashboard, Crown } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Search, Menu, X, Film, ChevronDown, Radio, User, LogOut, LogIn, UserPlus, Home, Clapperboard, Tv, Download, Heart, LayoutDashboard, Crown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -21,6 +20,7 @@ import {
   type FavoriteType,
 } from "@/lib/userProfile";
 import { initializeAchievements, updateAchievementProgress } from "@/lib/achievements";
+import { getGenreIcon } from "@/lib/genre-icons";
 import toast from "react-hot-toast";
 
 interface Genre {
@@ -28,17 +28,8 @@ interface Genre {
   name: string;
 }
 
-const genreIcons: Record<number, LucideIcon> = {
-  28: Sword, 12: Compass, 16: Sparkles, 35: Laugh, 80: Fingerprint,
-  99: FileText, 18: Drama, 10751: Users, 14: Wand2, 36: Landmark,
-  27: Ghost, 10402: Music, 9648: Search, 10749: Heart, 878: Rocket,
-  10770: Tv, 53: Zap, 10752: Shield, 37: Mountain, 10759: Sword,
-  10762: Baby, 10763: Newspaper, 10764: Mic, 10765: Rocket,
-  10766: Drama, 10767: MessageCircle, 10768: Landmark,
-};
-
 function GenreIcon({ genreId }: { genreId: number }) {
-  const Icon = genreIcons[genreId] || Tags;
+  const Icon = getGenreIcon(genreId);
   return <Icon className="w-4 h-4 shrink-0 text-purple-400" />;
 }
 

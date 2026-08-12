@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { KeyRound, Loader2, Mail, X } from "lucide-react";
+import { KeyRound, Loader2, Mail, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScrollLock } from "@/hooks/useScrollLock";
 
@@ -162,10 +162,13 @@ export function AccountSettingsModal({
               disabled={saving}
               className="flex-1 border-white/10 bg-white/5"
             >
+              <X className="mr-2 h-4 w-4" />
               Cancelar
             </Button>
             <Button type="submit" disabled={saving} className="flex-1 bg-purple-600 hover:bg-purple-500">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {saving
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Save className="mr-2 h-4 w-4" />}
               Salvar alteração
             </Button>
           </div>

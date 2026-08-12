@@ -49,20 +49,29 @@ import toast from "react-hot-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AccountSettingsModal, type AccountSettingsModalType } from "@/components/AccountSettingsModal";
 import { PlatformDropdown, type PlatformDropdownOption } from "@/components/PlatformDropdown";
-import { getGenreName } from "@/lib/genres";
+import { getGenreIcon } from "@/lib/genre-icons";
 
 type ProfileMovie = Movie & { media_type: "movie" | "tv" };
+interface Genre {
+  id: number;
+  name: string;
+}
 
-function favoriteGenreOptions(items: ProfileMovie[]): PlatformDropdownOption[] {
-  const genres = new Map<number, string>();
-  items.forEach((item) => {
-    (item.genre_ids || []).forEach((genreId) => genres.set(genreId, getGenreName(genreId)));
-  });
+function favoriteGenreOptions(genres: Genre[]): PlatformDropdownOption[] {
   return [
     { value: "all", label: "Todos os gêneros" },
-    ...Array.from(genres.entries())
-      .sort((first, second) => first[1].localeCompare(second[1], "pt-BR"))
-      .map(([genreId, label]) => ({ value: String(genreId), label })),
+    ...genres.map((genre) => ({
+      value: String(genre.id),
+      label: genre.name,
+      icon: getGenreIcon(genre.id),
+    })),
+  ];
+}
+
+function appbarSeriesGenres(genres: Genre[]): Genre[] {
+  return [
+    { id: 10759, name: "Ação & Aventura" },
+    ...genres.filter((genre) => genre.id !== 10759),
   ];
 }
 
@@ -72,6 +81,8 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [favorites, setFavorites] = useState<ProfileMovie[]>([]);
+  const [movieGenres, setMovieGenres] = useState<Genre[]>([]);
+  const [seriesGenres, setSeriesGenres] = useState<Genre[]>([{ id: 10759, name: "Ação & Aventura" }]);
   const [historyContent, setHistoryContent] = useState<ProfileMovie[]>([]);
   const [liveTvHistory, setLiveTvHistory] = useState<HistoryEntry[]>([]);
   const [achievements, setAchievements] = useState<UserAchievements | null>(null);
@@ -103,8 +114,8 @@ export default function ProfilePage() {
     () => favorites.filter((item) => item.media_type === "tv"),
     [favorites],
   );
-  const movieGenreOptions = useMemo(() => favoriteGenreOptions(movieFavorites), [movieFavorites]);
-  const seriesGenreOptions = useMemo(() => favoriteGenreOptions(seriesFavorites), [seriesFavorites]);
+  const movieGenreOptions = useMemo(() => favoriteGenreOptions(movieGenres), [movieGenres]);
+  const seriesGenreOptions = useMemo(() => favoriteGenreOptions(seriesGenres), [seriesGenres]);
   const selectedMovieGenre = movieGenreOptions.some((option) => option.value === movieGenreFilter)
     ? movieGenreFilter
     : "all";
@@ -192,7 +203,13 @@ export default function ProfilePage() {
 
     try {
       setLoading(true);
-      const userProfile = await getUserProfile(user.uid);
+      const [userProfile, movieGenresData, seriesGenresData] = await Promise.all([
+        getUserProfile(user.uid),
+        tmdb.getGenres("movie").catch(() => [] as Genre[]),
+        tmdb.getGenres("tv").catch(() => [] as Genre[]),
+      ]);
+      setMovieGenres(movieGenresData);
+      setSeriesGenres(appbarSeriesGenres(seriesGenresData));
 
       if (userProfile) {
         setProfile(userProfile);
@@ -595,9 +612,9 @@ export default function ProfilePage() {
           {activeTab === "favorites" && (
             <>
               {favorites.length > 0 ? (
-                <div className="grid items-start gap-10 xl:grid-cols-2">
+                <div className="space-y-10">
                   {movieFavorites.length > 0 ? (
-                    <section className={seriesFavorites.length === 0 ? "xl:col-span-2" : ""}>
+                    <section>
                       <div className="mb-4 flex flex-wrap items-center gap-3">
                         <h2 className="flex items-center gap-2 text-2xl font-bold text-white">
                           <Film className="h-6 w-6 text-blue-400" />
@@ -614,7 +631,7 @@ export default function ProfilePage() {
                         />
                       </div>
                       {visibleMovieFavorites.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                           {visibleMovieFavorites.map((movie) => (
                             <MovieCard key={`${movie.media_type}:${movie.id}`} movie={movie} />
                           ))}
@@ -628,7 +645,7 @@ export default function ProfilePage() {
                   ) : null}
 
                   {seriesFavorites.length > 0 ? (
-                    <section className={movieFavorites.length === 0 ? "xl:col-span-2" : ""}>
+                    <section>
                       <div className="mb-4 flex flex-wrap items-center gap-3">
                         <h2 className="flex items-center gap-2 text-2xl font-bold text-white">
                           <Tv className="h-6 w-6 text-red-400" />
@@ -645,7 +662,7 @@ export default function ProfilePage() {
                         />
                       </div>
                       {visibleSeriesFavorites.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                           {visibleSeriesFavorites.map((series) => (
                             <MovieCard key={`${series.media_type}:${series.id}`} movie={series} />
                           ))}
