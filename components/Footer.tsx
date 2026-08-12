@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Film, Twitter, Instagram, Mail, Shield, HelpCircle, Info, Home, Clapperboard, Tv, Radio, Users, CircleHelp, FileText } from "lucide-react";
+import { Film, Twitter, Share2, Shield, HelpCircle, Info, Home, Clapperboard, Tv, Radio, Users, CircleHelp, FileText } from "lucide-react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -95,13 +95,13 @@ export function Footer() {
           {/* Social & Contact */}
           <div>
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-purple-400" />
-              Contato
+              <Share2 className="w-4 h-4 text-purple-400" />
+              Redes sociais
             </h3>
             <p className="text-gray-400 text-sm mb-4">
               Fique conectado com a gente nas redes sociais!
             </p>
-            <div className="flex space-x-3 mb-6">
+            <div className="flex space-x-3">
               <a
                 href="#"
                 className="bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 p-3 rounded-lg transition-all hover:scale-110 group"
@@ -109,21 +109,7 @@ export function Footer() {
               >
                 <Twitter className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
               </a>
-              <a
-                href="#"
-                className="bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 p-3 rounded-lg transition-all hover:scale-110 group"
-                aria-label="Instagram"
-              >
-                <Instagram className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
-              </a>
             </div>
-            <a
-              href="mailto:contato@totalflix.com"
-              className="text-sm text-gray-400 hover:text-purple-400 transition-colors flex items-center gap-2"
-            >
-              <Mail className="w-4 h-4" />
-              contato@totalflix.com
-            </a>
           </div>
         </div>
 

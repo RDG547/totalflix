@@ -27,6 +27,7 @@ export async function PATCH(request: Request) {
     const payload = await request.json() as {
       enabled?: unknown;
       message?: unknown;
+      scope?: unknown;
     };
     if (typeof payload.enabled !== 'boolean') {
       return Response.json({ error: 'Estado de manutenção inválido.' }, { status: 400 });
@@ -35,6 +36,10 @@ export async function PATCH(request: Request) {
     const message = typeof payload.message === 'string'
       ? payload.message.trim().slice(0, 240)
       : '';
+    const scope = String(payload.scope || 'all');
+    if (!['all', 'movies', 'series', 'tv'].includes(scope)) {
+      return Response.json({ error: 'Categoria de manutenção inválida.' }, { status: 400 });
+    }
     if (payload.enabled && !message) {
       return Response.json(
         { error: 'Informe a mensagem exibida durante a manutenção.' },
@@ -47,6 +52,7 @@ export async function PATCH(request: Request) {
     await Promise.all([
       db.doc('settings/site').set({
         maintenanceEnabled: payload.enabled,
+        maintenanceScope: scope,
         maintenanceMessage: message || 'Estamos realizando melhorias. Voltaremos em breve.',
         maintenanceUpdatedAt: now,
         maintenanceUpdatedBy: admin.uid,
@@ -57,7 +63,7 @@ export async function PATCH(request: Request) {
         actorEmail: admin.email,
         targetType: 'site',
         targetId: 'site',
-        metadata: { message },
+        metadata: { message, scope },
         createdAt: now,
       }),
     ]);

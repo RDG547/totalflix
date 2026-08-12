@@ -2,14 +2,23 @@ import { AlertTriangle } from "lucide-react";
 import { getServerSessionUser } from "@/lib/session-server";
 import { getMaintenanceSettings } from "@/lib/site-settings-server";
 import { MaintenanceScreen } from "@/components/MaintenanceScreen";
+import { MaintenanceCategoryGate } from "@/components/MaintenanceCategoryGate";
 
 export async function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const settings = await getMaintenanceSettings();
   if (!settings.enabled) return <>{children}</>;
 
   const session = await getServerSessionUser();
-  if (!session?.admin) {
+  if (!session?.admin && settings.scope === "all") {
     return <MaintenanceScreen message={settings.message} />;
+  }
+
+  if (!session?.admin) {
+    return (
+      <MaintenanceCategoryGate scope={settings.scope} message={settings.message}>
+        {children}
+      </MaintenanceCategoryGate>
+    );
   }
 
   return (

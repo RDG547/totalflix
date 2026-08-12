@@ -141,10 +141,6 @@ export async function GET(request: Request) {
 
   return Response.json({
     generatedAt: Date.now(),
-    administrator: {
-      uid: admin.uid,
-      email: admin.email,
-    },
     overview: {
       users: users.length,
       comments: comments.length,
@@ -168,16 +164,6 @@ export async function GET(request: Request) {
       items: comments,
       truncated: commentsCollection.result?.truncated || false,
       error: commentsCollection.error,
-    },
-    system: {
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-      adminSdkConfigured,
-      integrations: [
-        { name: 'Firebase', configured: Boolean(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) },
-        { name: 'TMDB', configured: Boolean(process.env.NEXT_PUBLIC_TMDB_API_KEY) },
-        { name: 'OMDb', configured: Boolean(process.env.NEXT_PUBLIC_OMDB_API_KEY) },
-        { name: 'Softurl / LinkGate', configured: Boolean(process.env.SOFTURL_API_TOKEN) },
-      ],
     },
     maintenance,
   }, {

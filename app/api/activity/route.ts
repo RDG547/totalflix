@@ -43,25 +43,37 @@ export async function POST(request: Request) {
         transaction.get(itemRef),
       ]);
       const previous = itemSnapshot.data() || {};
+      const userData = userSnapshot.data() || {};
       const lastViewedAt = Number(previous.lastViewedAt) || 0;
       const shouldCountView = now - lastViewedAt >= DEDUPLICATION_WINDOW_MS;
       const firstView = !itemSnapshot.exists;
+      const history = Array.isArray(userData.history) ? userData.history : [];
+      const firstContentView = !history.some((item) => {
+        if (!item || typeof item !== 'object') return false;
+        const entry = item as { id?: unknown; type?: unknown };
+        return String(entry.id) === contentId && entry.type === type;
+      });
+      const historyId = type === 'live_tv' ? contentId : Number(contentId);
+      const nextHistory = [
+        { id: historyId, type, timestamp: now, ...(title ? { title } : {}) },
+        ...history.filter((item) => {
+          if (!item || typeof item !== 'object') return true;
+          const entry = item as { id?: unknown; type?: unknown };
+          return String(entry.id) !== contentId || entry.type !== type;
+        }),
+      ].slice(0, 100);
 
-      if (!userSnapshot.exists) {
-        transaction.set(userRef, {
+      transaction.set(userRef, {
+        ...(!userSnapshot.exists ? {
           uid: user.uid,
           email: user.email,
           displayName: '',
           photoURL: '',
           bio: '',
           favorites: [],
-          history: [],
           createdAt: now,
-          updatedAt: now,
-        });
-      }
-
-      transaction.set(userRef, {
+        } : {}),
+        history: nextHistory,
         contentMetrics: {
           [type]: {
             views: FieldValue.increment(shouldCountView ? 1 : 0),
@@ -82,7 +94,7 @@ export async function POST(request: Request) {
         lastViewedAt: now,
       }, { merge: true });
 
-      return { counted: shouldCountView, firstView };
+      return { counted: shouldCountView, firstView, firstContentView };
     });
 
     return Response.json(result, {

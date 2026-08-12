@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, runTransaction, setDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
 import toast from "react-hot-toast";
 
@@ -144,6 +144,10 @@ export interface UserAchievements {
     commentsCount: number;
     favoritesCount: number;
     genresVisited: Set<number>;
+    watchedMovieIds?: string[];
+    watchedSeriesIds?: string[];
+    favoriteIds?: string[];
+    commentIds?: string[];
   };
 }
 
@@ -152,25 +156,100 @@ export async function initializeAchievements(userId: string): Promise<void> {
   const docRef = doc(db, "achievements", userId);
   const docSnap = await getDoc(docRef);
 
-  if (!docSnap.exists()) {
-    const initialAchievements: Achievement[] = ACHIEVEMENTS_LIST.map((a) => ({
-      ...a,
+  if (docSnap.exists()) return;
+
+  await setDoc(docRef, createInitialDocument(userId));
+}
+
+interface StoredStats {
+  moviesWatched: number;
+  seriesWatched: number;
+  commentsCount: number;
+  favoritesCount: number;
+  genresVisited: number[];
+  watchedMovieIds: string[];
+  watchedSeriesIds: string[];
+  favoriteIds: string[];
+  commentIds: string[];
+}
+
+function createInitialDocument(userId: string) {
+  return {
+    userId,
+    achievements: ACHIEVEMENTS_LIST.map((achievement) => ({
+      ...achievement,
       unlocked: false,
       progress: 0,
-    }));
+    })),
+    stats: normalizeStats({}),
+  };
+}
 
-    await setDoc(docRef, {
-      userId,
-      achievements: initialAchievements,
-      stats: {
-        moviesWatched: 0,
-        seriesWatched: 0,
-        commentsCount: 0,
-        favoritesCount: 0,
-        genresVisited: [],
-      },
+function normalizeStats(value: Record<string, unknown>): StoredStats {
+  const list = (item: unknown) => Array.isArray(item) ? item.map(String) : [];
+  const number = (item: unknown) => Number.isFinite(Number(item)) ? Number(item) : 0;
+  return {
+    moviesWatched: number(value.moviesWatched),
+    seriesWatched: number(value.seriesWatched),
+    commentsCount: number(value.commentsCount),
+    favoritesCount: number(value.favoritesCount),
+    genresVisited: Array.isArray(value.genresVisited)
+      ? value.genresVisited.map(Number).filter(Number.isFinite)
+      : [],
+    watchedMovieIds: list(value.watchedMovieIds),
+    watchedSeriesIds: list(value.watchedSeriesIds),
+    favoriteIds: list(value.favoriteIds),
+    commentIds: list(value.commentIds),
+  };
+}
+
+function achievementProgress(id: string, stats: StoredStats): number {
+  if (id === "first_watch") return stats.moviesWatched + stats.seriesWatched;
+  if (["movie_enthusiast", "movie_buff"].includes(id)) return stats.moviesWatched;
+  if (["binge_watcher", "series_addict"].includes(id)) return stats.seriesWatched;
+  if (["first_comment", "commentator", "critic"].includes(id)) return stats.commentsCount;
+  if (["first_favorite", "collector", "mega_collector"].includes(id)) return stats.favoritesCount;
+  if (["explorer", "genre_master"].includes(id)) return stats.genresVisited.length;
+  return 0;
+}
+
+function evaluateAchievements(
+  existing: Achievement[],
+  stats: StoredStats,
+): { achievements: Achievement[]; newlyUnlocked: Achievement[] } {
+  const existingById = new Map(existing.map((achievement) => [achievement.id, achievement]));
+  const newlyUnlocked: Achievement[] = [];
+  const achievements = ACHIEVEMENTS_LIST.map((definition) => {
+    const previous = existingById.get(definition.id);
+    const progress = achievementProgress(definition.id, stats);
+    const unlocked = previous?.unlocked === true || progress >= definition.requirement;
+    const achievement: Achievement = {
+      ...definition,
+      progress,
+      unlocked,
+      ...(previous?.unlockedAt ? { unlockedAt: previous.unlockedAt } : {}),
+    };
+    if (unlocked && !previous?.unlocked) {
+      achievement.unlockedAt = new Date();
+      newlyUnlocked.push(achievement);
+    }
+    return achievement;
+  });
+  return { achievements, newlyUnlocked };
+}
+
+function notifyUnlocked(achievements: Achievement[]) {
+  achievements.forEach((achievement) => {
+    toast.success(`🎉 Conquista Desbloqueada: ${achievement.title}!`, {
+      duration: 5000,
+      icon: achievement.icon,
     });
-  }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("achievementUnlocked", {
+        detail: { achievement },
+      }));
+    }
+  });
 }
 
 // Obter conquistas do usuário
@@ -200,127 +279,105 @@ export async function getUserAchievements(userId: string): Promise<UserAchieveme
 export async function updateAchievementProgress(
   userId: string,
   type: "movie" | "series" | "comment" | "favorite" | "genre",
-  value?: number
+  value?: number | string
 ): Promise<Achievement[]> {
   try {
     const docRef = doc(db, "achievements", userId);
-    const docSnap = await getDoc(docRef);
+    const newlyUnlocked = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      const data = snapshot.exists() ? snapshot.data() : createInitialDocument(userId);
+      const stats = normalizeStats((data.stats || {}) as Record<string, unknown>);
+      const uniqueValue = value === undefined ? "" : String(value);
 
-    if (!docSnap.exists()) {
-      await initializeAchievements(userId);
-      return [];
-    }
-
-    const data = docSnap.data();
-    const achievements: Achievement[] = data.achievements || [];
-    const stats = data.stats || {
-      moviesWatched: 0,
-      seriesWatched: 0,
-      commentsCount: 0,
-      favoritesCount: 0,
-      genresVisited: [],
-    };
-
-    // Atualizar estatísticas
-    switch (type) {
-      case "movie":
-        stats.moviesWatched += 1;
-        break;
-      case "series":
-        stats.seriesWatched += 1;
-        break;
-      case "comment":
-        stats.commentsCount += 1;
-        break;
-      case "favorite":
-        stats.favoritesCount += 1;
-        break;
-      case "genre":
-        if (value && !stats.genresVisited.includes(value)) {
-          stats.genresVisited.push(value);
+      const addUnique = (field: "watchedMovieIds" | "watchedSeriesIds" | "favoriteIds" | "commentIds") => {
+        const values = new Set(stats[field]);
+        if (uniqueValue) {
+          if (values.has(uniqueValue)) return false;
+          values.add(uniqueValue);
+          stats[field] = Array.from(values);
         }
-        break;
-    }
-
-    // Verificar e desbloquear conquistas
-    const newlyUnlocked: Achievement[] = [];
-    const updatedAchievements = achievements.map((achievement) => {
-      if (achievement.unlocked) return achievement;
-
-      let progress = 0;
-
-      // Calcular progresso baseado na categoria
-      switch (achievement.id) {
-        case "first_watch":
-        case "movie_enthusiast":
-        case "movie_buff":
-          progress = stats.moviesWatched;
-          break;
-        case "binge_watcher":
-        case "series_addict":
-          progress = stats.seriesWatched;
-          break;
-        case "first_comment":
-        case "commentator":
-        case "critic":
-          progress = stats.commentsCount;
-          break;
-        case "first_favorite":
-        case "collector":
-        case "mega_collector":
-          progress = stats.favoritesCount;
-          break;
-        case "explorer":
-        case "genre_master":
-          progress = stats.genresVisited.length;
-          break;
-      }
-
-      const unlocked = progress >= achievement.requirement;
-
-      if (unlocked && !achievement.unlocked) {
-        const unlockedAchievement = {
-          ...achievement,
-          unlocked: true,
-          unlockedAt: new Date(),
-          progress,
-        };
-        newlyUnlocked.push(unlockedAchievement);
-
-        // Notificar o usuário sobre a conquista desbloqueada
-        toast.success(
-          `🎉 Conquista Desbloqueada: ${achievement.title}!`,
-          {
-            duration: 5000,
-            icon: achievement.icon,
-          }
-        );
-
-        // Disparar evento customizado para atualizar perfil
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('achievementUnlocked', {
-            detail: { achievement: unlockedAchievement }
-          }));
-        }
-      }
-
-      return {
-        ...achievement,
-        progress,
-        unlocked,
-        unlockedAt: unlocked && !achievement.unlockedAt ? new Date() : achievement.unlockedAt,
+        return true;
       };
-    });
 
-    // Atualizar no Firestore
-    await updateDoc(docRef, {
-      achievements: updatedAchievements,
-      stats,
-    });
+      if (type === "movie" && addUnique("watchedMovieIds")) stats.moviesWatched += 1;
+      if (type === "series" && addUnique("watchedSeriesIds")) stats.seriesWatched += 1;
+      if (type === "comment" && addUnique("commentIds")) stats.commentsCount += 1;
+      if (type === "favorite" && addUnique("favoriteIds")) stats.favoritesCount += 1;
+      if (type === "genre") {
+        const genre = Number(value);
+        if (Number.isFinite(genre) && !stats.genresVisited.includes(genre)) {
+          stats.genresVisited.push(genre);
+        }
+      }
 
+      const evaluated = evaluateAchievements((data.achievements || []) as Achievement[], stats);
+      transaction.set(docRef, {
+        userId,
+        achievements: evaluated.achievements,
+        stats,
+      }, { merge: true });
+      return evaluated.newlyUnlocked;
+    });
+    notifyUnlocked(newlyUnlocked);
     return newlyUnlocked;
   } catch (error) {
     console.error("Erro ao atualizar progresso de conquista:", error);
+    return [];
+  }
+}
+
+export async function synchronizeAchievementsFromProfile(userId: string): Promise<Achievement[]> {
+  try {
+    const userRef = doc(db, "users", userId);
+    const achievementRef = doc(db, "achievements", userId);
+    const [profileSnapshot, commentsSnapshot] = await Promise.all([
+      getDoc(userRef),
+      getDocs(query(collection(db, "comments"), where("userId", "==", userId))).catch(() => null),
+    ]);
+    const profile = profileSnapshot.data() || {};
+    const history = Array.isArray(profile.history) ? profile.history : [];
+    const favorites = Array.isArray(profile.favorites) ? profile.favorites : [];
+    const movieIds = new Set<string>();
+    const seriesIds = new Set<string>();
+    history.forEach((item) => {
+      if (!item || typeof item !== "object") return;
+      const entry = item as { id?: unknown; type?: unknown };
+      if (entry.type === "movie") movieIds.add(String(entry.id));
+      if (entry.type === "tv") seriesIds.add(String(entry.id));
+    });
+    const favoriteIds = new Set(favorites.map((item) => {
+      if (typeof item === "number") return `legacy:${item}`;
+      if (typeof item === "string") return item;
+      const entry = item as { id?: unknown; type?: unknown };
+      return `${entry.type || "legacy"}:${entry.id}`;
+    }));
+
+    const newlyUnlocked = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(achievementRef);
+      const data = snapshot.exists() ? snapshot.data() : createInitialDocument(userId);
+      const stats = normalizeStats((data.stats || {}) as Record<string, unknown>);
+      stats.watchedMovieIds = Array.from(movieIds);
+      stats.watchedSeriesIds = Array.from(seriesIds);
+      stats.favoriteIds = Array.from(favoriteIds);
+      stats.moviesWatched = movieIds.size;
+      stats.seriesWatched = seriesIds.size;
+      stats.favoritesCount = favoriteIds.size;
+      if (commentsSnapshot) {
+        stats.commentIds = commentsSnapshot.docs.map((comment) => comment.id);
+        stats.commentsCount = commentsSnapshot.size;
+      }
+      const evaluated = evaluateAchievements((data.achievements || []) as Achievement[], stats);
+      transaction.set(achievementRef, {
+        userId,
+        achievements: evaluated.achievements,
+        stats,
+      }, { merge: true });
+      return evaluated.newlyUnlocked;
+    });
+    notifyUnlocked(newlyUnlocked);
+    return newlyUnlocked;
+  } catch (error) {
+    console.error("Erro ao sincronizar conquistas:", error);
     return [];
   }
 }

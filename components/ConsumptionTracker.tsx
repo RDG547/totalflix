@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { initializeAchievements, updateAchievementProgress } from "@/lib/achievements";
 
 interface ConsumptionTrackerProps {
   type: "movie" | "tv" | "live_tv";
@@ -24,7 +25,7 @@ export function ConsumptionTracker({
     const timer = window.setTimeout(async () => {
       try {
         const idToken = await user.getIdToken();
-        await fetch("/api/activity", {
+        const response = await fetch("/api/activity", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${idToken}`,
@@ -37,6 +38,18 @@ export function ConsumptionTracker({
             title,
           }),
         });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "Registro de consumo indisponível.");
+
+        if (result.firstContentView && type !== "live_tv") {
+          await initializeAchievements(user.uid);
+          await updateAchievementProgress(
+            user.uid,
+            type === "movie" ? "movie" : "series",
+            String(contentId),
+          );
+        }
+        window.dispatchEvent(new CustomEvent("historyUpdated"));
       } catch (error) {
         console.error("Não foi possível registrar o consumo:", error);
       }

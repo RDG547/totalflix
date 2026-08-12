@@ -3,12 +3,26 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { getUserProfile, updateUserProfile, clearHistory, uploadProfilePhoto, UserProfile } from "@/lib/userProfile";
+import {
+  clearHistory,
+  getUserProfile,
+  isLegacyFavorite,
+  migrateLegacyFavorite,
+  parseFavorite,
+  updateUserProfile,
+  uploadProfilePhoto,
+  type HistoryEntry,
+  type UserProfile,
+} from "@/lib/userProfile";
 import { tmdb, Movie } from "@/lib/tmdb";
 import { MovieCard } from "@/components/MovieCard";
-import { AchievementCard } from "@/components/AchievementCard";
 import { AchievementTree } from "@/components/AchievementTree";
-import { getUserAchievements, getAchievementPercentage, UserAchievements, initializeAchievements } from "@/lib/achievements";
+import {
+  getUserAchievements,
+  getAchievementPercentage,
+  synchronizeAchievementsFromProfile,
+  type UserAchievements,
+} from "@/lib/achievements";
 import {
   User,
   Heart,
@@ -21,7 +35,12 @@ import {
   Trash2,
   Camera,
   Trophy,
-  Crown
+  Crown,
+  Film,
+  Tv,
+  Radio,
+  Mail,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -29,24 +48,34 @@ import toast from "react-hot-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 
-import { GENRE_MAP, getGenreName } from "@/lib/genres";
+import { getGenreName } from "@/lib/genres";
+
+type ProfileMovie = Movie & { media_type: "movie" | "tv" };
 
 export default function ProfilePage() {
-  const { user, isVip, access } = useAuth();
+  const { user, isVip, access, updateAccountEmail, updateAccountPassword } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [favorites, setFavorites] = useState<Movie[]>([]);
-  const [historyMovies, setHistoryMovies] = useState<Movie[]>([]);
+  const [favorites, setFavorites] = useState<ProfileMovie[]>([]);
+  const [historyContent, setHistoryContent] = useState<ProfileMovie[]>([]);
+  const [liveTvHistory, setLiveTvHistory] = useState<HistoryEntry[]>([]);
   const [achievements, setAchievements] = useState<UserAchievements | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<"favorites" | "history" | "achievements" | "settings">("favorites");
   const [isEditing, setIsEditing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [savingAccount, setSavingAccount] = useState<"email" | "password" | null>(null);
   const [editForm, setEditForm] = useState({
     displayName: "",
     bio: "",
+  });
+  const [accountForm, setAccountForm] = useState({
+    email: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
@@ -60,10 +89,11 @@ export default function ProfilePage() {
     // Listener para atualização em tempo real dos favoritos
     const handleFavoriteRemoved = (e: Event) => {
       const customEvent = e as CustomEvent;
-      const { movieId } = customEvent.detail;
+      const { contentId, type } = customEvent.detail;
 
-      // Remover o filme da lista imediatamente (atualização otimista)
-      setFavorites(prev => prev.filter(movie => movie.id !== movieId));
+      setFavorites(prev => prev.filter(movie => (
+        movie.id !== contentId || movie.media_type !== type
+      )));
     };
 
     const handleFavoriteAdded = () => {
@@ -107,41 +137,85 @@ export default function ProfilePage() {
           bio: userProfile.bio || "",
         });
 
-        // Carregar favoritos
+        setAccountForm((current) => ({
+          ...current,
+          email: user.email || userProfile.email || "",
+        }));
+
+        // Carregar favoritos. Entradas novas possuem tipo; entradas antigas são
+        // inferidas uma vez e migradas para impedir colisões entre IDs do TMDB.
         if (userProfile.favorites.length > 0) {
-          const favPromises = userProfile.favorites.map(async (id) => {
-            // Tentar buscar como filme primeiro
-            try {
-              const movieData = await tmdb.getDetails('movie', id);
-              return { ...movieData, media_type: 'movie' };
-            } catch {
-              // Se falhar, tentar como série
-              try {
-                const tvData = await tmdb.getDetails('tv', id);
-                return { ...tvData, media_type: 'tv' };
-              } catch {
-                return null;
-              }
+          const favPromises = userProfile.favorites.map(async (stored) => {
+            if (!isLegacyFavorite(stored)) {
+              const favorite = parseFavorite(stored);
+              if (!favorite) return null;
+              const details = await tmdb.getDetails(favorite.type, favorite.id).catch(() => null);
+              return details ? {
+                ...details,
+                genre_ids: details.genre_ids?.length ? details.genre_ids : details.genres?.map((genre) => genre.id) || [],
+                media_type: favorite.type,
+              } as ProfileMovie : null;
             }
+
+            const id = Number(stored);
+            const historyMatch = userProfile.history.find((item) => (
+              Number(item.id) === id && (item.type === "movie" || item.type === "tv")
+            ));
+            const [movieResult, tvResult] = await Promise.allSettled([
+              tmdb.getDetails("movie", id),
+              tmdb.getDetails("tv", id),
+            ]);
+            const movie = movieResult.status === "fulfilled" ? movieResult.value : null;
+            const series = tvResult.status === "fulfilled" ? tvResult.value : null;
+            let inferredType: "movie" | "tv";
+            if (historyMatch?.type === "movie" || historyMatch?.type === "tv") {
+              inferredType = historyMatch.type;
+            } else if (!movie && series) {
+              inferredType = "tv";
+            } else if (movie && !series) {
+              inferredType = "movie";
+            } else {
+              const movieScore = Number((movie as Movie & { popularity?: number })?.popularity || 0);
+              const seriesScore = Number((series as Movie & { popularity?: number })?.popularity || 0);
+              inferredType = seriesScore > movieScore ? "tv" : "movie";
+            }
+            const details = inferredType === "tv" ? series : movie;
+            if (!details) return null;
+            await migrateLegacyFavorite(user.uid, id, inferredType).catch(() => undefined);
+            return {
+              ...details,
+              genre_ids: details.genre_ids?.length ? details.genre_ids : details.genres?.map((genre) => genre.id) || [],
+              media_type: inferredType,
+            } as ProfileMovie;
           });
           const favResults = await Promise.all(favPromises);
-          setFavorites(favResults.filter(Boolean) as Movie[]);
-        }        // Carregar histórico
-        if (userProfile.history.length > 0) {
-          const histPromises = userProfile.history.map(item =>
-            tmdb.getDetails(item.type, item.id).catch(() => null)
-          );
-          const histResults = await Promise.all(histPromises);
-          setHistoryMovies(histResults.filter(Boolean) as Movie[]);
+          setFavorites(favResults.filter(Boolean) as ProfileMovie[]);
+        } else {
+          setFavorites([]);
         }
 
-        // Carregar conquistas
-        let userAchievements = await getUserAchievements(user.uid);
-        if (!userAchievements) {
-          // Inicializar conquistas se não existir
-          await initializeAchievements(user.uid);
-          userAchievements = await getUserAchievements(user.uid);
+        const tmdbHistory = userProfile.history.filter((item) => item.type !== "live_tv");
+        if (tmdbHistory.length > 0) {
+          const histPromises = tmdbHistory.map(async (item) => {
+            const details = await tmdb.getDetails(item.type as "movie" | "tv", Number(item.id)).catch(() => null);
+            return details ? {
+              ...details,
+              genre_ids: details.genre_ids?.length ? details.genre_ids : details.genres?.map((genre) => genre.id) || [],
+              media_type: item.type,
+            } as ProfileMovie : null;
+          }
+          );
+          const histResults = await Promise.all(histPromises);
+          setHistoryContent(histResults.filter(Boolean) as ProfileMovie[]);
+        } else {
+          setHistoryContent([]);
         }
+        setLiveTvHistory(userProfile.history.filter((item) => item.type === "live_tv"));
+
+        // Recalcula a partir dos dados reais do perfil para reparar progresso
+        // antigo que não foi registrado pelos players.
+        await synchronizeAchievementsFromProfile(user.uid);
+        const userAchievements = await getUserAchievements(user.uid);
         if (userAchievements) {
           setAchievements(userAchievements);
         }
@@ -219,13 +293,59 @@ export default function ProfilePage() {
 
     try {
       await clearHistory(user.uid);
-      setHistoryMovies([]);
+      setHistoryContent([]);
+      setLiveTvHistory([]);
       setProfile(prev => prev ? { ...prev, history: [] } : null);
       setShowClearConfirm(false);
       toast.success("Histórico limpo com sucesso!");
     } catch (error) {
       console.error("Erro ao limpar histórico:", error);
       toast.error("Erro ao limpar histórico");
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    const nextEmail = accountForm.email.trim().toLowerCase();
+    if (!nextEmail || nextEmail === user?.email?.toLowerCase()) {
+      toast.error("Informe um e-mail diferente do atual.");
+      return;
+    }
+    setSavingAccount("email");
+    try {
+      await updateAccountEmail(nextEmail, accountForm.currentPassword);
+      setProfile((current) => current ? { ...current, email: nextEmail } : current);
+      setAccountForm((current) => ({ ...current, currentPassword: "" }));
+      toast.success("E-mail atualizado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o e-mail.");
+    } finally {
+      setSavingAccount(null);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (accountForm.newPassword.length < 8) {
+      toast.error("A nova senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (accountForm.newPassword !== accountForm.confirmPassword) {
+      toast.error("A confirmação da senha não confere.");
+      return;
+    }
+    setSavingAccount("password");
+    try {
+      await updateAccountPassword(accountForm.newPassword, accountForm.currentPassword);
+      setAccountForm((current) => ({
+        ...current,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
+      toast.success("Senha atualizada com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar a senha.");
+    } finally {
+      setSavingAccount(null);
     }
   };
 
@@ -383,7 +503,7 @@ export default function ProfilePage() {
                   <div className="flex gap-4 text-sm text-gray-400">
                     <span>{favorites.length} favoritos</span>
                     <span>•</span>
-                    <span>{historyMovies.length} visualizações</span>
+                    <span>{historyContent.length + liveTvHistory.length} visualizações</span>
                     {achievements && (
                       <>
                         <span>•</span>
@@ -402,7 +522,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-purple-500/30">
+        <div className="flex gap-2 overflow-x-auto border-b border-purple-500/30">
           <button
             onClick={() => setActiveTab("favorites")}
             className={`px-6 py-3 font-medium transition-all ${activeTab === "favorites"
@@ -432,6 +552,16 @@ export default function ProfilePage() {
           >
             <Trophy className="w-5 h-5 inline mr-2" />
             Conquistas
+          </button>
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`px-6 py-3 font-medium transition-all ${activeTab === "settings"
+              ? "text-purple-400 border-b-2 border-purple-400"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
+          >
+            <Settings className="w-5 h-5 inline mr-2" />
+            Conta
           </button>
         </div>
 
@@ -479,7 +609,7 @@ export default function ProfilePage() {
                             </h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                               {movies.map((movie) => (
-                                <MovieCard key={movie.id} movie={movie} />
+                                <MovieCard key={`${movie.media_type}:${movie.id}`} movie={movie} />
                               ))}
                             </div>
                           </div>
@@ -526,7 +656,7 @@ export default function ProfilePage() {
                             </h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                               {series.map((s) => (
-                                <MovieCard key={s.id} movie={s} />
+                                <MovieCard key={`${s.media_type}:${s.id}`} movie={s} />
                               ))}
                             </div>
                           </div>
@@ -549,7 +679,7 @@ export default function ProfilePage() {
 
           {activeTab === "history" && (
             <>
-              {historyMovies.length > 0 ? (
+              {historyContent.length + liveTvHistory.length > 0 ? (
                 <>
                   <div className="flex justify-end">
                     <Button
@@ -561,10 +691,68 @@ export default function ProfilePage() {
                       Limpar Histórico
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {historyMovies.map((movie) => (
-                      <MovieCard key={movie.id} movie={movie} />
-                    ))}
+                  <div className="space-y-10">
+                    {historyContent.some((item) => item.media_type === "movie") && (
+                      <section>
+                        <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-white">
+                          <Film className="h-6 w-6 text-blue-400" />
+                          Filmes
+                          <span className="text-sm font-normal text-gray-400">
+                            ({historyContent.filter((item) => item.media_type === "movie").length})
+                          </span>
+                        </h2>
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                          {historyContent.filter((item) => item.media_type === "movie").map((movie) => (
+                            <MovieCard key={`history-movie:${movie.id}`} movie={movie} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {historyContent.some((item) => item.media_type === "tv") && (
+                      <section>
+                        <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-white">
+                          <Tv className="h-6 w-6 text-red-400" />
+                          Séries
+                          <span className="text-sm font-normal text-gray-400">
+                            ({historyContent.filter((item) => item.media_type === "tv").length})
+                          </span>
+                        </h2>
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                          {historyContent.filter((item) => item.media_type === "tv").map((series) => (
+                            <MovieCard key={`history-tv:${series.id}`} movie={series} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {liveTvHistory.length > 0 && (
+                      <section>
+                        <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-white">
+                          <Radio className="h-6 w-6 text-purple-400" />
+                          TV ao Vivo
+                          <span className="text-sm font-normal text-gray-400">({liveTvHistory.length})</span>
+                        </h2>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {liveTvHistory.map((channel) => (
+                            <div
+                              key={`history-live:${channel.id}`}
+                              className="flex items-center gap-4 rounded-xl border border-purple-500/20 bg-black/40 p-4"
+                            >
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
+                                <Radio className="h-6 w-6 text-red-400" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-white">{channel.title || `Canal ${channel.id}`}</p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(channel.timestamp))}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
                   </div>
                 </>
               ) : (
@@ -572,7 +760,7 @@ export default function ProfilePage() {
                   <History className="w-16 h-16 mx-auto text-gray-600 mb-4" />
                   <p className="text-gray-400 text-lg">Nenhum histórico ainda</p>
                   <p className="text-gray-500 text-sm mt-2">
-                    Os filmes e séries que você assistir aparecerão aqui
+                    Filmes, séries e canais que você assistir aparecerão aqui
                   </p>
                 </div>
               )}
@@ -646,6 +834,109 @@ export default function ProfilePage() {
                 </div>
               )}
             </>
+          )}
+
+          {activeTab === "settings" && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section className="glass-effect rounded-xl border border-purple-500/30 p-6">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="rounded-xl bg-purple-500/15 p-2.5">
+                    <Mail className="h-5 w-5 text-purple-300" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-white">Alterar e-mail</h2>
+                    <p className="mt-1 text-sm text-gray-400">Use um endereço que você consiga acessar.</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-gray-300">Novo e-mail</span>
+                    <input
+                      type="email"
+                      value={accountForm.email}
+                      onChange={(event) => setAccountForm((current) => ({ ...current, email: event.target.value }))}
+                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-gray-300">Senha atual</span>
+                    <input
+                      type="password"
+                      value={accountForm.currentPassword}
+                      onChange={(event) => setAccountForm((current) => ({ ...current, currentPassword: event.target.value }))}
+                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
+                      placeholder="Solicitada para contas com senha"
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    onClick={() => void handleUpdateEmail()}
+                    disabled={savingAccount !== null}
+                    className="w-full bg-purple-600 hover:bg-purple-500"
+                  >
+                    {savingAccount === "email" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Atualizar e-mail
+                  </Button>
+                </div>
+              </section>
+
+              <section className="glass-effect rounded-xl border border-purple-500/30 p-6">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="rounded-xl bg-purple-500/15 p-2.5">
+                    <KeyRound className="h-5 w-5 text-purple-300" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-white">Alterar senha</h2>
+                    <p className="mt-1 text-sm text-gray-400">Escolha uma senha nova com pelo menos 8 caracteres.</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-gray-300">Senha atual</span>
+                    <input
+                      type="password"
+                      value={accountForm.currentPassword}
+                      onChange={(event) => setAccountForm((current) => ({ ...current, currentPassword: event.target.value }))}
+                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-gray-300">Nova senha</span>
+                    <input
+                      type="password"
+                      value={accountForm.newPassword}
+                      onChange={(event) => setAccountForm((current) => ({ ...current, newPassword: event.target.value }))}
+                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
+                      minLength={8}
+                      autoComplete="new-password"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-gray-300">Confirmar nova senha</span>
+                    <input
+                      type="password"
+                      value={accountForm.confirmPassword}
+                      onChange={(event) => setAccountForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
+                      minLength={8}
+                      autoComplete="new-password"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    onClick={() => void handleUpdatePassword()}
+                    disabled={savingAccount !== null}
+                    className="w-full bg-purple-600 hover:bg-purple-500"
+                  >
+                    {savingAccount === "password" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Atualizar senha
+                  </Button>
+                </div>
+              </section>
+            </div>
           )}
         </div>
       </div>

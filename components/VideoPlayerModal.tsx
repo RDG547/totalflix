@@ -22,6 +22,7 @@ import {
 } from "@/lib/linkGate";
 import { ConsumptionTracker } from "@/components/ConsumptionTracker";
 import { useScrollLock } from "@/hooks/useScrollLock";
+import { EpisodeWatchControls } from "@/components/EpisodeWatchControls";
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -543,6 +544,17 @@ export function VideoPlayerModal({
               </div>
             )}
           </div>
+          {type === "tv" && (
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <EpisodeWatchControls
+                seriesId={tmdbId}
+                season={selectedSeason}
+                episode={selectedEpisode}
+                episodeNumbers={episodes.map((item) => item.episode_number)}
+                compact
+              />
+            </div>
+          )}
         </div>
 
         <div ref={playerContainerRef} className="relative z-0 min-h-0 flex-1 bg-black">

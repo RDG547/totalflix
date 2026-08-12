@@ -7,13 +7,12 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowLeft,
-  CheckCircle2,
   Clock3,
   Crown,
-  Database,
   ExternalLink,
   Film,
   Heart,
+  Home,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -22,11 +21,13 @@ import {
   Search,
   ServerCog,
   ShieldAlert,
+  Shield,
   ShieldCheck,
   Trash2,
   Trophy,
   Tv,
   UserRound,
+  UserCog,
   Users,
   XCircle,
 } from "lucide-react";
@@ -79,10 +80,6 @@ interface AdminComment {
 
 interface AdminDashboardData {
   generatedAt: number;
-  administrator: {
-    uid: string;
-    email: string;
-  };
   overview: {
     users: number;
     comments: number;
@@ -107,16 +104,9 @@ interface AdminDashboardData {
     truncated: boolean;
     error: string | null;
   };
-  system: {
-    projectId: string;
-    adminSdkConfigured: boolean;
-    integrations: Array<{
-      name: string;
-      configured: boolean;
-    }>;
-  };
   maintenance: {
     enabled: boolean;
+    scope: "all" | "movies" | "series" | "tv";
     message: string;
     updatedAt: number;
     updatedBy: string;
@@ -417,7 +407,11 @@ export default function AdminPage() {
     }
   };
 
-  const handleMaintenanceChange = async (enabled: boolean, message: string) => {
+  const handleMaintenanceChange = async (
+    enabled: boolean,
+    message: string,
+    scope: "all" | "movies" | "series" | "tv",
+  ) => {
     if (!user) throw new Error("Sessão administrativa indisponível.");
     const idToken = await user.getIdToken();
     const response = await fetch("/api/admin/settings/maintenance", {
@@ -426,7 +420,7 @@ export default function AdminPage() {
         Authorization: `Bearer ${idToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ enabled, message }),
+      body: JSON.stringify({ enabled, message, scope }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -499,10 +493,6 @@ export default function AdminPage() {
                 Em manutenção
               </div>
             )}
-            <div className="hidden items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 md:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-              Atualização em tempo real
-            </div>
             <Button
               type="button"
               variant="ghost"
@@ -554,15 +544,16 @@ export default function AdminPage() {
             })}
           </nav>
 
-          <div className="absolute bottom-6 left-4 right-4 rounded-2xl border border-purple-500/15 bg-gradient-to-br from-purple-500/10 to-transparent p-4">
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/15">
-              <ShieldCheck className="h-5 w-5 text-purple-300" />
-            </div>
-            <p className="text-sm font-medium text-white">Sessão protegida</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-500">
-              As operações são validadas novamente no servidor.
-            </p>
-          </div>
+          <Button
+            asChild
+            variant="outline"
+            className="absolute bottom-6 left-4 right-4 justify-start border-purple-500/20 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20"
+          >
+            <Link href="/">
+              <Home className="mr-2 h-4 w-4" />
+              Voltar para o site
+            </Link>
+          </Button>
         </aside>
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -704,7 +695,7 @@ function OverviewSection({
       <PageHeading
         eyebrow="Central de controle"
         title="Visão geral"
-        description={`Dados atualizados em ${formatDate(data.generatedAt, true)}. Acompanhe a comunidade e a atividade do TotalFlix em um só lugar.`}
+        description="Acompanhe a comunidade e a atividade do TotalFlix em um só lugar."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
@@ -929,9 +920,15 @@ function UsersSection({
                       <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
                         item.role === "admin"
                           ? "border-purple-500/20 bg-purple-500/10 text-purple-300"
+                          : item.role === "moderator"
+                            ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
                           : "border-white/10 bg-white/[0.03] text-zinc-500"
                       }`}>
-                        {item.role === "admin" && <ShieldCheck className="h-3 w-3" />}
+                        {item.role === "admin"
+                          ? <ShieldCheck className="h-3 w-3" />
+                          : item.role === "moderator"
+                            ? <Shield className="h-3 w-3" />
+                            : <UserRound className="h-3 w-3" />}
                         {item.role === "admin" ? "Admin" : item.role === "moderator" ? "Moderador" : "Usuário"}
                       </span>
                       {item.disabled && (
@@ -968,6 +965,7 @@ function UsersSection({
                         onClick={() => onManage(item.uid)}
                         className="border-white/10 bg-white/5 text-zinc-300 hover:bg-purple-500/15 hover:text-purple-200"
                       >
+                        <UserCog className="mr-2 h-4 w-4" />
                         Gerenciar
                       </Button>
                     </td>
@@ -1087,24 +1085,30 @@ function SystemSection({
   onMaintenanceChange,
 }: {
   data: AdminDashboardData;
-  onMaintenanceChange: (enabled: boolean, message: string) => Promise<void>;
+  onMaintenanceChange: (
+    enabled: boolean,
+    message: string,
+    scope: "all" | "movies" | "series" | "tv",
+  ) => Promise<void>;
 }) {
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(data.maintenance.enabled);
   const [maintenanceMessage, setMaintenanceMessage] = useState(data.maintenance.message);
+  const [maintenanceScope, setMaintenanceScope] = useState(data.maintenance.scope || "all");
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
 
   useEffect(() => {
     setMaintenanceEnabled(data.maintenance.enabled);
     setMaintenanceMessage(data.maintenance.message);
-  }, [data.maintenance.enabled, data.maintenance.message]);
+    setMaintenanceScope(data.maintenance.scope || "all");
+  }, [data.maintenance.enabled, data.maintenance.message, data.maintenance.scope]);
 
   const saveMaintenance = async () => {
     setMaintenanceSaving(true);
     try {
-      await onMaintenanceChange(maintenanceEnabled, maintenanceMessage);
+      await onMaintenanceChange(maintenanceEnabled, maintenanceMessage, maintenanceScope);
       toast.success(
         maintenanceEnabled
-          ? "Modo manutenção ativado. Apenas administradores podem acessar."
+          ? `Modo manutenção ativado para ${maintenanceScope === "all" ? "todo o site" : maintenanceScope === "movies" ? "Filmes" : maintenanceScope === "series" ? "Séries" : "TV ao Vivo"}.`
           : "Modo manutenção desativado.",
       );
     } catch (maintenanceError) {
@@ -1124,83 +1128,12 @@ function SystemSection({
       <PageHeading
         eyebrow="Infraestrutura"
         title="Sistema"
-        description="Verifique a disponibilidade da configuração principal usada pelo aplicativo."
+        description="Controle a disponibilidade do site inteiro ou de uma categoria específica."
       />
-
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
-        <Panel title="Projeto Firebase" description="Projeto vinculado à autenticação e ao Firestore">
-          <div className="p-5">
-            <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-black/20 p-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10">
-                <Database className="h-5 w-5 text-amber-300" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wider text-zinc-600">Project ID</p>
-                <p className="mt-1 truncate font-mono text-sm text-zinc-200">
-                  {data.system.projectId || "Não configurado"}
-                </p>
-              </div>
-            </div>
-
-            <div className={`mt-4 flex items-start gap-3 rounded-xl border p-4 ${
-              data.system.adminSdkConfigured
-                ? "border-emerald-500/15 bg-emerald-500/[0.06]"
-                : "border-amber-500/20 bg-amber-500/[0.06]"
-            }`}>
-              {data.system.adminSdkConfigured
-                ? <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
-                : <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />}
-              <div>
-                <p className={`text-sm font-medium ${
-                  data.system.adminSdkConfigured ? "text-emerald-100" : "text-amber-100"
-                }`}>
-                  {data.system.adminSdkConfigured ? "Firebase Admin ativo" : "Firebase Admin pendente"}
-                </p>
-                <p className={`mt-1 text-xs leading-5 ${
-                  data.system.adminSdkConfigured ? "text-emerald-200/60" : "text-amber-200/60"
-                }`}>
-                  {data.system.adminSdkConfigured
-                    ? "Claims, sessões, manutenção e operações sensíveis são validadas no servidor."
-                    : "Configure FIREBASE_SERVICE_ACCOUNT_JSON no servidor para habilitar a gestão segura."}
-                </p>
-              </div>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel title="Integrações" description="Presença das variáveis necessárias no servidor">
-          <div className="grid gap-3 p-5 sm:grid-cols-2">
-            {data.system.integrations.map((integration) => (
-              <div
-                key={integration.name}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`h-2.5 w-2.5 rounded-full ${
-                    integration.configured ? "bg-emerald-400" : "bg-red-400"
-                  }`} />
-                  <span className="text-sm font-medium text-zinc-300">{integration.name}</span>
-                </div>
-                <span className={`flex items-center gap-1 text-xs ${
-                  integration.configured ? "text-emerald-400" : "text-red-400"
-                }`}>
-                  {integration.configured ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <XCircle className="h-3.5 w-3.5" />
-                  )}
-                  {integration.configured ? "Configurada" : "Pendente"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
 
       <Panel
         title="Modo manutenção"
-        description="Bloqueia todo o site para visitantes e usuários comuns; administradores continuam com acesso identificado."
-        className="mt-6"
+        description="Bloqueie todo o site ou apenas Filmes, Séries ou TV ao Vivo. Administradores mantêm acesso."
         action={
           <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
             data.maintenance.enabled
@@ -1229,6 +1162,40 @@ function SystemSection({
               className="mt-1 h-5 w-5 shrink-0 accent-amber-500"
             />
           </label>
+          <fieldset disabled={!maintenanceEnabled}>
+            <legend className="mb-3 text-xs font-medium text-zinc-400">Escopo da manutenção</legend>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {([
+                { id: "all", label: "Todo o site", icon: ServerCog, color: "purple" },
+                { id: "movies", label: "Filmes", icon: Film, color: "blue" },
+                { id: "series", label: "Séries", icon: Tv, color: "violet" },
+                { id: "tv", label: "TV ao Vivo", icon: Radio, color: "red" },
+              ] as const).map((option) => {
+                const Icon = option.icon;
+                const selected = maintenanceScope === option.id;
+                const selectedStyle = option.color === "blue"
+                  ? "border-blue-500/50 bg-blue-500/15 text-blue-200"
+                  : option.color === "red"
+                    ? "border-red-500/50 bg-red-500/15 text-red-200"
+                    : option.color === "violet"
+                      ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                      : "border-purple-500/50 bg-purple-500/15 text-purple-200";
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setMaintenanceScope(option.id)}
+                    className={`flex items-center gap-3 rounded-xl border p-4 text-left text-sm transition disabled:opacity-50 ${
+                      selected ? selectedStyle : "border-white/10 bg-black/20 text-zinc-500 hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="font-medium">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
           <label className="block">
             <span className="mb-2 block text-xs font-medium text-zinc-400">
               Mensagem exibida ao público
@@ -1260,39 +1227,7 @@ function SystemSection({
           </div>
         </div>
       </Panel>
-
-      <Panel
-        title="Sessão administrativa"
-        description="Identidade autorizada no painel"
-        className="mt-6"
-      >
-        <div className="grid gap-4 p-5 sm:grid-cols-3">
-          <SystemDetail icon={ShieldCheck} label="Administrador" value={data.administrator.email} />
-          <SystemDetail icon={Clock3} label="Dados atualizados" value={formatDate(data.generatedAt, true)} />
-          <SystemDetail icon={Database} label="Persistência" value="Cloud Firestore" />
-        </div>
-      </Panel>
     </>
-  );
-}
-
-function SystemDetail({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
-      <Icon className="h-5 w-5 shrink-0 text-purple-400" />
-      <div className="min-w-0">
-        <p className="text-xs text-zinc-600">{label}</p>
-        <p className="mt-1 truncate text-sm font-medium text-zinc-300">{value}</p>
-      </div>
-    </div>
   );
 }
 

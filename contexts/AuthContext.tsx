@@ -8,12 +8,17 @@ import {
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   signInWithPopup,
+  updateEmail,
+  updatePassword,
   updateProfile,
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
-import { createUserProfile } from '@/lib/userProfile';
+import { createUserProfile, updateUserProfile } from '@/lib/userProfile';
 import { claimsFromRecord, type AccessClaims } from '@/lib/access-control';
 import { isAdminEmail } from '@/lib/admin';
 
@@ -28,6 +33,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   refreshAccess: () => Promise<AccessClaims>;
+  updateAccountEmail: (email: string, currentPassword?: string) => Promise<void>;
+  updateAccountPassword: (password: string, currentPassword?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -47,6 +54,10 @@ function getAuthErrorMessage(error: unknown) {
     'auth/network-request-failed': 'Falha de conexão. Verifique sua internet e tente novamente.',
     'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
     'auth/operation-not-allowed': 'Este método de login ainda não está habilitado no Firebase.',
+    'auth/requires-recent-login': 'Confirme sua identidade novamente antes de alterar estes dados.',
+    'auth/wrong-password': 'A senha atual está incorreta.',
+    'auth/missing-password': 'Informe sua senha atual para confirmar a alteração.',
+    'auth/user-mismatch': 'A conta escolhida não corresponde ao usuário conectado.',
   };
 
   return messages[error.code] || 'Não foi possível entrar. Tente novamente.';
@@ -176,6 +187,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return readAccess(user, true);
   };
 
+  const reauthenticate = async (currentPassword?: string) => {
+    if (!user) throw new Error('Entre na sua conta para alterar os dados de acesso.');
+    const usesPassword = user.providerData.some((provider) => provider.providerId === 'password');
+
+    try {
+      if (usesPassword) {
+        if (!user.email || !currentPassword) {
+          throw new FirebaseError('auth/missing-password', 'Current password is required.');
+        }
+        await reauthenticateWithCredential(
+          user,
+          EmailAuthProvider.credential(user.email, currentPassword),
+        );
+        return;
+      }
+
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await reauthenticateWithPopup(user, provider);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error));
+    }
+  };
+
+  const updateAccountEmail = async (email: string, currentPassword?: string) => {
+    if (!user) throw new Error('Entre na sua conta para alterar o e-mail.');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new Error('Digite um endereço de e-mail válido.');
+    }
+
+    await reauthenticate(currentPassword);
+    try {
+      await updateEmail(user, normalizedEmail);
+      await updateUserProfile(user.uid, { email: normalizedEmail });
+      await user.getIdToken(true);
+      await Promise.all([readAccess(user, true), syncServerSession(user)]);
+      await user.reload();
+      setUser(auth.currentUser);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error));
+    }
+  };
+
+  const updateAccountPassword = async (password: string, currentPassword?: string) => {
+    if (!user) throw new Error('Entre na sua conta para alterar a senha.');
+    if (password.length < 8) throw new Error('A nova senha deve ter pelo menos 8 caracteres.');
+
+    await reauthenticate(currentPassword);
+    try {
+      await updatePassword(user, password);
+      await syncServerSession(user);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error));
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -187,6 +255,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     logout,
     refreshAccess,
+    updateAccountEmail,
+    updateAccountPassword,
   };
 
   return (

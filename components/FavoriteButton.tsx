@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { addToFavorites, removeFromFavorites, getUserProfile } from "@/lib/userProfile";
+import { addToFavorites, removeFromFavorites, getUserProfile, hasFavorite, favoriteKey, type FavoriteType } from "@/lib/userProfile";
 import { updateAchievementProgress, initializeAchievements } from "@/lib/achievements";
 import toast from "react-hot-toast";
 
 interface FavoriteButtonProps {
     contentId: number;
     contentTitle: string;
+    contentType: FavoriteType;
     size?: "sm" | "md" | "lg";
     showText?: boolean;
 }
@@ -17,6 +18,7 @@ interface FavoriteButtonProps {
 export function FavoriteButton({
     contentId,
     contentTitle,
+    contentType,
     size = "md",
     showText = true
 }: FavoriteButtonProps) {
@@ -40,7 +42,7 @@ export function FavoriteButton({
         if (user) {
             checkFavoriteStatus();
         }
-    }, [user, contentId]);
+    }, [user, contentId, contentType]);
 
     const checkFavoriteStatus = async () => {
         if (!user) return;
@@ -48,7 +50,7 @@ export function FavoriteButton({
         try {
             const profile = await getUserProfile(user.uid);
             if (profile) {
-                setIsFavorite(profile.favorites.includes(contentId));
+                setIsFavorite(hasFavorite(profile.favorites, contentId, contentType));
             }
         } catch (error) {
             console.error("Erro ao verificar favorito:", error);
@@ -66,34 +68,32 @@ export function FavoriteButton({
         setIsLoading(true);
         try {
             if (isFavorite) {
-                await removeFromFavorites(user.uid, contentId);
+                await removeFromFavorites(user.uid, contentId, contentType);
                 setIsFavorite(false);
                 toast.success("Removido dos favoritos");
 
                 // Disparar evento customizado para atualizar outras páginas
                 window.dispatchEvent(new CustomEvent('favoriteRemoved', {
-                    detail: { movieId: contentId }
+                    detail: { contentId, type: contentType }
                 }));
             } else {
-                await addToFavorites(user.uid, contentId);
+                await addToFavorites(user.uid, contentId, contentType);
                 setIsFavorite(true);
                 toast.success("Adicionado aos favoritos");
 
                 // Disparar evento customizado para atualizar outras páginas
                 window.dispatchEvent(new CustomEvent('favoriteAdded', {
-                    detail: { movieId: contentId }
+                    detail: { contentId, type: contentType }
                 }));
 
                 // Atualizar conquistas de favoritos (sem bloquear a UI)
                 initializeAchievements(user.uid)
-                    .then(() => updateAchievementProgress(user.uid, 'favorite'))
+                    .then(() => updateAchievementProgress(user.uid, 'favorite', favoriteKey(contentId, contentType)))
                     .catch((err) => console.error("Erro ao atualizar conquistas:", err));
             }
         } catch (error) {
             console.error("Erro ao atualizar favorito:", error);
             toast.error("Erro ao atualizar favorito");
-            // Reverter estado em caso de erro
-            setIsFavorite(!isFavorite);
         } finally {
             setIsLoading(false);
         }

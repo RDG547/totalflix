@@ -7,7 +7,7 @@ import { getImageUrl, type Movie, tmdb } from "@/lib/tmdb";
 import { Card } from "@/components/ui/card";
 import { Clock, Heart, Star } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { addToFavorites, getUserProfile, removeFromFavorites } from "@/lib/userProfile";
+import { addToFavorites, favoriteKey, getUserProfile, hasFavorite, removeFromFavorites } from "@/lib/userProfile";
 import { initializeAchievements, updateAchievementProgress } from "@/lib/achievements";
 import toast from "react-hot-toast";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -50,14 +50,14 @@ export function MovieCard({ movie }: MovieCardProps) {
     const checkFavoriteStatus = async () => {
       try {
         const profile = await getUserProfile(user.uid);
-        if (profile) setIsFavorite(profile.favorites.includes(movie.id));
+        if (profile) setIsFavorite(hasFavorite(profile.favorites, movie.id, mediaType));
       } catch (error) {
         console.error("Erro ao verificar favorito:", error);
       }
     };
 
     void checkFavoriteStatus();
-  }, [user, movie.id]);
+  }, [user, movie.id, mediaType]);
 
   useEffect(() => {
     if (showPreview) {
@@ -95,26 +95,26 @@ export function MovieCard({ movie }: MovieCardProps) {
     setIsLoading(true);
     try {
       if (isFavorite) {
-        await removeFromFavorites(user.uid, movie.id);
+        await removeFromFavorites(user.uid, movie.id, mediaType);
         setIsFavorite(false);
         toast.success("Removido dos favoritos");
         window.dispatchEvent(new CustomEvent("favoriteRemoved", {
-          detail: { movieId: movie.id },
+          detail: { contentId: movie.id, type: mediaType },
         }));
       } else {
-        await addToFavorites(user.uid, movie.id);
+        await addToFavorites(user.uid, movie.id, mediaType);
         setIsFavorite(true);
         toast.success("Adicionado aos favoritos");
         window.dispatchEvent(new CustomEvent("favoriteAdded", {
-          detail: { movieId: movie.id },
+          detail: { contentId: movie.id, type: mediaType },
         }));
         initializeAchievements(user.uid)
-          .then(() => updateAchievementProgress(user.uid, "favorite"))
+          .then(() => updateAchievementProgress(user.uid, "favorite", favoriteKey(movie.id, mediaType)))
           .catch((error) => console.error("Erro ao atualizar conquistas:", error));
       }
     } catch (error) {
       console.error("Erro ao atualizar favorito:", error);
-      setIsFavorite(!isFavorite);
+      toast.error("Não foi possível atualizar o favorito");
     } finally {
       setIsLoading(false);
     }

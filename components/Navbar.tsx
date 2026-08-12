@@ -12,6 +12,16 @@ import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import { useScrollLock } from "@/hooks/useScrollLock";
+import {
+  addToFavorites,
+  favoriteKey,
+  getUserProfile,
+  parseFavorite,
+  removeFromFavorites,
+  type FavoriteType,
+} from "@/lib/userProfile";
+import { initializeAchievements, updateAchievementProgress } from "@/lib/achievements";
+import toast from "react-hot-toast";
 
 interface Genre {
   id: number;
@@ -45,12 +55,40 @@ export function Navbar() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [genreCounts, setGenreCounts] = useState<Record<number, number>>({});
   const [canInstallApp, setCanInstallApp] = useState(false);
+  const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
+  const [favoriteLoadingKey, setFavoriteLoadingKey] = useState<string | null>(null);
   const router = useRouter();
   const searchRef = useRef<HTMLDivElement>(null);
   const movieDropdownRef = useRef<HTMLDivElement>(null);
   const tvDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout, isAdmin, isVip } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      setFavoriteKeys(new Set());
+      return;
+    }
+
+    let active = true;
+    void getUserProfile(user.uid).then((profile) => {
+      if (!active) return;
+      const keys = new Set<string>();
+      (profile?.favorites || []).forEach((value) => {
+        if (typeof value === "number") {
+          keys.add(`legacy:${value}`);
+          return;
+        }
+        const favorite = parseFavorite(value);
+        if (favorite) keys.add(favoriteKey(favorite.id, favorite.type));
+      });
+      setFavoriteKeys(keys);
+    }).catch((error) => console.error("Não foi possível carregar os favoritos da busca:", error));
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     const handleInstallAvailability = (event: Event) => {
@@ -144,7 +182,11 @@ export function Navbar() {
       setIsSearching(true);
       try {
         const results = await tmdb.search(searchQuery);
-        setSearchResults(results.slice(0, 5));
+        setSearchResults(results.filter((item: Movie) => (
+          item.media_type === "movie"
+          || item.media_type === "tv"
+          || (!item.media_type && Boolean(item.title || item.name))
+        )).slice(0, 5));
         setShowResults(true);
       } catch (error) {
         console.error("Error searching:", error);
@@ -170,6 +212,47 @@ export function Navbar() {
     setSearchQuery("");
     const type = movie.media_type || (movie.title ? "movie" : "tv");
     router.push(`/details/${type}/${movie.id}`);
+  };
+
+  const toggleSearchFavorite = async (item: Movie, type: FavoriteType) => {
+    if (!user) {
+      toast.error("Faça login para adicionar aos favoritos");
+      return;
+    }
+
+    const key = favoriteKey(item.id, type);
+    const legacyKey = `legacy:${item.id}`;
+    const isFavorite = favoriteKeys.has(key) || favoriteKeys.has(legacyKey);
+    setFavoriteLoadingKey(key);
+    try {
+      if (isFavorite) {
+        await removeFromFavorites(user.uid, item.id, type);
+        setFavoriteKeys((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          next.delete(legacyKey);
+          return next;
+        });
+        toast.success("Removido dos favoritos");
+        window.dispatchEvent(new CustomEvent("favoriteRemoved", {
+          detail: { contentId: item.id, type },
+        }));
+      } else {
+        await addToFavorites(user.uid, item.id, type);
+        setFavoriteKeys((current) => new Set(current).add(key));
+        toast.success("Adicionado aos favoritos");
+        window.dispatchEvent(new CustomEvent("favoriteAdded", {
+          detail: { contentId: item.id, type },
+        }));
+        await initializeAchievements(user.uid);
+        await updateAchievementProgress(user.uid, "favorite", key);
+      }
+    } catch (error) {
+      console.error("Não foi possível atualizar o favorito pela busca:", error);
+      toast.error("Não foi possível atualizar o favorito");
+    } finally {
+      setFavoriteLoadingKey(null);
+    }
   };
 
   const handleLogout = async () => {
@@ -323,36 +406,61 @@ export function Navbar() {
                   {searchResults.map((item) => {
                     const title = item.title || item.name || "Sem título";
                     const year = item.release_date?.split("-")[0] || item.first_air_date?.split("-")[0];
-                    const type = item.media_type || (item.title ? "movie" : "tv");
+                    const type = (item.media_type === "movie" || item.media_type === "tv"
+                      ? item.media_type
+                      : item.title ? "movie" : "tv") as FavoriteType;
+                    const key = favoriteKey(item.id, type);
+                    const isFavorite = favoriteKeys.has(key) || favoriteKeys.has(`legacy:${item.id}`);
 
                     return (
-                      <button
-                        key={item.id}
-                        onClick={() => handleResultClick(item)}
-                        className="w-full flex items-center gap-3 p-3 hover:bg-purple-500/20 transition-colors text-left"
+                      <div
+                        key={key}
+                        className="flex w-full items-center gap-2 p-2 transition-colors hover:bg-purple-500/20"
                       >
-                        <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                          {item.poster_path ? (
-                            <Image
-                              src={getImageUrl(item.poster_path)}
-                              alt={title}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Film className="w-6 h-6 text-gray-600" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium truncate">{title}</p>
-                          <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <span className="capitalize">{type === "movie" ? "Filme" : "Série"}</span>
-                            {year && <span>• {year}</span>}
+                        <button
+                          type="button"
+                          onClick={() => handleResultClick(item)}
+                          className="flex min-w-0 flex-1 items-center gap-3 p-1 text-left"
+                        >
+                          <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                            {item.poster_path ? (
+                              <Image
+                                src={getImageUrl(item.poster_path)}
+                                alt={title}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Film className="w-6 h-6 text-gray-600" />
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-medium truncate">{title}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                              <span className="capitalize">{type === "movie" ? "Filme" : "Série"}</span>
+                              {year && <span>• {year}</span>}
+                            </div>
+                          </div>
+                        </button>
+                        {user && (
+                          <button
+                            type="button"
+                            onClick={() => void toggleSearchFavorite(item, type)}
+                            disabled={favoriteLoadingKey === key}
+                            className={`mr-1 rounded-full border p-2.5 transition hover:scale-105 disabled:opacity-50 ${
+                              isFavorite
+                                ? "border-red-500/40 bg-red-500/15 text-red-400"
+                                : "border-purple-500/30 bg-black/40 text-zinc-300 hover:text-purple-300"
+                            }`}
+                            aria-label={isFavorite ? `Remover ${title} dos favoritos` : `Adicionar ${title} aos favoritos`}
+                            title={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                          >
+                            <Heart className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                   {searchQuery.trim() && (

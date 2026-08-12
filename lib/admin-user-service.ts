@@ -245,10 +245,24 @@ export async function getAdminUserDetail(uid: string) {
     achievements.filter((item) => item.unlocked).length,
   );
 
-  const rawHistory = arrayValue(profile.history).map(objectValue).slice(0, 50);
+  const rawHistory = arrayValue(profile.history)
+    .map(objectValue)
+    .filter((item) => item.type === 'movie' || item.type === 'tv')
+    .slice(0, 50);
   const rawFavorites = arrayValue(profile.favorites)
-    .map((id) => numberValue(id))
-    .filter(Boolean)
+    .map((value) => {
+      if (typeof value === 'string') {
+        const match = /^(movie|tv):(\d+)$/.exec(value);
+        return match
+          ? { id: Number(match[2]), type: match[1] as 'movie' | 'tv' }
+          : { id: 0, type: undefined };
+      }
+      const favorite = objectValue(value);
+      const id = Object.keys(favorite).length > 0 ? numberValue(favorite.id) : numberValue(value);
+      const type = favorite.type === 'tv' ? 'tv' as const : favorite.type === 'movie' ? 'movie' as const : undefined;
+      return { id, type };
+    })
+    .filter((favorite) => favorite.id > 0)
     .slice(0, 100);
 
   const [history, favorites] = await Promise.all([
@@ -259,7 +273,7 @@ export async function getAdminUserDetail(uid: string) {
       ),
       timestamp: numberValue(item.timestamp),
     }))),
-    Promise.all(rawFavorites.map((id) => resolveTmdbContent(id))),
+    Promise.all(rawFavorites.map((favorite) => resolveTmdbContent(favorite.id, favorite.type))),
   ]);
 
   return {

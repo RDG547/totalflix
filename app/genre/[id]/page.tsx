@@ -2,6 +2,7 @@ import { tmdb } from "@/lib/tmdb";
 import { MovieCard } from "@/components/MovieCard";
 import { Film, Tv, TrendingUp, Calendar } from "lucide-react";
 import { GenrePagination } from "@/components/GenrePagination";
+import { GenreAchievementTracker } from "@/components/GenreAchievementTracker";
 
 interface PageProps {
   params: Promise<{
@@ -94,6 +95,7 @@ export default async function GenrePage({ params, searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen pt-24 pb-12">
+      <GenreAchievementTracker genreId={genreId} />
       <div className="container mx-auto px-4 space-y-8">
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-2xl p-8 md:p-12 glass-effect border border-purple-500/30">

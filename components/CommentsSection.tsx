@@ -80,7 +80,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
 
     setSubmitting(true);
     try {
-      await addComment(
+      const createdComment = await addComment(
         contentId,
         contentType,
         user.uid,
@@ -94,7 +94,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
 
       // Atualizar conquistas de comentários
       await initializeAchievements(user.uid);
-      await updateAchievementProgress(user.uid, 'comment');
+      await updateAchievementProgress(user.uid, 'comment', createdComment.id);
     } catch (error: any) {
       console.error('Erro detalhado ao adicionar comentário:', error);
 
@@ -126,7 +126,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
 
     setSubmitting(true);
     try {
-      await addComment(
+      const createdReply = await addComment(
         contentId,
         contentType,
         user.uid,
@@ -139,6 +139,8 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
       setReplyingTo(null);
       await loadComments();
       toast.success('Resposta adicionada!');
+      await initializeAchievements(user.uid);
+      await updateAchievementProgress(user.uid, 'comment', createdReply.id);
     } catch (error: any) {
       console.error('Erro detalhado ao adicionar resposta:', error);
 

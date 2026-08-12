@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LinkGate } from "@/components/LinkGate";
 import { buildMovieGateKey, buildSeriesGateKey } from "@/lib/linkGate";
 import { ConsumptionTracker } from "@/components/ConsumptionTracker";
+import { EpisodeWatchControls } from "@/components/EpisodeWatchControls";
 
 type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | 'superflixapi' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
 
@@ -235,6 +236,14 @@ export default function WatchPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="mt-5 border-t border-purple-500/20 pt-5">
+                <EpisodeWatchControls
+                  seriesId={Number(id)}
+                  season={selectedSeason}
+                  episode={selectedEpisode}
+                  episodeNumbers={Array.from({ length: 20 }, (_, index) => index + 1)}
+                />
               </div>
             </div>
           </div>

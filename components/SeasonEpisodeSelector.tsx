@@ -5,6 +5,7 @@ import { ChevronDown, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { tmdb, type TVSeasonEpisode } from "@/lib/tmdb";
+import { EpisodeWatchControls } from "@/components/EpisodeWatchControls";
 
 interface SeasonEpisodeSelectorProps {
   type: "movie" | "tv";
@@ -218,6 +219,15 @@ export function SeasonEpisodeSelector({
           <Play className="mr-2 h-4 w-4 fill-current" />
           Assistir episódio {selectedEpisode}
         </Button>
+      </div>
+
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <EpisodeWatchControls
+          seriesId={tmdbId}
+          season={selectedSeason}
+          episode={selectedEpisode}
+          episodeNumbers={episodes.map((item) => item.episode_number)}
+        />
       </div>
 
       <VideoPlayerModal

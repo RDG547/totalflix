@@ -5,7 +5,6 @@ import { MovieCard } from "@/components/MovieCard";
 import { WatchButton } from "@/components/WatchButton";
 import { SeasonEpisodeSelector } from "@/components/SeasonEpisodeSelector";
 import { CommentsSection } from "@/components/CommentsSection";
-import { HistoryTracker } from "@/components/HistoryTracker";
 import { TrailerButton } from "@/components/TrailerButton";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { notFound } from "next/navigation";
@@ -73,9 +72,6 @@ export default async function DetailsPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen pt-16">
-      {/* Tracker de histórico */}
-      <HistoryTracker contentId={details.id} type={type} />
-
       {/* Hero Section */}
       <div className="relative min-h-[500px] sm:min-h-[520px] md:h-[60vh] md:min-h-[460px] w-full pt-6 pb-8 md:py-12">
         <div
@@ -165,6 +161,7 @@ export default async function DetailsPage({ params }: PageProps) {
                 <FavoriteButton
                   contentId={details.id}
                   contentTitle={title}
+                  contentType={type}
                   size="lg"
                   showText={false}
                 />

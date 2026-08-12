@@ -8,6 +8,7 @@ import {
   Ban,
   Camera,
   CheckCircle2,
+  ChevronDown,
   Crown,
   ExternalLink,
   Film,
@@ -17,6 +18,7 @@ import {
   Loader2,
   Radio,
   Save,
+  Shield,
   ShieldCheck,
   Trash2,
   Trophy,
@@ -132,6 +134,100 @@ function roleLabel(role: UserRole) {
   if (role === "admin") return "Administrador";
   if (role === "moderator") return "Moderador";
   return "Usuário";
+}
+
+const roleOptions: Array<{
+  value: UserRole;
+  label: string;
+  description: string;
+  icon: typeof UserRound;
+  style: string;
+}> = [
+  {
+    value: "user",
+    label: "Usuário",
+    description: "Acesso padrão à plataforma",
+    icon: UserRound,
+    style: "border-zinc-500/25 bg-zinc-500/10 text-zinc-300",
+  },
+  {
+    value: "moderator",
+    label: "Moderador",
+    description: "Moderação da comunidade",
+    icon: Shield,
+    style: "border-blue-500/30 bg-blue-500/10 text-blue-300",
+  },
+  {
+    value: "admin",
+    label: "Administrador",
+    description: "Controle administrativo completo",
+    icon: ShieldCheck,
+    style: "border-purple-500/30 bg-purple-500/10 text-purple-300",
+  },
+];
+
+function RoleDropdown({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: UserRole;
+  onChange: (role: UserRole) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = roleOptions.find((option) => option.value === value) || roleOptions[0];
+  const SelectedIcon = selected.icon;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-2">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${selected.style}`}
+      >
+        <SelectedIcon className="h-5 w-5 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{selected.label}</span>
+          <span className="block truncate text-[11px] opacity-65">{selected.description}</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && !disabled && (
+        <div role="listbox" className="mt-2 grid gap-1 border-t border-white/10 pt-2">
+          {roleOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition hover:brightness-125 ${option.style} ${
+                  option.value === value ? "ring-1 ring-current/30" : "opacity-75 hover:opacity-100"
+                }`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span>
+                  <span className="block text-sm font-semibold">{option.label}</span>
+                  <span className="block text-[11px] opacity-65">{option.description}</span>
+                </span>
+                {option.value === value && <CheckCircle2 className="ml-auto h-4 w-4" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function UserManagementDialog({
@@ -460,16 +556,11 @@ export function UserManagementDialog({
                         />
                       </Field>
                       <Field label="Cargo">
-                        <select
+                        <RoleDropdown
                           value={role}
-                          onChange={(event) => setRole(event.target.value as UserRole)}
+                          onChange={setRole}
                           disabled={detail.isPrimaryAdmin}
-                          className="flex h-10 w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
-                        >
-                          <option value="user">Usuário</option>
-                          <option value="moderator">Moderador</option>
-                          <option value="admin">Administrador</option>
-                        </select>
+                        />
                       </Field>
                     </div>
                   </div>
