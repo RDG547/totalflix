@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import {
@@ -41,16 +41,30 @@ import {
   Radio,
   Mail,
   KeyRound,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-
-
+import { AccountSettingsModal, type AccountSettingsModalType } from "@/components/AccountSettingsModal";
+import { PlatformDropdown, type PlatformDropdownOption } from "@/components/PlatformDropdown";
 import { getGenreName } from "@/lib/genres";
 
 type ProfileMovie = Movie & { media_type: "movie" | "tv" };
+
+function favoriteGenreOptions(items: ProfileMovie[]): PlatformDropdownOption[] {
+  const genres = new Map<number, string>();
+  items.forEach((item) => {
+    (item.genre_ids || []).forEach((genreId) => genres.set(genreId, getGenreName(genreId)));
+  });
+  return [
+    { value: "all", label: "Todos os gêneros" },
+    ...Array.from(genres.entries())
+      .sort((first, second) => first[1].localeCompare(second[1], "pt-BR"))
+      .map(([genreId, label]) => ({ value: String(genreId), label })),
+  ];
+}
 
 export default function ProfilePage() {
   const { user, isVip, access, updateAccountEmail, updateAccountPassword } = useAuth();
@@ -67,6 +81,9 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [savingAccount, setSavingAccount] = useState<"email" | "password" | null>(null);
+  const [accountModal, setAccountModal] = useState<AccountSettingsModalType>(null);
+  const [movieGenreFilter, setMovieGenreFilter] = useState("all");
+  const [seriesGenreFilter, setSeriesGenreFilter] = useState("all");
   const [editForm, setEditForm] = useState({
     displayName: "",
     bio: "",
@@ -77,6 +94,53 @@ export default function ProfilePage() {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const movieFavorites = useMemo(
+    () => favorites.filter((item) => item.media_type === "movie"),
+    [favorites],
+  );
+  const seriesFavorites = useMemo(
+    () => favorites.filter((item) => item.media_type === "tv"),
+    [favorites],
+  );
+  const movieGenreOptions = useMemo(() => favoriteGenreOptions(movieFavorites), [movieFavorites]);
+  const seriesGenreOptions = useMemo(() => favoriteGenreOptions(seriesFavorites), [seriesFavorites]);
+  const selectedMovieGenre = movieGenreOptions.some((option) => option.value === movieGenreFilter)
+    ? movieGenreFilter
+    : "all";
+  const selectedSeriesGenre = seriesGenreOptions.some((option) => option.value === seriesGenreFilter)
+    ? seriesGenreFilter
+    : "all";
+  const visibleMovieFavorites = useMemo(() => {
+    if (selectedMovieGenre === "all") return movieFavorites;
+    const genreId = Number(selectedMovieGenre);
+    return movieFavorites.filter((item) => item.genre_ids?.includes(genreId));
+  }, [movieFavorites, selectedMovieGenre]);
+  const visibleSeriesFavorites = useMemo(() => {
+    if (selectedSeriesGenre === "all") return seriesFavorites;
+    const genreId = Number(selectedSeriesGenre);
+    return seriesFavorites.filter((item) => item.genre_ids?.includes(genreId));
+  }, [seriesFavorites, selectedSeriesGenre]);
+
+  const closeAccountModal = useCallback(() => {
+    setAccountModal(null);
+    setAccountForm((current) => ({
+      ...current,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    }));
+  }, []);
+  const openAccountModal = useCallback((type: Exclude<AccountSettingsModalType, null>) => {
+    setAccountForm((current) => ({
+      ...current,
+      email: type === "email" ? user?.email || profile?.email || current.email : current.email,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    }));
+    setAccountModal(type);
+  }, [profile?.email, user?.email]);
 
   useEffect(() => {
     if (!user) {
@@ -314,7 +378,7 @@ export default function ProfilePage() {
     try {
       await updateAccountEmail(nextEmail, accountForm.currentPassword);
       setProfile((current) => current ? { ...current, email: nextEmail } : current);
-      setAccountForm((current) => ({ ...current, currentPassword: "" }));
+      closeAccountModal();
       toast.success("E-mail atualizado com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível alterar o e-mail.");
@@ -335,12 +399,7 @@ export default function ProfilePage() {
     setSavingAccount("password");
     try {
       await updateAccountPassword(accountForm.newPassword, accountForm.currentPassword);
-      setAccountForm((current) => ({
-        ...current,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      }));
+      closeAccountModal();
       toast.success("Senha atualizada com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível alterar a senha.");
@@ -466,40 +525,6 @@ export default function ProfilePage() {
                     <p className="text-gray-300">{profile.bio}</p>
                   )}
 
-                  {/* Selos de Conquistas Desbloqueadas */}
-                  {achievements && achievements.achievements.filter(a => a.unlocked).length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-gray-400 font-semibold uppercase">Conquistas Desbloqueadas</p>
-                      <div className="flex flex-wrap gap-2">
-                        {achievements.achievements
-                          .filter(a => a.unlocked)
-                          .slice(0, 10)
-                          .map(achievement => (
-                            <div
-                              key={achievement.id}
-                              className="relative group"
-                            >
-                              <span className="text-2xl cursor-help hover:scale-125 transition-transform inline-block">
-                                {achievement.badge || achievement.icon}
-                              </span>
-                              {/* Tooltip */}
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                                <div className="glass-effect border border-purple-500/30 rounded-lg p-2 text-xs">
-                                  <p className="font-bold text-white">{achievement.title}</p>
-                                  <p className="text-gray-400">{achievement.description}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        {achievements.achievements.filter(a => a.unlocked).length > 10 && (
-                          <span className="text-sm text-purple-400 self-center">
-                            +{achievements.achievements.filter(a => a.unlocked).length - 10} mais
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   <div className="flex gap-4 text-sm text-gray-400">
                     <span>{favorites.length} favoritos</span>
                     <span>•</span>
@@ -570,100 +595,68 @@ export default function ProfilePage() {
           {activeTab === "favorites" && (
             <>
               {favorites.length > 0 ? (
-                <div className="space-y-8">
-                  {/* Filmes */}
-                  {favorites.filter(m => m.media_type === 'movie' || m.title).length > 0 && (
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                        🎬 Filmes
-                        <span className="text-sm text-gray-400 font-normal">
-                          ({favorites.filter(m => m.media_type === 'movie' || m.title).length})
-                        </span>
-                      </h2>
+                <div className="grid items-start gap-10 xl:grid-cols-2">
+                  {movieFavorites.length > 0 ? (
+                    <section className={seriesFavorites.length === 0 ? "xl:col-span-2" : ""}>
+                      <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <h2 className="flex items-center gap-2 text-2xl font-bold text-white">
+                          <Film className="h-6 w-6 text-blue-400" />
+                          Filmes
+                          <span className="text-sm font-normal text-gray-400">({visibleMovieFavorites.length})</span>
+                        </h2>
+                        <PlatformDropdown
+                          value={selectedMovieGenre}
+                          options={movieGenreOptions}
+                          onChange={setMovieGenreFilter}
+                          ariaLabel="Filtrar filmes favoritos por gênero"
+                          size="sm"
+                          className="sm:ml-auto"
+                        />
+                      </div>
+                      {visibleMovieFavorites.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                          {visibleMovieFavorites.map((movie) => (
+                            <MovieCard key={`${movie.media_type}:${movie.id}`} movie={movie} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-purple-500/20 bg-black/30 p-8 text-center text-sm text-zinc-500">
+                          Nenhum filme favorito neste gênero.
+                        </div>
+                      )}
+                    </section>
+                  ) : null}
 
-                      {/* Agrupar por gênero */}
-                      {(() => {
-                        const moviesByGenre: Record<string, Movie[]> = {};
-                        favorites
-                          .filter(m => m.media_type === 'movie' || m.title)
-                          .forEach(movie => {
-                            if (movie.genre_ids && movie.genre_ids.length > 0) {
-                              const genreId = movie.genre_ids[0];
-                              const genreName = getGenreName(genreId);
-                              if (!moviesByGenre[genreName]) {
-                                moviesByGenre[genreName] = [];
-                              }
-                              moviesByGenre[genreName].push(movie);
-                            } else {
-                              if (!moviesByGenre['Outros']) {
-                                moviesByGenre['Outros'] = [];
-                              }
-                              moviesByGenre['Outros'].push(movie);
-                            }
-                          });
-
-                        return Object.entries(moviesByGenre).map(([genre, movies]) => (
-                          <div key={genre} className="mb-6">
-                            <h3 className="text-lg font-semibold text-purple-400 mb-3">
-                              {genre}
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                              {movies.map((movie) => (
-                                <MovieCard key={`${movie.media_type}:${movie.id}`} movie={movie} />
-                              ))}
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Séries */}
-                  {favorites.filter(m => m.media_type === 'tv' || m.name).length > 0 && (
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                        📺 Séries
-                        <span className="text-sm text-gray-400 font-normal">
-                          ({favorites.filter(m => m.media_type === 'tv' || m.name).length})
-                        </span>
-                      </h2>
-
-                      {/* Agrupar por gênero */}
-                      {(() => {
-                        const seriesByGenre: Record<string, Movie[]> = {};
-                        favorites
-                          .filter(m => m.media_type === 'tv' || m.name)
-                          .forEach(series => {
-                            if (series.genre_ids && series.genre_ids.length > 0) {
-                              const genreId = series.genre_ids[0];
-                              const genreName = getGenreName(genreId);
-                              if (!seriesByGenre[genreName]) {
-                                seriesByGenre[genreName] = [];
-                              }
-                              seriesByGenre[genreName].push(series);
-                            } else {
-                              if (!seriesByGenre['Outros']) {
-                                seriesByGenre['Outros'] = [];
-                              }
-                              seriesByGenre['Outros'].push(series);
-                            }
-                          });
-
-                        return Object.entries(seriesByGenre).map(([genre, series]) => (
-                          <div key={genre} className="mb-6">
-                            <h3 className="text-lg font-semibold text-purple-400 mb-3">
-                              {genre}
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                              {series.map((s) => (
-                                <MovieCard key={`${s.media_type}:${s.id}`} movie={s} />
-                              ))}
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  )}
+                  {seriesFavorites.length > 0 ? (
+                    <section className={movieFavorites.length === 0 ? "xl:col-span-2" : ""}>
+                      <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <h2 className="flex items-center gap-2 text-2xl font-bold text-white">
+                          <Tv className="h-6 w-6 text-red-400" />
+                          Séries
+                          <span className="text-sm font-normal text-gray-400">({visibleSeriesFavorites.length})</span>
+                        </h2>
+                        <PlatformDropdown
+                          value={selectedSeriesGenre}
+                          options={seriesGenreOptions}
+                          onChange={setSeriesGenreFilter}
+                          ariaLabel="Filtrar séries favoritas por gênero"
+                          size="sm"
+                          className="sm:ml-auto"
+                        />
+                      </div>
+                      {visibleSeriesFavorites.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                          {visibleSeriesFavorites.map((series) => (
+                            <MovieCard key={`${series.media_type}:${series.id}`} movie={series} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-purple-500/20 bg-black/30 p-8 text-center text-sm text-zinc-500">
+                          Nenhuma série favorita neste gênero.
+                        </div>
+                      )}
+                    </section>
+                  ) : null}
                 </div>
               ) : (
                 <div className="text-center py-12 glass-effect rounded-xl">
@@ -839,102 +832,45 @@ export default function ProfilePage() {
           {activeTab === "settings" && (
             <div className="grid gap-6 lg:grid-cols-2">
               <section className="glass-effect rounded-xl border border-purple-500/30 p-6">
-                <div className="mb-5 flex items-start gap-3">
+                <div className="flex items-start gap-3">
                   <div className="rounded-xl bg-purple-500/15 p-2.5">
                     <Mail className="h-5 w-5 text-purple-300" />
                   </div>
-                  <div>
-                    <h2 className="font-bold text-white">Alterar e-mail</h2>
-                    <p className="mt-1 text-sm text-gray-400">Use um endereço que você consiga acessar.</p>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-bold text-white">E-mail da conta</h2>
+                    <p className="mt-1 truncate text-sm text-gray-400">{user?.email || profile.email}</p>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-gray-300">Novo e-mail</span>
-                    <input
-                      type="email"
-                      value={accountForm.email}
-                      onChange={(event) => setAccountForm((current) => ({ ...current, email: event.target.value }))}
-                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
-                      autoComplete="email"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-gray-300">Senha atual</span>
-                    <input
-                      type="password"
-                      value={accountForm.currentPassword}
-                      onChange={(event) => setAccountForm((current) => ({ ...current, currentPassword: event.target.value }))}
-                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
-                      placeholder="Solicitada para contas com senha"
-                      autoComplete="current-password"
-                    />
-                  </label>
-                  <Button
-                    type="button"
-                    onClick={() => void handleUpdateEmail()}
-                    disabled={savingAccount !== null}
-                    className="w-full bg-purple-600 hover:bg-purple-500"
-                  >
-                    {savingAccount === "email" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Atualizar e-mail
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  onClick={() => openAccountModal("email")}
+                  variant="outline"
+                  className="mt-6 w-full justify-between border-purple-500/30 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20"
+                >
+                  Alterar e-mail
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </section>
 
               <section className="glass-effect rounded-xl border border-purple-500/30 p-6">
-                <div className="mb-5 flex items-start gap-3">
+                <div className="flex items-start gap-3">
                   <div className="rounded-xl bg-purple-500/15 p-2.5">
                     <KeyRound className="h-5 w-5 text-purple-300" />
                   </div>
-                  <div>
-                    <h2 className="font-bold text-white">Alterar senha</h2>
-                    <p className="mt-1 text-sm text-gray-400">Escolha uma senha nova com pelo menos 8 caracteres.</p>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-bold text-white">Senha</h2>
+                    <p className="mt-1 text-sm text-gray-400">Mantenha sua conta protegida com uma senha segura.</p>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-gray-300">Senha atual</span>
-                    <input
-                      type="password"
-                      value={accountForm.currentPassword}
-                      onChange={(event) => setAccountForm((current) => ({ ...current, currentPassword: event.target.value }))}
-                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
-                      autoComplete="current-password"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-gray-300">Nova senha</span>
-                    <input
-                      type="password"
-                      value={accountForm.newPassword}
-                      onChange={(event) => setAccountForm((current) => ({ ...current, newPassword: event.target.value }))}
-                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
-                      minLength={8}
-                      autoComplete="new-password"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-gray-300">Confirmar nova senha</span>
-                    <input
-                      type="password"
-                      value={accountForm.confirmPassword}
-                      onChange={(event) => setAccountForm((current) => ({ ...current, confirmPassword: event.target.value }))}
-                      className="w-full rounded-lg border border-purple-500/30 bg-black/60 px-4 py-2.5 text-white outline-none focus:border-purple-500"
-                      minLength={8}
-                      autoComplete="new-password"
-                    />
-                  </label>
-                  <Button
-                    type="button"
-                    onClick={() => void handleUpdatePassword()}
-                    disabled={savingAccount !== null}
-                    className="w-full bg-purple-600 hover:bg-purple-500"
-                  >
-                    {savingAccount === "password" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Atualizar senha
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  onClick={() => openAccountModal("password")}
+                  variant="outline"
+                  className="mt-6 w-full justify-between border-purple-500/30 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20"
+                >
+                  Alterar senha
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </section>
             </div>
           )}
@@ -951,6 +887,17 @@ export default function ProfilePage() {
         variant="danger"
         onConfirm={handleClearHistory}
         onCancel={() => setShowClearConfirm(false)}
+      />
+      <AccountSettingsModal
+        type={accountModal}
+        values={accountForm}
+        saving={savingAccount === accountModal}
+        onChange={(field, value) => setAccountForm((current) => ({ ...current, [field]: value }))}
+        onSubmit={() => {
+          if (accountModal === "email") void handleUpdateEmail();
+          if (accountModal === "password") void handleUpdatePassword();
+        }}
+        onClose={closeAccountModal}
       />
     </div>
   );

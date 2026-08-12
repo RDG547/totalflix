@@ -5,9 +5,9 @@ import Image from "next/image";
 import { TV_CATEGORIES, type TVChannel } from "@/lib/tv-channels";
 import { getTVProviderChannels, type TVProviderMeta } from "@/lib/tv-providers";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Play, Radio, Loader2 } from "lucide-react";
+import { Play, Radio, Loader2, Search, X } from "lucide-react";
 import { TVPlayerModal } from "@/components/TVPlayerModal";
+import { PlatformDropdown, type PlatformDropdownOption } from "@/components/PlatformDropdown";
 import toast from "react-hot-toast";
 
 // Mapeamento de nomes de canais para categorias (detecta pela palavra-chave no nome)
@@ -75,6 +75,15 @@ const normalizeText = (str: string): string => {
 
 // Alfabeto para filtro por letra
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const CATEGORY_FILTER_OPTIONS: PlatformDropdownOption[] = TV_CATEGORIES.map((category) => ({
+  value: category.id,
+  label: category.name,
+  icon: category.icon,
+}));
+const LETTER_FILTER_OPTIONS: PlatformDropdownOption[] = [
+  { value: "all", label: "Todas as letras" },
+  ...ALPHABET.map((letter) => ({ value: letter, label: `Letra ${letter}` })),
+];
 
 export default function TVPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -162,13 +171,11 @@ export default function TVPage() {
   // Handler para selecionar categoria
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    setSelectedLetter('all');
   };
 
   // Handler para selecionar letra
   const handleLetterSelect = (letter: string) => {
     setSelectedLetter(letter);
-    setSelectedCategory('all');
   };
 
   // Handler para pesquisa
@@ -205,6 +212,14 @@ export default function TVPage() {
     setSelectedLetter('all');
   };
 
+  const activeFilterLabel = [
+    searchQuery.trim() ? `Pesquisa: "${searchQuery.trim()}"` : "",
+    selectedCategory !== "all"
+      ? TV_CATEGORIES.find((category) => category.id === selectedCategory)?.name || ""
+      : "",
+    selectedLetter !== "all" ? `Letra ${selectedLetter}` : "",
+  ].filter(Boolean).join(" • ") || "Todos";
+
   return (
     <div className="min-h-screen pt-20 pb-12">
       <div className="container mx-auto px-4">
@@ -220,20 +235,14 @@ export default function TVPage() {
         </div>
 
         {/* Filtros unificados em um único card */}
-        <div className="mb-8">
-          <div className="border border-purple-500/30 rounded-lg bg-black/40 backdrop-blur-sm overflow-hidden">
+        <div className="relative z-30 mb-8">
+          <div className="rounded-lg border border-purple-500/30 bg-black/40 backdrop-blur-sm">
             {/* Header com título e badge do filtro ativo */}
-            <div className="flex items-center gap-3 p-4 border-b border-purple-500/10">
+            <div className="flex flex-wrap items-center gap-3 p-4 border-b border-purple-500/10">
               <Radio className="w-5 h-5 text-purple-500" />
               <span className="font-semibold text-white">Filtros</span>
-              <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
-                {searchQuery
-                  ? `Pesquisa: "${searchQuery}"`
-                  : selectedCategory !== 'all'
-                    ? TV_CATEGORIES.find(c => c.id === selectedCategory)?.name
-                    : selectedLetter !== 'all'
-                      ? `Letra ${selectedLetter}`
-                      : 'Todos'}
+              <span className="max-w-full truncate rounded-full bg-purple-500 px-2 py-0.5 text-xs text-white">
+                {activeFilterLabel}
               </span>
               {(searchQuery || selectedCategory !== 'all' || selectedLetter !== 'all') && (
                 <button
@@ -245,82 +254,48 @@ export default function TVPage() {
               )}
             </div>
 
-            {/* Grid de filtros */}
-            <div className="p-4 space-y-4">
-              {/* Seção: Pesquisa */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Pesquisar</h3>
-                <div className="relative max-w-md">
+            <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_14rem_12rem] lg:items-end">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                  Pesquisar
+                </span>
+                <div className="relative">
                   <input
                     type="text"
                     placeholder="Digite o nome do canal..."
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full px-4 py-3 pl-12 bg-black/60 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    className="min-h-11 w-full rounded-xl border border-purple-500/30 bg-[#0b0710] py-2.5 pl-11 pr-11 text-sm text-white placeholder-gray-500 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20"
                   />
-                  <svg className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                   {searchQuery && (
                     <button
+                      type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      className="absolute right-3 top-1/2 rounded-lg p-1 -translate-y-1/2 text-gray-400 hover:bg-white/10 hover:text-white"
+                      aria-label="Limpar pesquisa"
                     >
-                      ✕
+                      <X className="h-4 w-4" />
                     </button>
                   )}
                 </div>
-              </div>
+              </label>
 
-              {/* Divisor */}
-              <div className="border-t border-purple-500/10 pt-4">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Categorias</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {TV_CATEGORIES.map((category) => {
-                    const Icon = category.icon;
-                    const isActive = selectedCategory === category.id;
-                    return (
-                      <Button
-                        key={category.id}
-                        type="button"
-                        onClick={() => handleCategorySelect(category.id)}
-                        variant={isActive ? "default" : "ghost"}
-                        className={`justify-start w-full transition-all text-left ${isActive
-                          ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50"
-                          : "text-gray-300 hover:text-white hover:bg-white/10"
-                          }`}
-                      >
-                        <Icon className="w-4 h-4 mr-2 shrink-0" />
-                        <span className="truncate">{category.name}</span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
+              <PlatformDropdown
+                value={selectedCategory}
+                options={CATEGORY_FILTER_OPTIONS}
+                onChange={handleCategorySelect}
+                label="Categoria"
+                ariaLabel="Filtrar canais por categoria"
+              />
 
-              {/* Divisor */}
-              <div className="border-t border-purple-500/10 pt-4">
-                <h3 className="text-sm font-medium text-gray-400 mb-2">Filtrar por Letra</h3>
-                <div className="flex flex-wrap gap-2">
-                  {ALPHABET.map((letter) => {
-                    const isActive = selectedLetter === letter;
-                    return (
-                      <Button
-                        key={letter}
-                        type="button"
-                        onClick={() => handleLetterSelect(letter)}
-                        variant={isActive ? "default" : "ghost"}
-                        className={`w-10 h-10 p-0 transition-all ${isActive
-                          ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50"
-                          : "text-gray-300 hover:text-white hover:bg-white/10"
-                          }`}
-                      >
-                        {letter}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
+              <PlatformDropdown
+                value={selectedLetter}
+                options={LETTER_FILTER_OPTIONS}
+                onChange={handleLetterSelect}
+                label="Letra inicial"
+                ariaLabel="Filtrar canais pela letra inicial"
+              />
             </div>
           </div>
         </div>
