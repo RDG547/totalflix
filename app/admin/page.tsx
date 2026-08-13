@@ -63,6 +63,7 @@ interface AdminUser {
   historyCount: number;
   createdAt: number;
   updatedAt: number;
+  lastActivityAt: number;
 }
 
 interface AdminComment {
@@ -82,17 +83,26 @@ interface AdminDashboardData {
   generatedAt: number;
   overview: {
     users: number;
-    comments: number;
-    favorites: number;
-    historyItems: number;
+    comments: number | null;
+    favorites: number | null;
+    historyItems: number | null;
     activeUsers30d: number;
-    achievementsUnlocked: number;
+    achievementsUnlocked: number | null;
     vipUsers: number;
     consumption: {
-      movie: number;
-      tv: number;
-      liveTv: number;
+      movie: number | null;
+      tv: number | null;
+      liveTv: number | null;
     };
+  };
+  availability: {
+    profiles: boolean;
+    profilesStale: boolean;
+    profilesError: string | null;
+    achievements: boolean;
+    comments: boolean;
+    commentsStale: boolean;
+    commentsError: string | null;
   };
   users: {
     items: AdminUser[];
@@ -390,7 +400,9 @@ export default function AdminPage() {
         ...current,
         overview: {
           ...current.overview,
-          comments: Math.max(0, current.overview.comments - Number(payload.deleted || 1)),
+          comments: current.overview.comments === null
+            ? null
+            : Math.max(0, current.overview.comments - Number(payload.deleted || 1)),
         },
         comments: {
           ...current.comments,
@@ -679,20 +691,30 @@ function OverviewSection({
   data: AdminDashboardData;
   onNavigate: (section: AdminSection) => void;
 }) {
-  const interactions = data.overview.favorites + data.overview.historyItems;
+  const profileMetricsAvailable = data.availability.profiles;
+  const achievementMetricsAvailable = data.availability.achievements;
+  const commentMetricsAvailable = data.availability.comments;
+  const favorites = profileMetricsAvailable ? data.overview.favorites ?? 0 : null;
+  const historyItems = profileMetricsAvailable ? data.overview.historyItems ?? 0 : null;
+  const interactions = profileMetricsAvailable
+    ? (favorites || 0) + (historyItems || 0)
+    : null;
   const recentUsers = data.users.items.slice(0, 5);
   const engagementRows = [
-    { label: "Favoritos salvos", value: data.overview.favorites, tone: "bg-purple-500" },
-    { label: "Itens no histórico", value: data.overview.historyItems, tone: "bg-blue-500" },
-    { label: "Perfis ativos em 30 dias", value: data.overview.activeUsers30d, tone: "bg-emerald-500" },
+    { label: "Favoritos salvos", value: favorites, tone: "bg-purple-500" },
+    { label: "Itens no histórico", value: historyItems, tone: "bg-blue-500" },
+    { label: "Contas ativas em 30 dias", value: data.overview.activeUsers30d, tone: "bg-emerald-500" },
   ];
-  const maxEngagement = Math.max(...engagementRows.map((row) => row.value), 1);
+  const maxEngagement = Math.max(...engagementRows.map((row) => row.value || 0), 1);
   const consumptionRows = [
-    { label: "Filmes", value: data.overview.consumption.movie, icon: Film, tone: "bg-purple-500" },
-    { label: "Séries", value: data.overview.consumption.tv, icon: Tv, tone: "bg-blue-500" },
-    { label: "TV ao vivo", value: data.overview.consumption.liveTv, icon: Radio, tone: "bg-red-500" },
+    { label: "Filmes", value: profileMetricsAvailable ? data.overview.consumption.movie ?? 0 : null, icon: Film, tone: "bg-purple-500" },
+    { label: "Séries", value: profileMetricsAvailable ? data.overview.consumption.tv ?? 0 : null, icon: Tv, tone: "bg-blue-500" },
+    { label: "TV ao vivo", value: profileMetricsAvailable ? data.overview.consumption.liveTv ?? 0 : null, icon: Radio, tone: "bg-red-500" },
   ];
-  const maxConsumption = Math.max(...consumptionRows.map((row) => row.value), 1);
+  const maxConsumption = Math.max(...consumptionRows.map((row) => row.value || 0), 1);
+  const profileMetricsMessage = data.availability.profilesStale
+    ? "Exibindo os últimos dados disponíveis enquanto o Firestore se recupera."
+    : data.availability.profilesError || "As métricas dos perfis estão temporariamente indisponíveis.";
 
   return (
     <>
@@ -706,27 +728,29 @@ function OverviewSection({
         <MetricCard
           title="Usuários cadastrados"
           value={integerFormatter.format(data.overview.users)}
-          detail={`${integerFormatter.format(data.overview.activeUsers30d)} perfis atualizados nos últimos 30 dias`}
+          detail={`${integerFormatter.format(data.overview.activeUsers30d)} contas ativas nos últimos 30 dias`}
           icon={Users}
         />
         <MetricCard
           title="Comentários"
-          value={integerFormatter.format(data.overview.comments)}
-          detail="Comentários e respostas na comunidade"
+          value={commentMetricsAvailable ? integerFormatter.format(data.overview.comments ?? 0) : "—"}
+          detail={commentMetricsAvailable ? "Comentários e respostas na comunidade" : "Dados temporariamente indisponíveis"}
           icon={MessageSquare}
           tone="blue"
         />
         <MetricCard
           title="Interações salvas"
-          value={integerFormatter.format(interactions)}
-          detail={`${integerFormatter.format(data.overview.favorites)} favoritos e ${integerFormatter.format(data.overview.historyItems)} itens no histórico`}
+          value={interactions === null ? "—" : integerFormatter.format(interactions)}
+          detail={profileMetricsAvailable
+            ? `${integerFormatter.format(favorites ?? 0)} favoritos e ${integerFormatter.format(historyItems ?? 0)} itens no histórico`
+            : "Dados temporariamente indisponíveis"}
           icon={Activity}
           tone="green"
         />
         <MetricCard
           title="Perfis ativos"
           value={integerFormatter.format(data.overview.activeUsers30d)}
-          detail="Perfis atualizados nos últimos 30 dias"
+          detail="Login ou atividade registrados nos últimos 30 dias"
           icon={Clock3}
           tone="amber"
         />
@@ -739,8 +763,8 @@ function OverviewSection({
         />
         <MetricCard
           title="Conquistas"
-          value={integerFormatter.format(data.overview.achievementsUnlocked)}
-          detail="Conquistas desbloqueadas pela comunidade"
+          value={achievementMetricsAvailable ? integerFormatter.format(data.overview.achievementsUnlocked ?? 0) : "—"}
+          detail={achievementMetricsAvailable ? "Conquistas desbloqueadas pela comunidade" : "Dados temporariamente indisponíveis"}
           icon={Trophy}
           tone="green"
         />
@@ -761,18 +785,23 @@ function OverviewSection({
                     <Icon className="h-4 w-4 text-purple-400" />
                     {row.label}
                   </span>
-                  <span className="font-semibold text-white">{integerFormatter.format(row.value)}</span>
+                  <span className="font-semibold text-white">
+                    {row.value === null ? "—" : integerFormatter.format(row.value)}
+                  </span>
                 </div>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                   <div
                     className={`h-full rounded-full ${row.tone}`}
-                    style={{ width: `${Math.max(row.value ? 3 : 0, (row.value / maxConsumption) * 100)}%` }}
+                    style={{ width: `${row.value === null ? 0 : Math.max(row.value ? 3 : 0, (row.value / maxConsumption) * 100)}%` }}
                   />
                 </div>
               </div>
             );
           })}
         </div>
+        {(!profileMetricsAvailable || data.availability.profilesStale) && (
+          <CollectionNotice message={profileMetricsMessage} />
+        )}
       </Panel>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_1fr]">
@@ -786,13 +815,13 @@ function OverviewSection({
                 <div className="mb-2 flex items-center justify-between gap-4 text-sm">
                   <span className="text-zinc-400">{row.label}</span>
                   <span className="font-medium text-zinc-200">
-                    {integerFormatter.format(row.value)}
+                    {row.value === null ? "—" : integerFormatter.format(row.value)}
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/5">
                   <div
                     className={`h-full rounded-full ${row.tone}`}
-                    style={{ width: `${Math.max(2, (row.value / maxEngagement) * 100)}%` }}
+                    style={{ width: `${row.value === null ? 0 : Math.max(2, (row.value / maxEngagement) * 100)}%` }}
                   />
                 </div>
               </div>
@@ -801,10 +830,14 @@ function OverviewSection({
               <Activity className="mt-0.5 h-5 w-5 shrink-0 text-purple-300" />
               <div>
                 <p className="text-sm font-medium text-purple-100">
-                  {integerFormatter.format(interactions)} interações salvas
+                  {interactions === null
+                    ? "Interações temporariamente indisponíveis"
+                    : `${integerFormatter.format(interactions)} interações salvas`}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-purple-200/60">
-                  Soma de favoritos e itens do histórico disponíveis nos perfis.
+                  {profileMetricsAvailable
+                    ? "Soma de favoritos e itens do histórico disponíveis nos perfis."
+                    : profileMetricsMessage}
                 </p>
               </div>
             </div>
@@ -894,8 +927,12 @@ function UsersSection({
         ) : users.length === 0 ? (
           <EmptyState icon={UserRound} message="Nenhum perfil corresponde à busca." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-left text-sm">
+          <div>
+            {!data.availability.profiles && (
+              <CollectionNotice message={data.availability.profilesError || "Os dados de biblioteca e consumo estão temporariamente indisponíveis."} />
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1180px] text-left text-sm">
               <thead className="bg-white/[0.025] text-xs uppercase tracking-wider text-zinc-600">
                 <tr>
                   <th className="px-5 py-3 font-medium">Usuário</th>
@@ -950,16 +987,22 @@ function UsersSection({
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex gap-3 text-xs text-zinc-500">
-                        <span title="Filmes">🎬 {item.consumption.movie.views}</span>
-                        <span title="Séries">📺 {item.consumption.tv.views}</span>
-                        <span title="TV ao vivo">🔴 {item.consumption.liveTv.views}</span>
-                      </div>
+                      {data.availability.profiles ? (
+                        <div className="flex gap-3 text-xs text-zinc-500">
+                          <span title="Filmes">🎬 {item.consumption.movie.views}</span>
+                          <span title="Séries">📺 {item.consumption.tv.views}</span>
+                          <span title="TV ao vivo">🔴 {item.consumption.liveTv.views}</span>
+                        </div>
+                      ) : <span className="text-zinc-600">—</span>}
                     </td>
                     <td className="px-5 py-4 text-xs text-zinc-500">
-                      {integerFormatter.format(item.favoritesCount)} favoritos · {integerFormatter.format(item.historyCount)} histórico
+                      {data.availability.profiles
+                        ? `${integerFormatter.format(item.favoritesCount)} favoritos · ${integerFormatter.format(item.historyCount)} histórico`
+                        : "—"}
                     </td>
-                    <td className="px-5 py-4 text-zinc-400">{integerFormatter.format(item.achievementsUnlocked)}</td>
+                    <td className="px-5 py-4 text-zinc-400">
+                      {data.availability.achievements ? integerFormatter.format(item.achievementsUnlocked) : "—"}
+                    </td>
                     <td className="px-5 py-4 text-zinc-500">{formatDate(item.createdAt)}</td>
                     <td className="px-5 py-4 text-right">
                       <Button
@@ -976,7 +1019,8 @@ function UsersSection({
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         )}
       </Panel>
@@ -1006,7 +1050,9 @@ function CommentsSection({
       />
 
       <Panel
-        title={`${integerFormatter.format(data.overview.comments)} comentários`}
+        title={data.overview.comments === null
+          ? "Comentários"
+          : `${integerFormatter.format(data.overview.comments)} comentários`}
         description={data.comments.truncated ? "Exibindo os primeiros 1.000 registros" : "Comentários e respostas"}
         action={
           <div className="relative w-full sm:w-72">

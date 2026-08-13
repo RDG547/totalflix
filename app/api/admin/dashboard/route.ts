@@ -10,6 +10,20 @@ import { getMaintenanceSettings } from '@/lib/site-settings-server';
 
 export const dynamic = 'force-dynamic';
 
+const ADMIN_COLLECTION_CACHE_TTL_MS = 5 * 60 * 1000;
+const ADMIN_COLLECTION_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface LoadedCollection {
+  result: FirestoreCollectionResult | null;
+  error: string | null;
+  stale: boolean;
+}
+
+const adminCollectionCache = new Map<string, {
+  result: FirestoreCollectionResult;
+  cachedAt: number;
+}>();
+
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
@@ -44,37 +58,63 @@ function collectionError(error: unknown): string {
 async function loadCollection(
   collectionId: string,
   idToken: string,
-): Promise<{ result: FirestoreCollectionResult | null; error: string | null }> {
+): Promise<LoadedCollection> {
   try {
     return {
       result: await listFirestoreCollection(collectionId, idToken),
       error: null,
+      stale: false,
     };
   } catch (error) {
     console.error(`Admin collection "${collectionId}" failed:`, error);
-    return { result: null, error: collectionError(error) };
+    return { result: null, error: collectionError(error), stale: false };
   }
 }
 
 async function loadAdminCollection(
   collectionId: string,
-): Promise<{ result: FirestoreCollectionResult | null; error: string | null }> {
+): Promise<LoadedCollection> {
+  const cached = adminCollectionCache.get(collectionId);
+  const now = Date.now();
+  if (cached && now - cached.cachedAt < ADMIN_COLLECTION_CACHE_TTL_MS) {
+    return { result: cached.result, error: null, stale: false };
+  }
+
   try {
     const snapshot = await getFirebaseAdminDb().collection(collectionId).limit(1001).get();
+    const result = {
+      documents: snapshot.docs.slice(0, 1000).map((doc) => ({
+        id: doc.id,
+        data: doc.data(),
+      })),
+      truncated: snapshot.size > 1000,
+    };
+    adminCollectionCache.set(collectionId, { result, cachedAt: now });
     return {
-      result: {
-        documents: snapshot.docs.slice(0, 1000).map((doc) => ({
-          id: doc.id,
-          data: doc.data(),
-        })),
-        truncated: snapshot.size > 1000,
-      },
+      result,
       error: null,
+      stale: false,
     };
   } catch (error) {
     console.error(`Admin SDK collection "${collectionId}" failed:`, error);
-    return { result: null, error: collectionError(error) };
+    if (cached && now - cached.cachedAt < ADMIN_COLLECTION_STALE_TTL_MS) {
+      return {
+        result: cached.result,
+        error: null,
+        stale: true,
+      };
+    }
+    return { result: null, error: collectionError(error), stale: false };
   }
+}
+
+function profileMap(collection: LoadedCollection) {
+  return {
+    profiles: new Map(
+      (collection.result?.documents || []).map(({ id, data }) => [id, data]),
+    ),
+    available: collection.result !== null,
+  };
 }
 
 export async function GET(request: Request) {
@@ -89,21 +129,19 @@ export async function GET(request: Request) {
   const usersCollectionPromise = adminSdkConfigured
     ? loadAdminCollection('users')
     : loadCollection('users', admin.idToken);
-  const adminProfilesPromise = usersCollectionPromise.then(({ result }) => new Map(
-    (result?.documents || []).map(({ id, data }) => [id, data]),
-  ));
+  const adminProfilesPromise = usersCollectionPromise.then(profileMap);
   const [usersCollection, commentsCollection, adminUsersResult, maintenance] = await Promise.all([
     usersCollectionPromise,
     adminSdkConfigured ? loadAdminCollection('comments') : loadCollection('comments', admin.idToken),
     adminSdkConfigured
       ? listAdminUsers(adminProfilesPromise)
-        .then((items) => ({ items, error: null as string | null }))
+        .then((result) => ({ result, error: null as string | null }))
         .catch((error) => {
           console.error('Could not list Firebase Auth users:', error);
-          return { items: null, error: 'Não foi possível consultar o Firebase Auth.' };
+          return { result: null, error: 'Não foi possível consultar o Firebase Auth.' };
         })
       : Promise.resolve({
-        items: null,
+        result: null,
         error: 'Configure FIREBASE_SERVICE_ACCOUNT_JSON para habilitar a gestão completa.',
       }),
     getMaintenanceSettings(),
@@ -135,9 +173,13 @@ export async function GET(request: Request) {
       },
       createdAt: asNumber(data.createdAt),
       updatedAt: asNumber(data.updatedAt),
+      lastActivityAt: asNumber(data.updatedAt),
     }))
     .sort((a, b) => b.createdAt - a.createdAt);
-  const users = adminUsersResult.items || fallbackUsers;
+  const users = adminUsersResult.result?.items || fallbackUsers;
+  const profilesAvailable = adminUsersResult.result?.profilesAvailable
+    ?? usersCollection.result !== null;
+  const achievementsAvailable = adminUsersResult.result?.achievementsAvailable ?? false;
 
   const comments = (commentsCollection.result?.documents || [])
     .map(({ id, data }) => ({
@@ -160,22 +202,43 @@ export async function GET(request: Request) {
     generatedAt: Date.now(),
     overview: {
       users: users.length,
-      comments: comments.length,
-      favorites: users.reduce((sum, user) => sum + user.favoritesCount, 0),
-      historyItems: users.reduce((sum, user) => sum + user.historyCount, 0),
-      activeUsers30d: users.filter((user) => user.updatedAt >= updatedSince).length,
-      achievementsUnlocked: users.reduce((sum, user) => sum + user.achievementsUnlocked, 0),
+      comments: commentsCollection.result ? comments.length : null,
+      favorites: profilesAvailable
+        ? users.reduce((sum, user) => sum + user.favoritesCount, 0)
+        : null,
+      historyItems: profilesAvailable
+        ? users.reduce((sum, user) => sum + user.historyCount, 0)
+        : null,
+      activeUsers30d: users.filter((user) => user.lastActivityAt >= updatedSince).length,
+      achievementsUnlocked: achievementsAvailable
+        ? users.reduce((sum, user) => sum + user.achievementsUnlocked, 0)
+        : null,
       consumption: {
-        movie: users.reduce((sum, user) => sum + user.consumption.movie.views, 0),
-        tv: users.reduce((sum, user) => sum + user.consumption.tv.views, 0),
-        liveTv: users.reduce((sum, user) => sum + user.consumption.liveTv.views, 0),
+        movie: profilesAvailable
+          ? users.reduce((sum, user) => sum + user.consumption.movie.views, 0)
+          : null,
+        tv: profilesAvailable
+          ? users.reduce((sum, user) => sum + user.consumption.tv.views, 0)
+          : null,
+        liveTv: profilesAvailable
+          ? users.reduce((sum, user) => sum + user.consumption.liveTv.views, 0)
+          : null,
       },
       vipUsers: users.filter((user) => user.vip).length,
     },
+    availability: {
+      profiles: profilesAvailable,
+      profilesStale: usersCollection.stale,
+      profilesError: profilesAvailable ? null : usersCollection.error,
+      achievements: achievementsAvailable,
+      comments: commentsCollection.result !== null,
+      commentsStale: commentsCollection.stale,
+      commentsError: commentsCollection.error,
+    },
     users: {
       items: users,
-      truncated: adminUsersResult.items ? false : usersCollection.result?.truncated || false,
-      error: adminUsersResult.items ? null : adminUsersResult.error || usersCollection.error,
+      truncated: adminUsersResult.result ? false : usersCollection.result?.truncated || false,
+      error: adminUsersResult.result ? null : adminUsersResult.error || usersCollection.error,
     },
     comments: {
       items: comments,

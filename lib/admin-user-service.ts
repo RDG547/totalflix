@@ -44,9 +44,33 @@ export interface AdminUserSummary {
   consumption: ConsumptionMetrics;
   createdAt: number;
   updatedAt: number;
+  lastActivityAt: number;
   lastSignInAt: number;
   providers: string[];
 }
+
+export interface AdminUserListResult {
+  items: AdminUserSummary[];
+  profilesAvailable: boolean;
+  achievementsAvailable: boolean;
+}
+
+interface AdminProfileResult {
+  profiles: AdminUserProfiles;
+  available: boolean;
+}
+
+interface AchievementCountResult {
+  counts: ReadonlyMap<string, number>;
+  available: boolean;
+}
+
+const ADMIN_ENRICHMENT_CACHE_TTL_MS = 5 * 60 * 1000;
+const ADMIN_ENRICHMENT_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+let achievementCountCache: {
+  counts: ReadonlyMap<string, number>;
+  cachedAt: number;
+} | null = null;
 
 function numberValue(value: unknown): number {
   if (value instanceof Timestamp) return value.toMillis();
@@ -112,6 +136,9 @@ function summaryFromRecords(
   const access = claimsFromRecord(record.customClaims, primaryAdmin);
   const favorites = arrayValue(profile.favorites);
   const history = arrayValue(profile.history);
+  const lastSignInAt = Date.parse(record.metadata.lastSignInTime || '') || 0;
+  const lastRefreshAt = Date.parse(record.metadata.lastRefreshTime || '') || 0;
+  const updatedAt = numberValue(profile.updatedAt);
 
   return {
     uid: record.uid,
@@ -129,8 +156,9 @@ function summaryFromRecords(
     achievementsUnlocked,
     consumption: consumptionFromProfile(profile),
     createdAt: Date.parse(record.metadata.creationTime) || numberValue(profile.createdAt),
-    updatedAt: numberValue(profile.updatedAt),
-    lastSignInAt: Date.parse(record.metadata.lastSignInTime || '') || 0,
+    updatedAt,
+    lastActivityAt: Math.max(updatedAt, lastSignInAt, lastRefreshAt),
+    lastSignInAt,
     providers: record.providerData.map((provider) => provider.providerId),
   };
 }
@@ -149,53 +177,78 @@ async function listAllAuthUsers(): Promise<UserRecord[]> {
   return users;
 }
 
-async function loadAdminProfiles(): Promise<AdminUserProfiles> {
+async function loadAdminProfiles(): Promise<AdminProfileResult> {
   try {
     const snapshot = await getFirebaseAdminDb().collection('users').limit(1001).get();
-    return new Map(snapshot.docs.map((doc) => [doc.id, doc.data()]));
+    return {
+      profiles: new Map(snapshot.docs.map((doc) => [doc.id, doc.data()])),
+      available: true,
+    };
   } catch (error) {
     console.error('Could not enrich admin users with Firestore profiles:', error);
-    return new Map();
+    return { profiles: new Map(), available: false };
   }
 }
 
-async function loadAchievementCounts(): Promise<ReadonlyMap<string, number>> {
+async function loadAchievementCounts(): Promise<AchievementCountResult> {
+  const now = Date.now();
+  if (
+    achievementCountCache
+    && now - achievementCountCache.cachedAt < ADMIN_ENRICHMENT_CACHE_TTL_MS
+  ) {
+    return { counts: achievementCountCache.counts, available: true };
+  }
+
   try {
     const snapshot = await getFirebaseAdminDb()
       .collection('achievements')
       .select('achievements')
       .limit(1001)
       .get();
-    return new Map(
+    const counts = new Map(
       snapshot.docs.map((doc) => [
         doc.id,
         arrayValue(doc.data().achievements).map(objectValue).filter((item) => item.unlocked === true).length,
       ]),
     );
+    achievementCountCache = { counts, cachedAt: now };
+    return { counts, available: true };
   } catch (error) {
     console.error('Could not enrich admin users with achievement counts:', error);
-    return new Map();
+    if (
+      achievementCountCache
+      && now - achievementCountCache.cachedAt < ADMIN_ENRICHMENT_STALE_TTL_MS
+    ) {
+      return { counts: achievementCountCache.counts, available: true };
+    }
+    return { counts: new Map(), available: false };
   }
 }
 
 export async function listAdminUsers(
-  profilesInput?: AdminUserProfiles | Promise<AdminUserProfiles>,
-): Promise<AdminUserSummary[]> {
+  profilesInput?: AdminProfileResult | Promise<AdminProfileResult>,
+): Promise<AdminUserListResult> {
   // O Auth é a fonte principal da listagem. Dados auxiliares do Firestore não
   // devem derrubar a gestão de contas quando a cota de leituras se esgota.
-  const [records, profiles, achievements] = await Promise.all([
+  const [records, profileResult, achievementResult] = await Promise.all([
     listAllAuthUsers(),
     profilesInput ? Promise.resolve(profilesInput) : loadAdminProfiles(),
     loadAchievementCounts(),
   ]);
 
-  return records
+  const items = records
     .map((record) => summaryFromRecords(
       record,
-      profiles.get(record.uid) || {},
-      achievements.get(record.uid) || 0,
+      profileResult.profiles.get(record.uid) || {},
+      achievementResult.counts.get(record.uid) || 0,
     ))
     .sort((a, b) => b.createdAt - a.createdAt);
+
+  return {
+    items,
+    profilesAvailable: profileResult.available,
+    achievementsAvailable: achievementResult.available,
+  };
 }
 
 async function resolveTmdbContent(id: number, preferredType?: 'movie' | 'tv') {
