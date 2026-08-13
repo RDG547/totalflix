@@ -13,6 +13,8 @@ import { isAdminEmail } from './admin';
 
 type ProfileData = Record<string, unknown>;
 
+export type AdminUserProfiles = ReadonlyMap<string, ProfileData>;
+
 export interface ConsumptionMetric {
   views: number;
   unique: number;
@@ -147,20 +149,45 @@ async function listAllAuthUsers(): Promise<UserRecord[]> {
   return users;
 }
 
-export async function listAdminUsers(): Promise<AdminUserSummary[]> {
-  const [records, profilesSnapshot, achievementsSnapshot] = await Promise.all([
-    listAllAuthUsers(),
-    getFirebaseAdminDb().collection('users').get(),
-    getFirebaseAdminDb().collection('achievements').get(),
-  ]);
+async function loadAdminProfiles(): Promise<AdminUserProfiles> {
+  try {
+    const snapshot = await getFirebaseAdminDb().collection('users').limit(1001).get();
+    return new Map(snapshot.docs.map((doc) => [doc.id, doc.data()]));
+  } catch (error) {
+    console.error('Could not enrich admin users with Firestore profiles:', error);
+    return new Map();
+  }
+}
 
-  const profiles = new Map(profilesSnapshot.docs.map((doc) => [doc.id, doc.data()]));
-  const achievements = new Map(
-    achievementsSnapshot.docs.map((doc) => [
-      doc.id,
-      arrayValue(doc.data().achievements).map(objectValue).filter((item) => item.unlocked === true).length,
-    ]),
-  );
+async function loadAchievementCounts(): Promise<ReadonlyMap<string, number>> {
+  try {
+    const snapshot = await getFirebaseAdminDb()
+      .collection('achievements')
+      .select('achievements')
+      .limit(1001)
+      .get();
+    return new Map(
+      snapshot.docs.map((doc) => [
+        doc.id,
+        arrayValue(doc.data().achievements).map(objectValue).filter((item) => item.unlocked === true).length,
+      ]),
+    );
+  } catch (error) {
+    console.error('Could not enrich admin users with achievement counts:', error);
+    return new Map();
+  }
+}
+
+export async function listAdminUsers(
+  profilesInput?: AdminUserProfiles | Promise<AdminUserProfiles>,
+): Promise<AdminUserSummary[]> {
+  // O Auth é a fonte principal da listagem. Dados auxiliares do Firestore não
+  // devem derrubar a gestão de contas quando a cota de leituras se esgota.
+  const [records, profiles, achievements] = await Promise.all([
+    listAllAuthUsers(),
+    profilesInput ? Promise.resolve(profilesInput) : loadAdminProfiles(),
+    loadAchievementCounts(),
+  ]);
 
   return records
     .map((record) => summaryFromRecords(

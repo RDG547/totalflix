@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -125,6 +125,7 @@ const navigation: Array<{
 ];
 
 const integerFormatter = new Intl.NumberFormat("pt-BR");
+const DASHBOARD_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 function formatDate(timestamp: number, includeTime = false): string {
   if (!timestamp) return "Sem registro";
@@ -275,6 +276,7 @@ export default function AdminPage() {
   const [commentToDelete, setCommentToDelete] = useState<AdminComment | null>(null);
   const [deletingComment, setDeletingComment] = useState(false);
   const [selectedUserUid, setSelectedUserUid] = useState<string | null>(null);
+  const lastDashboardLoadAt = useRef(0);
 
   const adminAllowed = isAdmin;
 
@@ -297,6 +299,7 @@ export default function AdminPage() {
       }
 
       setData(payload as AdminDashboardData);
+      lastDashboardLoadAt.current = Date.now();
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -326,9 +329,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (!user || !adminAllowed) return;
     const refresh = () => {
-      if (document.visibilityState === "visible") void loadDashboard(true);
+      const stale = Date.now() - lastDashboardLoadAt.current >= DASHBOARD_REFRESH_INTERVAL_MS;
+      if (document.visibilityState === "visible" && stale) void loadDashboard(true);
     };
-    const interval = window.setInterval(refresh, 10_000);
+    const interval = window.setInterval(refresh, DASHBOARD_REFRESH_INTERVAL_MS);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(interval);

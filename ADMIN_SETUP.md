@@ -14,6 +14,14 @@ SOFTURL_API_TOKEN=<token privado da Softurl>
 
 O JSON da conta de serviço deve pertencer ao projeto Firebase `total-flix`. Ele pode ser gerado no Console do Firebase em **Configurações do projeto → Contas de serviço → Gerar nova chave privada**.
 
+No `.env.local`, não cole o JSON formatado em várias linhas sem aspas: nesse formato o carregador interpreta apenas o primeiro `{`. A opção mais segura é gerar uma linha Base64 e copiar a saída para `FIREBASE_SERVICE_ACCOUNT_JSON`:
+
+```bash
+base64 -w 0 /caminho/firebase-service-account.json
+```
+
+Mantenha somente o placeholder em `.env.example`. Se uma chave privada for colocada por engano em um arquivo rastreado, revogue-a no Google Cloud IAM e gere outra.
+
 Para gerar um segredo independente para o LinkGate:
 
 ```bash

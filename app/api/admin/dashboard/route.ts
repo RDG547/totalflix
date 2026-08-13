@@ -24,6 +24,17 @@ function asArray(value: unknown): unknown[] {
 }
 
 function collectionError(error: unknown): string {
+  const firebaseCode = error && typeof error === 'object' && 'code' in error
+    ? String(error.code)
+    : '';
+  if (
+    (error instanceof FirestoreRequestError && error.status === 429)
+    || firebaseCode === '8'
+    || firebaseCode === 'resource-exhausted'
+    || firebaseCode === 'firestore/resource-exhausted'
+  ) {
+    return 'A cota de leituras do Firestore foi excedida. Tente novamente mais tarde.';
+  }
   if (error instanceof FirestoreRequestError && error.status === 403) {
     return 'As regras atuais do Firestore não permitem consultar esta coleção.';
   }
@@ -62,7 +73,7 @@ async function loadAdminCollection(
     };
   } catch (error) {
     console.error(`Admin SDK collection "${collectionId}" failed:`, error);
-    return { result: null, error: 'Não foi possível consultar esta coleção agora.' };
+    return { result: null, error: collectionError(error) };
   }
 }
 
@@ -75,11 +86,17 @@ export async function GET(request: Request) {
   }
 
   const adminSdkConfigured = isFirebaseAdminConfigured();
+  const usersCollectionPromise = adminSdkConfigured
+    ? loadAdminCollection('users')
+    : loadCollection('users', admin.idToken);
+  const adminProfilesPromise = usersCollectionPromise.then(({ result }) => new Map(
+    (result?.documents || []).map(({ id, data }) => [id, data]),
+  ));
   const [usersCollection, commentsCollection, adminUsersResult, maintenance] = await Promise.all([
-    adminSdkConfigured ? loadAdminCollection('users') : loadCollection('users', admin.idToken),
+    usersCollectionPromise,
     adminSdkConfigured ? loadAdminCollection('comments') : loadCollection('comments', admin.idToken),
     adminSdkConfigured
-      ? listAdminUsers()
+      ? listAdminUsers(adminProfilesPromise)
         .then((items) => ({ items, error: null as string | null }))
         .catch((error) => {
           console.error('Could not list Firebase Auth users:', error);
