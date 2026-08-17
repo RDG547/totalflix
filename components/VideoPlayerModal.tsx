@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Loader2, Maximize2, MonitorPlay, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,23 +68,72 @@ function SelectMenu<T extends string | number>({
   className = "",
 }: SelectMenuProps<T>) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const selected = options.find((option) => option.value === value);
 
   useEffect(() => {
     if (!open) return;
 
     const handleOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) onOpenChange(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        onOpenChange(false);
+      }
     };
 
     document.addEventListener("pointerdown", handleOutside);
     return () => document.removeEventListener("pointerdown", handleOutside);
   }, [onOpenChange, open]);
 
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return;
+
+    const updatePosition = () => {
+      const button = buttonRef.current;
+      if (!button) return;
+
+      const rect = button.getBoundingClientRect();
+      const viewportPadding = 8;
+      const menuGap = 6;
+      const availableWidth = Math.max(window.innerWidth - viewportPadding * 2, 0);
+      const width = Math.min(Math.max(rect.width, 280), availableWidth);
+      const preferredLeft = align === "right" ? rect.right - width : rect.left;
+      const maxLeft = Math.max(viewportPadding, window.innerWidth - width - viewportPadding);
+      const left = Math.min(Math.max(preferredLeft, viewportPadding), maxLeft);
+      const spaceBelow = window.innerHeight - rect.bottom - menuGap - viewportPadding;
+      const spaceAbove = rect.top - menuGap - viewportPadding;
+      const placeAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+      const availableHeight = Math.max(placeAbove ? spaceAbove : spaceBelow, 120);
+
+      setMenuStyle({
+        position: "fixed",
+        zIndex: 12000,
+        left,
+        width,
+        maxWidth: availableWidth,
+        maxHeight: Math.min(320, availableHeight),
+        ...(placeAbove
+          ? { bottom: window.innerHeight - rect.top + menuGap, top: "auto" }
+          : { top: rect.bottom + menuGap, bottom: "auto" }),
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [align, open]);
+
   return (
     <div ref={rootRef} className={`relative inline-block max-w-full align-bottom ${className}`}>
       <span className="mb-1.5 block text-xs font-medium text-gray-400">{label}</span>
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled || loading}
         aria-haspopup="listbox"
@@ -99,13 +148,12 @@ function SelectMenu<T extends string | number>({
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && !disabled && !loading && (
+      {open && !disabled && !loading && createPortal(
         <div
+          ref={menuRef}
           role="listbox"
-          className={`absolute top-[calc(100%+0.4rem)] z-[500] isolate max-h-[min(320px,42dvh)] min-w-full overflow-y-auto overscroll-contain rounded-lg border border-purple-500/50 bg-[#07050a] p-1 shadow-2xl shadow-black ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
-          style={{ width: "max-content", minWidth: "100%", maxWidth: "min(32rem, calc(100vw - 2rem))" }}
+          className="isolate overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border border-purple-500/50 bg-[#07050a] p-1 shadow-2xl shadow-black"
+          style={menuStyle}
         >
           {options.map((option) => (
             <button
@@ -117,17 +165,18 @@ function SelectMenu<T extends string | number>({
                 onChange(option.value);
                 onOpenChange(false);
               }}
-              className={`flex w-full min-w-[10rem] items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+              className={`flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                 option.value === value
                   ? "bg-purple-600 text-white"
                   : "text-gray-300 hover:bg-purple-500/20 hover:text-white"
               }`}
             >
               {option.icon && <span className="shrink-0">{option.icon}</span>}
-              <span className="whitespace-normal break-words leading-snug">{option.label}</span>
+              <span className="min-w-0 whitespace-normal break-words leading-snug">{option.label}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -138,6 +187,7 @@ const PLAYER_OPTIONS: Array<{ id: VideoPlayer; name: string; icon: string }> = [
   { id: "embedmovies", name: "EmbedMovies", icon: "🔗" },
   { id: "warezcdn", name: "WarezCDN", icon: "🌐" },
   { id: "superflixapi", name: "SuperFlix API", icon: "🎬" },
+  { id: "embedplay", name: "EmbedPlay API", icon: "🍿" },
   { id: "2embed", name: "2Embed", icon: "🎞️" },
   { id: "superembed", name: "SuperEmbed", icon: "⭐" },
   { id: "smashystream", name: "Smashy", icon: "💥" },

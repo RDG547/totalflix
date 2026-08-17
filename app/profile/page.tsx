@@ -829,8 +829,8 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Árvore de Conquistas Gamificada */}
-                  <div className="glass-effect border border-purple-500/30 rounded-xl p-6">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                  <div className="glass-effect min-w-0 rounded-xl border border-purple-500/30 p-3 sm:p-6">
+                    <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-white sm:text-xl">
                       <Trophy className="w-6 h-6 text-yellow-400" />
                       Árvore de Conquistas
                     </h3>

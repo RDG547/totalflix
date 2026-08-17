@@ -10,7 +10,7 @@ import { buildMovieGateKey, buildSeriesGateKey } from "@/lib/linkGate";
 import { ConsumptionTracker } from "@/components/ConsumptionTracker";
 import { EpisodeWatchControls } from "@/components/EpisodeWatchControls";
 
-type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | 'superflixapi' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
+type PlayerType = 'vidsrcsbs' | 'vidsrcEmbedRu' | 'vidsrcEmbedSu' | 'vidsrcTo' | 'vidapi' | 'megaembed' | 'embedplay' | 'superflixapi' | '2embed' | 'superembed' | 'embedmovies' | 'warezcdn' | 'primevicio';
 
 export default function WatchPage() {
   const params = useParams<{ type: string; id: string }>();
@@ -81,6 +81,7 @@ export default function WatchPage() {
     { id: 'embedmovies', name: 'EmbedMovies' },
     { id: 'warezcdn', name: 'WarezCDN' },
     { id: 'superflixapi', name: 'SuperFlix API' },
+    { id: 'embedplay', name: 'EmbedPlay API' },
     { id: 'vidsrcsbs', name: 'VidSrc SBS' },
     { id: 'vidsrcEmbedRu', name: 'VidSrc Embed RU' },
     { id: 'vidsrcEmbedSu', name: 'VidSrc Embed SU' },

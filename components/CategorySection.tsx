@@ -16,7 +16,7 @@ interface CategorySectionProps {
 export function CategorySection({ category, title, genreId }: CategorySectionProps) {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { scrollRef, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove, handleClick } = useDragScroll();
+  const { scrollRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleClick } = useDragScroll();
 
   // Icon and color based on category
   const sectionIcon = category === "movie" ? "🎬" : "📺";
@@ -106,13 +106,14 @@ export function CategorySection({ category, title, genreId }: CategorySectionPro
 
       <div
         ref={scrollRef}
-        onMouseDown={handleMouseDown}
-        onMouseLeave={handleMouseLeave}
-        onMouseUp={handleMouseUp}
-        onMouseMove={handleMouseMove}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onClick={handleClick}
-        className="flex space-x-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-proximity cursor-grab active:cursor-grabbing select-none scroll-smooth"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        onDragStart={(event) => event.preventDefault()}
+        className="flex cursor-grab select-none snap-x snap-proximity space-x-4 overflow-x-auto pb-4 active:cursor-grabbing scrollbar-hide"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none", touchAction: "pan-y" }}
       >
         {movies.map((movie) => (
           <div key={movie.id} className="flex-none w-48 snap-start">

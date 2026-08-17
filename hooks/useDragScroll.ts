@@ -1,110 +1,161 @@
-import { useRef, useState, useEffect, MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from 'react';
+
+const DRAG_THRESHOLD = 4;
+const MIN_MOMENTUM_VELOCITY = 0.02;
 
 export function useDragScroll() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [hasMoved, setHasMoved] = useState(false);
-  const velocityRef = useRef(0);
+  const pointerIdRef = useRef<number | null>(null);
   const lastXRef = useRef(0);
-  const animationFrameRef = useRef<number>();
+  const lastTimeRef = useRef(0);
+  const velocityRef = useRef(0);
+  const distanceRef = useRef(0);
+  const suppressClickRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
+  const previousStylesRef = useRef({ scrollBehavior: '', scrollSnapType: '', userSelect: '', cursor: '' });
 
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if (!scrollRef.current) return;
-    e.preventDefault();
-    setIsDragging(true);
-    setHasMoved(false);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-    lastXRef.current = e.pageX;
-    velocityRef.current = 0;
-    scrollRef.current.style.cursor = 'grabbing';
-    scrollRef.current.style.userSelect = 'none';
-
-    // Cancelar animação de inércia anterior
-    if (animationFrameRef.current) {
+  const stopMomentum = useCallback(() => {
+    if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
-  };
+  }, []);
 
-  const handleMouseLeave = () => {
-    if (isDragging && scrollRef.current && Math.abs(velocityRef.current) > 1) {
-      // Aplicar inércia ao soltar
-      applyMomentum();
+  const restoreStyles = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const previous = previousStylesRef.current;
+    container.style.scrollBehavior = previous.scrollBehavior;
+    container.style.scrollSnapType = previous.scrollSnapType;
+    container.style.userSelect = previous.userSelect;
+    container.style.cursor = previous.cursor;
+  }, []);
+
+  const startMomentum = useCallback(() => {
+    const container = scrollRef.current;
+    if (
+      !container
+      || Math.abs(velocityRef.current) < MIN_MOMENTUM_VELOCITY
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      restoreStyles();
+      return;
     }
-    setIsDragging(false);
-    if (scrollRef.current) {
-      scrollRef.current.style.cursor = 'grab';
-      scrollRef.current.style.userSelect = 'auto';
-    }
-  };
 
-  const handleMouseUp = () => {
-    if (isDragging && scrollRef.current && Math.abs(velocityRef.current) > 1) {
-      // Aplicar inércia ao soltar
-      applyMomentum();
-    }
-    setIsDragging(false);
-    if (scrollRef.current) {
-      scrollRef.current.style.cursor = 'grab';
-      scrollRef.current.style.userSelect = 'auto';
-    }
-  };
-
-  const applyMomentum = () => {
-    if (!scrollRef.current) return;
-
-    const friction = 0.95;
-    const minVelocity = 0.5;
-
-    const animate = () => {
-      if (!scrollRef.current || Math.abs(velocityRef.current) < minVelocity) {
+    let previousTime = performance.now();
+    const animate = (time: number) => {
+      const currentContainer = scrollRef.current;
+      if (!currentContainer || Math.abs(velocityRef.current) < MIN_MOMENTUM_VELOCITY) {
+        animationFrameRef.current = null;
+        restoreStyles();
         return;
       }
 
-      scrollRef.current.scrollLeft -= velocityRef.current;
-      velocityRef.current *= friction;
+      const elapsed = Math.min(time - previousTime, 32);
+      previousTime = time;
+      const before = currentContainer.scrollLeft;
+      currentContainer.scrollLeft += velocityRef.current * elapsed;
+      velocityRef.current *= Math.pow(0.94, elapsed / 16.67);
+
+      if (currentContainer.scrollLeft === before) {
+        animationFrameRef.current = null;
+        restoreStyles();
+        return;
+      }
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
-  };
+    animationFrameRef.current = requestAnimationFrame(animate);
+  }, [restoreStyles]);
 
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!isDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2.5; // Aumentado de 2 para 2.5 para mais velocidade
+  const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const container = scrollRef.current;
+    if (!container || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
 
-    // Calcular velocidade para inércia
-    const currentX = e.pageX;
-    velocityRef.current = (currentX - lastXRef.current) * 0.5;
-    lastXRef.current = currentX;
+    stopMomentum();
+    pointerIdRef.current = event.pointerId;
+    lastXRef.current = event.clientX;
+    lastTimeRef.current = performance.now();
+    velocityRef.current = 0;
+    distanceRef.current = 0;
+    suppressClickRef.current = false;
+    previousStylesRef.current = {
+      scrollBehavior: container.style.scrollBehavior,
+      scrollSnapType: container.style.scrollSnapType,
+      userSelect: container.style.userSelect,
+      cursor: container.style.cursor,
+    };
+    container.style.scrollBehavior = 'auto';
+    container.style.scrollSnapType = 'none';
+    container.style.userSelect = 'none';
+    container.style.cursor = 'grabbing';
+    container.setPointerCapture(event.pointerId);
+  }, [stopMomentum]);
 
-    // Detecta se houve movimento significativo
-    if (Math.abs(walk) > 5) {
-      setHasMoved(true);
+  const handlePointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const container = scrollRef.current;
+    if (!container || pointerIdRef.current !== event.pointerId) return;
+
+    const now = performance.now();
+    const deltaX = event.clientX - lastXRef.current;
+    const elapsed = Math.max(now - lastTimeRef.current, 1);
+    const deltaScroll = -deltaX;
+
+    distanceRef.current += Math.abs(deltaX);
+    if (distanceRef.current >= DRAG_THRESHOLD) {
+      suppressClickRef.current = true;
+      event.preventDefault();
     }
 
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
+    container.scrollLeft += deltaScroll;
+    const instantVelocity = deltaScroll / elapsed;
+    velocityRef.current = velocityRef.current * 0.65 + instantVelocity * 0.35;
+    lastXRef.current = event.clientX;
+    lastTimeRef.current = now;
+  }, []);
 
-  // Previne cliques em links quando está arrastando
-  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (hasMoved) {
-      e.preventDefault();
-      e.stopPropagation();
+  const finishDrag = useCallback((event: PointerEvent<HTMLDivElement>, withMomentum: boolean) => {
+    const container = scrollRef.current;
+    if (!container || pointerIdRef.current !== event.pointerId) return;
+
+    if (container.hasPointerCapture(event.pointerId)) {
+      container.releasePointerCapture(event.pointerId);
     }
-  };
+    pointerIdRef.current = null;
+    container.style.userSelect = previousStylesRef.current.userSelect;
+    container.style.cursor = previousStylesRef.current.cursor;
+
+    if (withMomentum && suppressClickRef.current) startMomentum();
+    else restoreStyles();
+  }, [restoreStyles, startMomentum]);
+
+  const handlePointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    finishDrag(event, true);
+  }, [finishDrag]);
+
+  const handlePointerCancel = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    finishDrag(event, false);
+  }, [finishDrag]);
+
+  const handleClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = false;
+  }, []);
+
+  useEffect(() => () => {
+    stopMomentum();
+    restoreStyles();
+  }, [restoreStyles, stopMomentum]);
 
   return {
     scrollRef,
-    handleMouseDown,
-    handleMouseLeave,
-    handleMouseUp,
-    handleMouseMove,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     handleClick,
   };
 }

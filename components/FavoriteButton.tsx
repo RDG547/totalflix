@@ -5,6 +5,7 @@ import { Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { addToFavorites, removeFromFavorites, getUserProfile, hasFavorite, favoriteKey, type FavoriteType } from "@/lib/userProfile";
 import { updateAchievementProgress, initializeAchievements } from "@/lib/achievements";
+import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 interface FavoriteButtonProps {
@@ -13,6 +14,7 @@ interface FavoriteButtonProps {
     contentType: FavoriteType;
     size?: "sm" | "md" | "lg";
     showText?: boolean;
+    className?: string;
 }
 
 export function FavoriteButton({
@@ -20,7 +22,8 @@ export function FavoriteButton({
     contentTitle,
     contentType,
     size = "md",
-    showText = true
+    showText = true,
+    className = "",
 }: FavoriteButtonProps) {
     const { user } = useAuth();
     const [isFavorite, setIsFavorite] = useState(false);
@@ -107,10 +110,15 @@ export function FavoriteButton({
         <button
             onClick={toggleFavorite}
             disabled={isLoading}
-            className={`${showText ? sizeClasses[size] : 'p-3'} ${isFavorite
-                    ? "bg-red-600 hover:bg-red-700 border-red-500"
-                    : "bg-purple-600 hover:bg-purple-700 border-purple-500"
-                } border-2 text-white ${showText ? 'rounded-lg' : 'rounded-full'} transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 ${showText ? 'font-semibold' : ''} glow-effect flex items-center ${showText ? 'gap-2' : 'justify-center'}`}
+            className={cn(
+                showText ? sizeClasses[size] : "p-3",
+                isFavorite
+                    ? "border-red-500 bg-red-600 hover:bg-red-700"
+                    : "border-purple-500 bg-purple-600 hover:bg-purple-700",
+                "glow-effect flex items-center border-2 text-white transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:hover:scale-100",
+                showText ? "gap-2 rounded-lg font-semibold" : "justify-center rounded-full",
+                className,
+            )}
             aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
         >
             <Heart

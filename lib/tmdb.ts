@@ -151,7 +151,7 @@ export const getBackdropUrl = (path: string, size: "w780" | "w1280" | "original"
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 };
 
-export type VideoPlayer = "megaembed" | "superflixapi" | "vidsrcsbs" | "vidsrcmeRu" | "vidsrcmeSu" | "vidsrcMeRu" | "vidsrcMeSu" | "vidsrcEmbedRu" | "vidsrcEmbedSu" | "vsrcSu" | "vidsrcTo" | "vidapi" | "2embed" | "superembed" | "smashystream" | "embedmovies" | "warezcdn" | "primevicio" | "webtorrent";
+export type VideoPlayer = "megaembed" | "embedplay" | "superflixapi" | "vidsrcsbs" | "vidsrcmeRu" | "vidsrcmeSu" | "vidsrcMeRu" | "vidsrcMeSu" | "vidsrcEmbedRu" | "vidsrcEmbedSu" | "vsrcSu" | "vidsrcTo" | "vidapi" | "2embed" | "superembed" | "smashystream" | "embedmovies" | "warezcdn" | "primevicio" | "webtorrent";
 
 /** Gera a URL do player para o conteúdo e episódio selecionados. */
 export const getPlayerUrl = (
@@ -172,6 +172,13 @@ export const getPlayerUrl = (
     return mediaType === "movie"
       ? `https://superflixapi.pro/filme/${tmdbId}`
       : `https://superflixapi.pro/serie/${tmdbId}/${season || 1}/${episode || 1}`;
+  }
+
+  if (player === "embedplay") {
+    const baseUrl = "https://embedplayapi.top/embed";
+    return mediaType === "movie"
+      ? `${baseUrl}/${tmdbId}`
+      : `${baseUrl}/${tmdbId}/${season || 1}/${episode || 1}`;
   }
 
   if (player === "vidsrcsbs") {

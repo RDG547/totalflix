@@ -10,9 +10,10 @@ interface TrailerButtonProps {
   mediaType: "movie" | "tv";
   id: number;
   title?: string;
+  className?: string;
 }
 
-export function TrailerButton({ mediaType, id, title = "este conteúdo" }: TrailerButtonProps) {
+export function TrailerButton({ mediaType, id, title = "este conteúdo", className = "" }: TrailerButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +55,7 @@ export function TrailerButton({ mediaType, id, title = "este conteúdo" }: Trail
         type="button"
         onClick={loadTrailer}
         disabled={loading}
-        className="border border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
+        className={`border border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 ${className}`}
         size="lg"
       >
         <Clapperboard className="mr-2 h-5 w-5" />

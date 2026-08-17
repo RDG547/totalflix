@@ -10,7 +10,7 @@ import { useDragScroll } from "@/hooks/useDragScroll";
 export function TrendingSection() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { scrollRef, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove, handleClick } = useDragScroll();
+  const { scrollRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleClick } = useDragScroll();
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -90,13 +90,14 @@ export function TrendingSection() {
 
       <div
         ref={scrollRef}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onMouseMove={handleMouseMove}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onClick={handleClick}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-proximity cursor-grab active:cursor-grabbing select-none scroll-smooth"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        onDragStart={(event) => event.preventDefault()}
+        className="flex cursor-grab select-none snap-x snap-proximity gap-4 overflow-x-auto pb-4 active:cursor-grabbing scrollbar-hide"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none", touchAction: "pan-y" }}
       >
         {movies.map((movie) => (
           <div key={movie.id} className="flex-none w-48 snap-start">

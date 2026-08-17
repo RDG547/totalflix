@@ -16,6 +16,11 @@ export function PWARegister() {
   const [showFloatingButton, setShowFloatingButton] = useState(false);
 
   useEffect(() => {
+    let serviceWorkerUpdateTimer: number | undefined;
+    let isRefreshingForUpdate = false;
+    let isEffectActive = true;
+    let handleServiceWorkerControllerChange: (() => void) | undefined;
+
     // Service workers e o cache do Next não devem interferir no HMR local.
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       if (process.env.NODE_ENV === "development") {
@@ -29,10 +34,23 @@ export function PWARegister() {
           });
         }
       } else {
+        const hadController = Boolean(navigator.serviceWorker.controller);
+        handleServiceWorkerControllerChange = () => {
+          if (!hadController || isRefreshingForUpdate) return;
+          isRefreshingForUpdate = true;
+          window.location.reload();
+        };
+
+        navigator.serviceWorker.addEventListener("controllerchange", handleServiceWorkerControllerChange);
         navigator.serviceWorker
-          .register("/sw.js")
+          .register("/sw.js", { updateViaCache: "none" })
           .then((registration) => {
+            if (!isEffectActive) return;
             console.log("Service Worker registrado:", registration);
+            void registration.update();
+            serviceWorkerUpdateTimer = window.setInterval(() => {
+              void registration.update();
+            }, 60 * 60 * 1000);
           })
           .catch((error) => {
             console.error("Erro ao registrar Service Worker:", error);
@@ -71,9 +89,9 @@ export function PWARegister() {
       ).matches;
       setIsInstalled(isStandalone);
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    window.addEventListener("appinstalled", handleAppInstalled);
-    window.addEventListener("scrolltop-visibility", handleScrollTopVisibility);
+      window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.addEventListener("appinstalled", handleAppInstalled);
+      window.addEventListener("scrolltop-visibility", handleScrollTopVisibility);
 
       const handleInstallRequest = async () => {
         const installPrompt = deferredPromptRef.current;
@@ -88,6 +106,11 @@ export function PWARegister() {
       window.addEventListener("pwa-install-request", handleInstallRequest);
 
       return () => {
+        isEffectActive = false;
+        if (serviceWorkerUpdateTimer) window.clearInterval(serviceWorkerUpdateTimer);
+        if (handleServiceWorkerControllerChange) {
+          navigator.serviceWorker.removeEventListener("controllerchange", handleServiceWorkerControllerChange);
+        }
         window.removeEventListener(
           "beforeinstallprompt",
           handleBeforeInstallPrompt

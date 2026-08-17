@@ -219,8 +219,8 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
     const hasDisliked = user ? comment.dislikes.includes(user.uid) : false;
 
     return (
-      <div className={`${isReply ? 'ml-12' : ''} mb-4`}>
-        <div className="flex gap-3">
+      <div className={`${isReply ? 'ml-5 sm:ml-12' : ''} mb-4 min-w-0`}>
+        <div className="flex min-w-0 gap-2 sm:gap-3">
           {/* Avatar */}
           <div className="flex-shrink-0">
             {comment.userPhoto ? (
@@ -239,7 +239,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
           </div>
 
           {/* Conteúdo */}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="flex flex-wrap items-center gap-2 font-semibold text-white">
@@ -265,11 +265,11 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
                   </button>
                 )}
               </div>
-              <p className="text-gray-300 text-sm">{comment.text}</p>
+              <p className="break-words text-sm text-gray-300">{comment.text}</p>
             </div>
 
             {/* Ações */}
-            <div className="flex items-center gap-4 mt-2 text-sm">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs sm:text-sm">
               {/* Like */}
               <button
                 onClick={() => handleLike(comment.id)}
@@ -304,7 +304,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
               )}
 
               {/* Tempo */}
-              <span className="text-gray-500 ml-auto">
+              <span className="ml-0 text-gray-500 sm:ml-auto">
                 {new Date(comment.createdAt).toLocaleDateString('pt-BR', {
                   day: '2-digit',
                   month: 'short',
@@ -315,13 +315,13 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
 
             {/* Input de resposta */}
             {replyingTo === comment.id && (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex min-w-0 flex-wrap gap-2">
                 <input
                   type="text"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Escreva sua resposta..."
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  className="min-w-0 flex-[1_1_10rem] rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -332,7 +332,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
                 <button
                   onClick={() => handleSubmitReply(comment.id)}
                   disabled={!replyText.trim() || submitting}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="shrink-0 rounded-lg bg-purple-600 px-3 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -341,7 +341,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
                     setReplyingTo(null);
                     setReplyText('');
                   }}
-                  className="text-gray-400 hover:text-white px-3"
+                  className="shrink-0 px-2 text-sm text-gray-400 hover:text-white sm:px-3"
                 >
                   Cancelar
                 </button>
@@ -371,7 +371,7 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
       {/* Input novo comentário */}
       {user ? (
         <div className="mb-6">
-          <div className="flex gap-3">
+          <div className="flex min-w-0 gap-2 sm:gap-3">
             {/* Avatar do usuário */}
             <div className="flex-shrink-0">
               {user.photoURL ? (
@@ -390,13 +390,13 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
             </div>
 
             {/* Input */}
-            <div className="flex-1 flex gap-2">
+            <div className="flex min-w-0 flex-1 gap-2">
               <input
                 type="text"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Adicione um comentário..."
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                className="w-0 min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none sm:px-4"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -407,10 +407,11 @@ export function CommentsSection({ contentId, contentType }: CommentsSectionProps
               <button
                 onClick={handleSubmitComment}
                 disabled={!newComment.trim() || submitting}
-                className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                aria-label="Enviar comentário"
+                className="flex shrink-0 items-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
               >
                 <Send className="h-4 w-4" />
-                Enviar
+                <span className="hidden sm:inline">Enviar</span>
               </button>
             </div>
           </div>

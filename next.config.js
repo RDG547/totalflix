@@ -54,6 +54,10 @@ const nextConfig = {
             key: 'Content-Type',
             value: 'application/manifest+json',
           },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, max-age=0, must-revalidate',
+          },
         ],
       },
       {
@@ -69,7 +73,7 @@ const nextConfig = {
           },
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, must-revalidate',
+            value: 'no-store, max-age=0',
           },
         ],
       },

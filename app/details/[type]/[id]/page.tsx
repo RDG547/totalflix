@@ -149,21 +149,28 @@ export default async function DetailsPage({ params }: PageProps) {
               </div>
 
               {/* Botões de Ação */}
-              <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
+              <div className="flex w-full flex-nowrap items-center justify-center gap-2 pt-2 md:w-auto md:justify-start md:gap-3">
                 <WatchButton
                   type={type}
                   tmdbId={details.id}
                   title={title}
                   numberOfSeasons={details.number_of_seasons}
                   posterPath={details.poster_path}
+                  className="min-w-0 flex-1 px-2 text-[11px] min-[380px]:text-xs sm:px-5 sm:text-sm md:flex-none md:px-8"
                 />
-                <TrailerButton mediaType={type} id={details.id} />
+                <TrailerButton
+                  mediaType={type}
+                  id={details.id}
+                  title={title}
+                  className="min-w-0 flex-1 px-2 text-[11px] min-[380px]:text-xs sm:px-5 sm:text-sm md:flex-none md:px-8"
+                />
                 <FavoriteButton
                   contentId={details.id}
                   contentTitle={title}
                   contentType={type}
                   size="lg"
                   showText={false}
+                  className="shrink-0 p-2.5 sm:p-3"
                 />
               </div>
             </div>
