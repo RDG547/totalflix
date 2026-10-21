@@ -6,10 +6,11 @@ const MIN_MOMENTUM_VELOCITY = 0.02;
 export function useDragScroll() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pointerIdRef = useRef<number | null>(null);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
   const lastXRef = useRef(0);
   const lastTimeRef = useRef(0);
   const velocityRef = useRef(0);
-  const distanceRef = useRef(0);
   const suppressClickRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
   const previousStylesRef = useRef({ scrollBehavior: '', scrollSnapType: '', userSelect: '', cursor: '' });
@@ -73,12 +74,16 @@ export function useDragScroll() {
     const container = scrollRef.current;
     if (!container || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
 
-    stopMomentum();
+    if (animationFrameRef.current !== null) {
+      stopMomentum();
+      restoreStyles();
+    }
     pointerIdRef.current = event.pointerId;
+    startXRef.current = event.clientX;
+    startYRef.current = event.clientY;
     lastXRef.current = event.clientX;
     lastTimeRef.current = performance.now();
     velocityRef.current = 0;
-    distanceRef.current = 0;
     suppressClickRef.current = false;
     previousStylesRef.current = {
       scrollBehavior: container.style.scrollBehavior,
@@ -86,27 +91,36 @@ export function useDragScroll() {
       userSelect: container.style.userSelect,
       cursor: container.style.cursor,
     };
-    container.style.scrollBehavior = 'auto';
-    container.style.scrollSnapType = 'none';
-    container.style.userSelect = 'none';
-    container.style.cursor = 'grabbing';
-    container.setPointerCapture(event.pointerId);
-  }, [stopMomentum]);
+    // Capturar no pointerdown redireciona até cliques simples dos cards para
+    // o container. Preserve o alvo original até confirmar um arraste horizontal.
+  }, [restoreStyles, stopMomentum]);
 
   const handlePointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
     const container = scrollRef.current;
     if (!container || pointerIdRef.current !== event.pointerId) return;
 
+    if (!suppressClickRef.current) {
+      const horizontalDistance = Math.abs(event.clientX - startXRef.current);
+      const verticalDistance = Math.abs(event.clientY - startYRef.current);
+      if (verticalDistance >= DRAG_THRESHOLD && verticalDistance > horizontalDistance) {
+        pointerIdRef.current = null;
+        return;
+      }
+      if (horizontalDistance < DRAG_THRESHOLD) return;
+
+      suppressClickRef.current = true;
+      container.style.scrollBehavior = 'auto';
+      container.style.scrollSnapType = 'none';
+      container.style.userSelect = 'none';
+      container.style.cursor = 'grabbing';
+      container.setPointerCapture(event.pointerId);
+    }
+
+    event.preventDefault();
     const now = performance.now();
     const deltaX = event.clientX - lastXRef.current;
     const elapsed = Math.max(now - lastTimeRef.current, 1);
     const deltaScroll = -deltaX;
-
-    distanceRef.current += Math.abs(deltaX);
-    if (distanceRef.current >= DRAG_THRESHOLD) {
-      suppressClickRef.current = true;
-      event.preventDefault();
-    }
 
     container.scrollLeft += deltaScroll;
     const instantVelocity = deltaScroll / elapsed;
@@ -119,10 +133,10 @@ export function useDragScroll() {
     const container = scrollRef.current;
     if (!container || pointerIdRef.current !== event.pointerId) return;
 
+    pointerIdRef.current = null;
     if (container.hasPointerCapture(event.pointerId)) {
       container.releasePointerCapture(event.pointerId);
     }
-    pointerIdRef.current = null;
     container.style.userSelect = previousStylesRef.current.userSelect;
     container.style.cursor = previousStylesRef.current.cursor;
 
@@ -138,8 +152,16 @@ export function useDragScroll() {
     finishDrag(event, false);
   }, [finishDrag]);
 
+  const handlePointerLeave = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) finishDrag(event, false);
+  }, [finishDrag]);
+
+  const handleLostPointerCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) finishDrag(event, false);
+  }, [finishDrag]);
+
   const handleClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
-    if (!suppressClickRef.current) return;
+    if (!suppressClickRef.current || event.detail === 0) return;
     event.preventDefault();
     event.stopPropagation();
     suppressClickRef.current = false;
@@ -156,6 +178,8 @@ export function useDragScroll() {
     handlePointerMove,
     handlePointerUp,
     handlePointerCancel,
+    handlePointerLeave,
+    handleLostPointerCapture,
     handleClick,
   };
 }

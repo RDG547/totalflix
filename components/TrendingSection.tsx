@@ -10,7 +10,7 @@ import { useDragScroll } from "@/hooks/useDragScroll";
 export function TrendingSection() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { scrollRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handleClick } = useDragScroll();
+  const { scrollRef, handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel, handlePointerLeave, handleLostPointerCapture, handleClick } = useDragScroll();
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -94,7 +94,9 @@ export function TrendingSection() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        onClick={handleClick}
+        onPointerLeave={handlePointerLeave}
+        onLostPointerCapture={handleLostPointerCapture}
+        onClickCapture={handleClick}
         onDragStart={(event) => event.preventDefault()}
         className="flex cursor-grab select-none snap-x snap-proximity gap-4 overflow-x-auto pb-4 active:cursor-grabbing scrollbar-hide"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none", touchAction: "pan-y" }}
