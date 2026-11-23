@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { TVPlayerModal } from "@/components/TVPlayerModal";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,12 +16,10 @@ import {
   type GateContentInfo,
 } from "@/lib/linkGate";
 
-// Componente global (montado uma vez no layout) responsável por reabrir o
-// player correto ou fechar a aba do encurtador quando o usuário volta do Link Gate.
+// Reabre o player na própria aba quando o encurtador devolve o usuário ao site.
 export function GateRecovery() {
   const { user, loading } = useAuth();
   const [recovered, setRecovered] = useState<GateContentInfo | null>(null);
-  const [unlockedSuccess, setUnlockedSuccess] = useState(false);
   const handledGrant = useRef<string | null>(null);
 
   useEffect(() => {
@@ -51,9 +50,14 @@ export function GateRecovery() {
 
         storeGateGrant(key, grant);
         notifyGateUnlocked(key);
-        setUnlockedSuccess(true);
         const info = consumePendingGateContent(key);
-        if (info) setRecovered(info);
+        if (info) {
+          setRecovered(info);
+        } else {
+          // Páginas com player incorporado (sem modal) recebem o grant
+          // pelo BroadcastChannel, sem bloquear a única aba com um aviso.
+          toast.success("Player liberado!");
+        }
       } finally {
         stripGateGrantParam();
       }
@@ -61,32 +65,6 @@ export function GateRecovery() {
 
     void recover();
   }, [loading, user]);
-
-  if (unlockedSuccess && !recovered) {
-    return (
-      <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-black/95 p-4 text-center text-white animate-in fade-in duration-200">
-        <div className="max-w-md space-y-4 rounded-xl border border-purple-500/30 bg-black/90 p-8 shadow-2xl backdrop-blur-md">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 text-green-400 text-3xl font-bold">
-            ✓
-          </div>
-          <h2 className="text-2xl font-bold text-white">Acesso Liberado!</h2>
-          <p className="text-sm text-gray-300">
-            Seu conteúdo já foi liberado com sucesso. Você pode fechar esta aba e voltar para a guia do TotalFlix.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              try { window.close(); } catch {}
-              window.location.href = "/";
-            }}
-            className="w-full rounded-lg bg-purple-600 py-3 font-semibold text-white transition-all hover:bg-purple-700 active:scale-95 shadow-lg shadow-purple-500/30"
-          >
-            Fechar Aba
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (!recovered) return null;
 
