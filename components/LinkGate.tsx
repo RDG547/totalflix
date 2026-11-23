@@ -110,7 +110,9 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
     if (recoveryInfo) savePendingGateContent(recoveryInfo);
     const returnTo = window.location.pathname + window.location.search;
     const gateUrl = buildGateUrl(contentKey, returnTo);
-    window.open(gateUrl, "_blank");
+    // Mantém a navegação no mesmo separador: a sessão e o conteúdo pendente
+    // permanecem disponíveis quando o encurtador redirecionar de volta.
+    window.location.assign(gateUrl);
   };
 
   return (
