@@ -9,7 +9,9 @@ Configure estas variáveis no projeto `totalflix` da Vercel, para os ambientes P
 ```env
 FIREBASE_SERVICE_ACCOUNT_JSON=<JSON completo da conta de serviço ou JSON em Base64>
 LINK_GATE_SIGNING_SECRET=<segredo aleatório com pelo menos 32 caracteres>
-SOFTURL_API_TOKEN=<token privado da Softurl>
+SHORTXLINKS_API_TOKEN=<token privado do Shortxlinks>
+# Temporário para fallback até concluir a migração:
+SOFTURL_API_TOKEN=<token privado legado da SoftURL>
 ```
 
 O JSON da conta de serviço deve pertencer ao projeto Firebase `total-flix`. Ele pode ser gerado no Console do Firebase em **Configurações do projeto → Contas de serviço → Gerar nova chave privada**.
@@ -28,7 +30,9 @@ Para gerar um segredo independente para o LinkGate:
 openssl rand -base64 48
 ```
 
-Depois de salvar as variáveis, faça um novo deploy. A seção **Sistema** do painel indica se o Firebase Admin e a Softurl foram detectados.
+Depois de salvar as variáveis, faça um novo deploy. A integração utiliza a API Shortxlinks e gera um alias aleatório exclusivo para cada link. Se `SHORTXLINKS_API_TOKEN` ainda não estiver configurado, o sistema mantém temporariamente o SoftURL para não impedir o acesso ao player. A quantidade de páginas de anúncios é controlada pelo parceiro, não pela API do Total Flix.
+
+**Segurança:** nunca salve o token real em arquivos Git ou em variáveis `NEXT_PUBLIC_*`. Mantenha `LINK_GATE_SIGNING_SECRET` como segredo independente antes de remover a variável legada `SOFTURL_API_TOKEN`.
 
 ## Conta administrativa principal
 
