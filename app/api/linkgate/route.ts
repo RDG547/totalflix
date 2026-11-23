@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { shortenUrl } from '@/lib/softurl-server';
+import { shortenUrl } from '@/lib/shortxlinks-server';
 import { createGateToken, GateTokenError } from '@/lib/gate-token';
 import { GATE_ANONYMOUS_COOKIE, getGateSubject } from '@/lib/gate-subject';
 
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     try {
       redirectUrl = await shortenUrl(destination.toString());
     } catch (error) {
-      console.error('Erro ao encurtar link via Softurl:', error);
+      console.error('Erro ao encurtar link via parceiro:', error);
       return NextResponse.json(
         { error: 'O parceiro de liberação está temporariamente indisponível.' },
         { status: 503 },
