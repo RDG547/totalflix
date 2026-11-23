@@ -55,11 +55,17 @@ export async function shortenUrl(longUrl: string): Promise<string> {
     throw new Error('Shortxlinks API não retornou uma URL válida');
   }
 
+  // O parceiro pode usar domínios/subdomínios próprios para monetização.
+  // A resposta vem da API autenticada, portanto não a limite ao domínio da API.
+  // Exija HTTPS e rejeite URLs com credenciais ou o próprio destino original.
+  const originalUrl = new URL(longUrl);
   if (
     shortenedUrl.protocol !== 'https:'
-    || !['shortxlinks.com', 'www.shortxlinks.com'].includes(shortenedUrl.hostname)
+    || shortenedUrl.username
+    || shortenedUrl.password
+    || shortenedUrl.hostname === originalUrl.hostname
   ) {
-    throw new Error('Shortxlinks API retornou um domínio inesperado');
+    throw new Error('Shortxlinks API retornou um link inseguro ou inválido');
   }
 
   return shortenedUrl.toString();
