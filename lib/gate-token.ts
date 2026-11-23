@@ -21,7 +21,7 @@ export class GateTokenError extends Error {
 }
 
 function signingSecret(): string {
-  const secret = process.env.LINK_GATE_SIGNING_SECRET || process.env.SOFTURL_API_TOKEN;
+  const secret = process.env.LINK_GATE_SIGNING_SECRET || process.env.SOFTURL_API_TOKEN || process.env.SHORTXLINKS_API_TOKEN;
   if (!secret || secret.length < 24) {
     throw new GateTokenError(
       'Configure LINK_GATE_SIGNING_SECRET com pelo menos 24 caracteres.',
