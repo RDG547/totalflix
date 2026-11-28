@@ -3,6 +3,7 @@ import 'server-only';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 export type GateTokenKind = 'challenge' | 'access';
+export const GATE_ACCESS_DURATION_MS = 6 * 60 * 60 * 1000;
 
 export interface GateTokenPayload {
   kind: GateTokenKind;
@@ -11,6 +12,9 @@ export interface GateTokenPayload {
   exp: number;
   nonce: string;
   returnTo?: string;
+  // Grants novos permitem acessar qualquer conteúdo durante 6 horas.
+  // Tokens antigos, sem scope, continuam restritos ao conteúdo original.
+  scope?: 'site';
 }
 
 export class GateTokenError extends Error {
