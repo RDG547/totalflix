@@ -44,10 +44,17 @@ export async function POST(request: Request) {
   try {
     const token = verifyGateToken(grant, 'access');
     const gateSubject = await getGateSubject(request);
-    const authorized = token.key === contentKey && token.subject === gateSubject.subject;
+    // A passagem concluída pelo encurtador concede 6 horas em todo o site.
+    // Mantém compatibilidade com grants antigos restritos a um conteúdo.
+    const authorized = token.subject === gateSubject.subject
+      && (token.scope === 'site' || token.key === contentKey);
 
     return Response.json(
-      { authorized, reason: authorized ? 'gate' : 'subject_mismatch' },
+      {
+        authorized,
+        reason: authorized ? 'gate' : 'subject_mismatch',
+        ...(authorized ? { expiresAt: token.exp } : {}),
+      },
       {
         status: authorized ? 200 : 403,
         headers: { 'Cache-Control': 'private, no-store' },
