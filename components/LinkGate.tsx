@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Loader2, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -11,7 +11,6 @@ import {
   readGrantKey,
   savePendingGateContent,
   storeGateGrant,
-  stripGateGrantParam,
   type GateContentInfo,
 } from "@/lib/linkGate";
 
@@ -29,8 +28,13 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
   const { user, loading: authLoading } = useAuth();
   const [unlocked, setUnlocked] = useState(false);
   const [checking, setChecking] = useState(true);
+  const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const verifyAccess = useCallback(async (grant?: string | null) => {
+    if (expiryTimerRef.current) {
+      clearTimeout(expiryTimerRef.current);
+      expiryTimerRef.current = null;
+    }
     try {
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (user) {
@@ -46,6 +50,7 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
       const result = await response.json().catch(() => ({})) as {
         authorized?: boolean;
         reason?: string;
+        expiresAt?: number;
       };
 
       if (result.authorized && grant && result.reason === "gate") {
@@ -53,6 +58,13 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
         notifyGateUnlocked(contentKey);
       }
       setUnlocked(result.authorized === true);
+      // Revalida automaticamente na hora em que as 6 horas terminam.
+      if (result.authorized && result.reason === "gate" && typeof result.expiresAt === "number") {
+        const remaining = result.expiresAt - Date.now() + 250;
+        expiryTimerRef.current = setTimeout(() => {
+          void verifyAccess(getStoredGateGrant(contentKey));
+        }, Math.max(1000, remaining));
+      }
       return result.authorized === true;
     } catch {
       setUnlocked(false);
@@ -71,7 +83,8 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
       ? grantFromUrl
       : null;
     void verifyAccess(matchingUrlGrant || getStoredGateGrant(contentKey));
-    if (grantFromUrl) stripGateGrantParam();
+    // GateRecovery confirma e remove o parâmetro apenas depois de armazenar
+    // o grant assinado. Evita perder a liberação durante o retorno do parceiro.
 
     // Eventos apenas disparam uma nova validação no servidor; nunca autorizam por si.
     let channel: BroadcastChannel | null = null;
@@ -79,19 +92,27 @@ export function LinkGate({ contentKey, label, children, recoveryInfo }: LinkGate
       try {
         channel = new BroadcastChannel("totalflix_gate");
         channel.onmessage = (event) => {
-          if (event.data?.type === "GATE_GRANT_UPDATED" && event.data?.key === contentKey) {
+          if (event.data?.type === "GATE_GRANT_UPDATED") {
+            // Uma passagem pelo encurtador libera qualquer conteúdo do catálogo.
             void verifyAccess(getStoredGateGrant(contentKey));
-          } else if (event.data?.type === "GATE_REVOKED" && event.data?.key === contentKey) {
-            setUnlocked(false);
+          } else if (event.data?.type === "GATE_REVOKED" && (event.data?.key === contentKey || event.data?.key === "site")) {
+            void verifyAccess(getStoredGateGrant(contentKey));
           }
         };
       } catch {}
     }
 
-    return () => {
-      if (channel) {
-        channel.close();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "totalflix:siteGateGrant" || event.key === null) {
+        void verifyAccess(getStoredGateGrant(contentKey));
       }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
+      window.removeEventListener("storage", handleStorage);
+      if (channel) channel.close();
     };
   }, [authLoading, contentKey, verifyAccess]);
 
