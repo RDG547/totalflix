@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createGateToken, GateTokenError, verifyGateToken } from '@/lib/gate-token';
+import { createGateToken, GateTokenError, GATE_ACCESS_DURATION_MS, verifyGateToken } from '@/lib/gate-token';
 import { getGateSubject } from '@/lib/gate-subject';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +28,8 @@ export async function GET(request: Request) {
       kind: 'access',
       key: payload.key,
       subject: payload.subject,
-      exp: Date.now() + (30 * 60 * 1000),
+      exp: Date.now() + GATE_ACCESS_DURATION_MS,
+      scope: 'site',
     });
     const destination = new URL(returnTo, url.origin);
     destination.searchParams.set('gate_grant', grant);
